@@ -1,0 +1,32 @@
+push-to-dockerhub:
+  stage: merge_deploy
+  needs:
+    - job: merge_dev_into_main
+  before_script:
+    - apt update
+    - apt install -y git
+    - apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
+    - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+    - apt update
+    - apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    - dockerd &
+    - sleep 10
+  script:
+    - echo "Push to DockerHub"
+    - docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN
+    - docker build -t $DOCKERHUB_USER/$DOCKERHUB_REPO:latest ./trinity
+    - docker push $DOCKERHUB_USER/$DOCKERHUB_REPO:latest
+deploy:
+  stage: merge_deploy
+  needs:
+    - job: push-to-dockerhub
+  before_script:
+    - 'command -v ssh-agent >/dev/null || ( apt install openssh )'
+    - eval $(ssh-agent -s)
+    - echo "$GITLAB_RUNNER_SSH_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - ssh-keyscan -H $SERVER_HOST >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - ssh $SERVER_USER@$SERVER_HOST 'bash deploy.sh'

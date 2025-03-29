@@ -1,0 +1,30 @@
+pull_branches:
+  stage: prepare
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - apt install -y git
+    - git clone $CI_REPOSITORY_URL /tmp/trinity
+    - cd /tmp/trinity
+    - ls -al
+    - git fetch origin
+    - git checkout main
+    - git reset --hard origin/main
+    - git checkout dev
+    - git reset --hard origin/dev
+  allow_failure: false
+
+merge_dev_into_main:
+  stage: merge_deploy
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - apt install -y git
+    - git clone $CI_REPOSITORY_URL /tmp/trinity
+    - cd /tmp/trinity
+    - git checkout main
+    - git config --global user.email "gitlab@runner"
+    - git config --global user.name "GitLab Runner"
+    - git merge --no-ff origin/develop && git push https://gitlab-ci-token:"$GITLAB_RUNNER_TOKEN"@t-dev.epitest.eu/REN_3/T-DEV-701-Devops.git main || echo "Merge conflict detected."
+  when: manual
+  allow_failure: true

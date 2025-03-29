@@ -1,0 +1,20 @@
+[[runners]]
+name = "docker-runner"
+url = "https://t-dev.epitest.eu"
+token = "glrt-t3_oXS8ycxjSnmQf5dXrcsf"
+executor = "docker"
+[runners.custom_build_dir]
+[runners.docker]
+tls_verify = false
+image = "node:20"
+privileged = true
+disable_entrypoint_overwrite = false
+oom_kill_disable = false
+disable_cache = false
+volumes = ["/cache"]
+shm_size = 0
+[runners.cache]
+[runners.cache.s3]
+[runners.cache.gcs]
+
+listen_address = "0.0.0.0:9252"

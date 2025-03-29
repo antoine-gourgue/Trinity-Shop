@@ -1,0 +1,37 @@
+services:
+  trinity:
+    container_name: trinity
+    image: trinity
+    build:
+      context: ./trinity
+    ports:
+      - "8080:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+      npx prisma db push &&
+      npx prisma generate &&
+      npx prisma db seed &&
+      npm run dev
+      "
+  db:
+    container_name: db_trinity
+    image: postgres:13
+    environment:
+      POSTGRES_DB: trinity
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

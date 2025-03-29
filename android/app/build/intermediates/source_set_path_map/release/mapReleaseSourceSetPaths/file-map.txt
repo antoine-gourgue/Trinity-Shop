@@ -1,0 +1,10 @@
+tech.pioupiou.trinity.twa.app-core-1.1.0-0 /home/louisetienne/.gradle/caches/8.8/transforms/2144911bb09dce3a07f407e3b390637e/transformed/core-1.1.0/res
+tech.pioupiou.trinity.twa.app-browser-1.4.0-1 /home/louisetienne/.gradle/caches/8.8/transforms/b511174c15fdde7dea3e957094b4390b/transformed/browser-1.4.0/res
+tech.pioupiou.trinity.twa.app-androidbrowserhelper-2.5.0-2 /home/louisetienne/.gradle/caches/8.8/transforms/d3335fbdff4200978ad121d7b141def7/transformed/androidbrowserhelper-2.5.0/res
+tech.pioupiou.trinity.twa.app-pngs-3 /home/louisetienne/Documents/T-DEV-701-Devops/android/app/build/generated/res/pngs/release
+tech.pioupiou.trinity.twa.app-resValues-4 /home/louisetienne/Documents/T-DEV-701-Devops/android/app/build/generated/res/resValues/release
+tech.pioupiou.trinity.twa.app-packageReleaseResources-5 /home/louisetienne/Documents/T-DEV-701-Devops/android/app/build/intermediates/incremental/release/packageReleaseResources/merged.dir
+tech.pioupiou.trinity.twa.app-packageReleaseResources-6 /home/louisetienne/Documents/T-DEV-701-Devops/android/app/build/intermediates/incremental/release/packageReleaseResources/stripped.dir
+tech.pioupiou.trinity.twa.app-release-7 /home/louisetienne/Documents/T-DEV-701-Devops/android/app/build/intermediates/merged_res/release/mergeReleaseResources
+tech.pioupiou.trinity.twa.app-main-8 /home/louisetienne/Documents/T-DEV-701-Devops/android/app/src/main/res
+tech.pioupiou.trinity.twa.app-release-9 /home/louisetienne/Documents/T-DEV-701-Devops/android/app/src/release/res

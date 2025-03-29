@@ -1,0 +1,26 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - trinity/node_modules/
+    - trinity/.next/cache/
+
+deadcode:
+  stage: test
+  script:
+    - echo "Find deadcode application"
+    - cd ${CI_PROJECT_DIR}/trinity
+    - npm install
+    - npm run deadcode
+
+test_app:
+  stage: test
+  script:
+
+    - echo "Test the application"
+    - cd ${CI_PROJECT_DIR}/trinity
+    - npm install
+    - npm run test:ci
