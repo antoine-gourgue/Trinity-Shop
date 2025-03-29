@@ -1,0 +1,30 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - trinity/node_modules/
+    - trinity/.next/cache/
+
+services:
+  - postgres:13
+variables:
+  POSTGRES_DB: trinity
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/trinity"
+
+build_job:
+  stage: build
+  script:
+    - echo "Building the application"
+    - cd ${CI_PROJECT_DIR}/trinity
+    # Modification du fichier .env pour remplacer "db" par "postgres" dans le liens
+    - sed -i 's/db/postgres/g' .env
+    - echo "Modified .env file:"
+    - cat .env
+    - npm install
+    - npx prisma migrate dev --name init
+    - npm run build

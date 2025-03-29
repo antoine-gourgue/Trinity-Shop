@@ -1,0 +1,108 @@
+classDiagram
+    class Account {
+        String userId
+        String type
+        String provider
+        String providerAccountId
+        String? refresh_token
+        String? access_token
+        Int? expires_at
+        String? token_type
+        String? scope
+        String? id_token
+        String? session_state
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    class Session {
+        String sessionToken
+        String userId
+        DateTime expires
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    class VerificationToken {
+        String identifier
+        String token
+        DateTime expires
+    }
+    class User {
+        String id
+        String firstName
+        String lastName
+        String email
+        String password
+        String role   // Enum: Admin, Seller, Customer
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    class Product {
+        String id
+        String name
+        Int price
+        String description
+        String picture
+        BigInt barCode
+        String nutriScore // Enum: A, B, C, D, E, unknown
+        String brandId
+        String categoryId
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    class Brand {
+        String id
+        String name
+        String? description
+    }
+    class Category {
+        String id
+        String name
+        String? description
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    class Stock {
+        String id
+        Int quantity
+        String productId
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    class Cart {
+        String id
+        String userId
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    class ProductInCart {
+        String id
+        Int quantity
+        String cartId
+        String productId
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    class Order {
+        String id
+        String? billingAddress
+        String userId
+        String CartId
+        DateTime createdAt
+        DateTime updatedAt
+    }
+
+    User "*" --> "1" Cart
+    User "*" --> "1" Order
+    User "*" --> "1" Account
+    User "*" --> "1" VerificationToken
+    User "*" --> "1" Session
+
+    Cart "*" --> "1" ProductInCart
+    Cart "*" --> "1" Order
+
+    Product "*" --> "1" ProductInCart
+    Product "1" --> "*" Brand
+    Product "1" --> "*" Category
+    Product "1" --> "1" Stock
+

@@ -1,0 +1,12 @@
+[ 
+  { 
+    "relation": ["delegate_permission/common.handle_all_urls"], 
+    "target": { 
+      "namespace": "android_app", 
+      "package_name": "tech.pioupiou.trinity.twa", 
+      "sha256_cert_fingerprints": [ 
+        "8F:35:92:1E:77:C5:DE:DA:F4:65:68:63:36:AB:22:FD:F0:AD:A9:CA:5D:BC:53:3A:2C:65:19:34:50:14:FF:3B" 
+      ] 
+    } 
+  } 
+]
