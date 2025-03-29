@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "deadcode": "ts-prune -i 'next.config.ts|tailwind.config.ts|app|jest.config.ts'",
