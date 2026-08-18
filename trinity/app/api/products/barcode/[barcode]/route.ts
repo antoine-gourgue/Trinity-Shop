@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ barcode: bigint }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ barcode: string }> }) {
     const isLoggedIn = await isUserLoggedIn()
     if (!isLoggedIn) {
         return NextResponse.json(
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
     try {
         const GetProductByBarcode = await prisma.product.findFirst({
-            where: { barCode: barcode },
+            where: { barCode: BigInt(barcode) },
         });
         if (!GetProductByBarcode) {
             return NextResponse.json({ error: 'Product not found' }, { status: 404 });
