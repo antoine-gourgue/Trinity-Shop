@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { PayPalButtons } from "@paypal/react-paypal-js";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Loader2, Lock, Minus, Plus, Trash2 } from "lucide-react";
 import { useCart } from "@/app/contexts/CartContext";
 import { useSession } from "next-auth/react";
 import { getActiveCartId } from "@/lib/server-actions/cart-actions";
@@ -18,6 +17,8 @@ export default function CartPage() {
 
     const [cartId, setCartId] = useState<string | null>(null);
     const [loadingCart, setLoadingCart] = useState<boolean>(true);
+    const [paying, setPaying] = useState<boolean>(false);
+    const [paymentError, setPaymentError] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchCartId() {
@@ -53,6 +54,44 @@ export default function CartPage() {
 
     const totalPrice = cartProducts.reduce((acc, product) => acc + product.price * product.quantity, 0);
     const totalPriceEuro = (totalPrice / 1000).toFixed(2);
+
+    // Paiement simulé : même flux de commande que PayPal, sans transaction réelle
+    const handleSimulatedPayment = async () => {
+        setPaymentError(null);
+
+        if (!userId) {
+            setPaymentError("Connectez-vous pour finaliser la commande.");
+            return;
+        }
+        if (!cartId) {
+            setPaymentError("Aucun panier actif trouvé.");
+            return;
+        }
+
+        setPaying(true);
+        try {
+            // Petit délai pour matérialiser l'étape de paiement
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+
+            const response = await fetch("/api/orders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId, cartId, billingAddressId: billingAddress }),
+            });
+
+            if (!response.ok) {
+                console.error("Erreur lors de la création de la commande", await response.json());
+                setPaymentError("La commande n'a pas pu être créée. Réessayez.");
+                return;
+            }
+
+            window.location.href = "/?payment=success";
+        } catch {
+            setPaymentError("Une erreur est survenue pendant le paiement simulé.");
+        } finally {
+            setPaying(false);
+        }
+    };
 
     return (
         <div className="min-h-screen flex flex-col overflow-hidden bg-gray-50">
@@ -169,78 +208,30 @@ export default function CartPage() {
                                 </div>
 
                                 <div className="flex justify-center">
-                                    <div className="w-full max-w-md">
-                                        <PayPalButtons
-                                            style={{ layout: "vertical", color: "blue", shape: "pill", label: "pay" }}
-                                            className="rounded-full mt-2"
-                                            fundingSource="paypal"
-                                            createOrder={(data, actions) => {
-                                                type PayPalItemCategory = "PHYSICAL_GOODS" | "DIGITAL_GOODS" | "DONATION";
-                                                const items = cartProducts.map((product) => ({
-                                                    name: product.name,
-                                                    unit_amount: {
-                                                        currency_code: "EUR",
-                                                        value: (product.price / 1000).toFixed(2),
-                                                    },
-                                                    quantity: product.quantity.toString(),
-                                                    category: "PHYSICAL_GOODS" as PayPalItemCategory,
-                                                    sku: product.id,
-                                                }));
-
-
-                                                const totalItemsPrice = items.reduce((acc, item) => acc + parseFloat(item.unit_amount.value) * parseInt(item.quantity), 0);
-
-                                                return actions.order.create({
-                                                    intent: "CAPTURE",
-                                                    purchase_units: [
-                                                        {
-                                                            reference_id: "default",
-                                                            soft_descriptor: "Trinity",
-                                                            amount: {
-                                                                currency_code: "EUR",
-                                                                value: totalItemsPrice.toFixed(2),
-                                                                breakdown: {
-                                                                    item_total: {
-                                                                        currency_code: "EUR",
-                                                                        value: totalItemsPrice.toFixed(2),
-                                                                    },
-                                                                },
-                                                            },
-                                                            invoice_id: `INV-${Date.now()}`,
-                                                            custom_id: `ORDER-${Date.now()}`,
-                                                            items,
-                                                        },
-                                                    ],
-                                                });
-                                            }}
-                                            onApprove={async (data, actions) => {
-                                                if (!actions.order) return;
-                                                const details = await actions.order.capture();
-
-                                                if (!userId) {
-                                                    alert("Impossible de créer la commande : utilisateur non identifié.");
-                                                    return;
-                                                }
-
-                                                if (!cartId) {
-                                                    alert("Erreur : aucun panier actif trouvé.");
-                                                    return;
-                                                }
-
-                                                const response = await fetch("/api/orders", {
-                                                    method: "POST",
-                                                    headers: { "Content-Type": "application/json" },
-                                                    body: JSON.stringify({ userId, cartId, billingAddressId: billingAddress }),
-                                                });
-
-                                                if (!response.ok) {
-                                                    console.error("Erreur lors de la création de la commande", await response.json());
-                                                    return;
-                                                }
-
-                                                window.location.href = "/?payment=success";
-                                            }}
-                                        />
+                                    <div className="w-full max-w-md flex flex-col gap-2">
+                                        <button
+                                            onClick={handleSimulatedPayment}
+                                            disabled={paying}
+                                            className="w-full flex items-center justify-center gap-2 rounded-full bg-teal-700 hover:bg-teal-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 mt-2 transition"
+                                        >
+                                            {paying ? (
+                                                <>
+                                                    <Loader2 size={18} className="animate-spin" />
+                                                    Paiement en cours…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Lock size={16} />
+                                                    Payer {totalPriceEuro} €
+                                                </>
+                                            )}
+                                        </button>
+                                        {paymentError && (
+                                            <p className="text-sm text-red-600 text-center">{paymentError}</p>
+                                        )}
+                                        <p className="text-xs text-gray-400 text-center">
+                                            Paiement de démonstration — aucun débit réel n’est effectué.
+                                        </p>
                                     </div>
                                 </div>
                             </motion.div>

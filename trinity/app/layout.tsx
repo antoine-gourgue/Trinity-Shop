@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { CartProvider } from "@/app/contexts/CartContext";
-import PayPalProvider from "@/app/contexts/PayPalProvider";
+import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Trinity",
@@ -16,9 +16,9 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="mb-[81px]">
-        <CartProvider>
-          <PayPalProvider>{children}</PayPalProvider>
-        </CartProvider>
+        <SessionProvider>
+          <CartProvider>{children}</CartProvider>
+        </SessionProvider>
       </body>
     </html>
   );
