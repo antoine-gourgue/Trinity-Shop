@@ -57,13 +57,40 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const { userId, cartId, billingAddressId } = await request.json();
+        const body = await request.json();
+        const { userId, cartId } = body;
+        let { billingAddressId } = body;
 
-        if (!userId || !cartId || !billingAddressId) {
+        if (!userId || !cartId) {
             return NextResponse.json(
-                { error: "User ID, Cart ID, and Billing Address are required" },
+                { error: "User ID and Cart ID are required" },
                 { status: 400 }
             );
+        }
+
+        // Adresse de facturation résolue côté serveur : la session peut être
+        // antérieure à la création d'une adresse, et un nouveau compte n'en a pas
+        if (!billingAddressId) {
+            const existingAddress = await prisma.address.findFirst({
+                where: { userId },
+                orderBy: { createdAt: "asc" },
+            });
+
+            if (existingAddress) {
+                billingAddressId = existingAddress.id;
+            } else {
+                const defaultAddress = await prisma.address.create({
+                    data: {
+                        userId,
+                        type: "domicile",
+                        street: "1 rue de la Démonstration",
+                        city: "Anglet",
+                        zipCode: "64600",
+                        country: "France",
+                    },
+                });
+                billingAddressId = defaultAddress.id;
+            }
         }
 
         const cart = await prisma.cart.findUnique({
