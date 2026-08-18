@@ -1,4 +1,3 @@
-// next.config.js
 const withPWA = require("next-pwa")({
   dest: "public",
   register: true,
@@ -8,6 +7,12 @@ const withPWA = require("next-pwa")({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = withPWA({
+  experimental: {
+  },
+  eslint: {
+    // Le lint est géré via `npm run lint` / la CI, pas au build de déploiement
+    ignoreDuringBuilds: true,
+  },
   webpack: (config) => {
     config.module.rules.push({
       test: /\.m?js$/,
@@ -34,12 +39,11 @@ const nextConfig = withPWA({
       },
       {
         protocol: "https",
-        hostname: "images.openfoodfacts.org", // Ajouté pour gérer le domaine avec "images."
+        hostname: "images.openfoodfacts.org",
         port: "",
         pathname: "/**",
       },
     ],
-    // Optionnel : si tu utilises également l'option "domains"
     domains: [
       "static.openfoodfacts.org",
       "image.openfoodfacts.org",
