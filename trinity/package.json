@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
-    "@paypal/react-paypal-js": "^8.8.2",
     "@prisma/client": "^5.21.1",
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-checkbox": "^1.1.3",
