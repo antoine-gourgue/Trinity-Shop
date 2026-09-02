@@ -16,7 +16,15 @@ export const metadata: Metadata = {
       "Supermarché en ligne complet : catalogue avec Nutri-Score, panier, factures PDF, back-office et PWA.",
     url: "https://trinity-shop-rho.vercel.app/",
     locale: "fr_FR",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Trinity Shop" }],
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        type: "image/png",
+        alt: "Trinity Shop",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
