@@ -9,18 +9,22 @@ import { AccountCard } from "@/components/account/account-ui";
 import Price from "@/components/product/price";
 import { formatBrand, formatPrice } from "@/lib/format";
 import { orderNumber, requireUser } from "@/lib/account";
+import { formatSlot, parseSlotParam } from "@/lib/checkout";
+import CheckoutSteps from "@/components/cart/checkout-steps";
 
 export const dynamic = "force-dynamic";
 
 interface OrderDetailPageProps {
     params: Promise<{ userId: string; orderId: string }>;
-    searchParams: Promise<{ confirmation?: string }>;
+    searchParams: Promise<{ confirmation?: string; creneau?: string }>;
 }
 
 export default async function OrderDetailPage({ params, searchParams }: OrderDetailPageProps) {
     const sessionUser = await requireUser();
     const { orderId } = await params;
-    const justOrdered = (await searchParams).confirmation === "1";
+    const query = await searchParams;
+    const justOrdered = query.confirmation === "1";
+    const slot = justOrdered ? parseSlotParam(query.creneau) : null;
 
     const order = await getOrderById(orderId);
     // Une commande d'un autre compte est traitée comme introuvable
@@ -40,13 +44,18 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                 <ArrowLeft size={16} aria-hidden /> Mes commandes
             </Link>
 
+            {justOrdered && <CheckoutSteps current={3} />}
+
             {justOrdered && (
                 <div className="flex items-start gap-4 rounded-3xl bg-bio p-5 text-white md:p-6">
                     <CircleCheck size={32} className="shrink-0" aria-hidden />
                     <div>
                         <p className="text-lg font-black">Merci, votre commande est validée !</p>
                         <p className="text-sm text-white/85">
-                            Nos équipes préparent vos courses. Retrouvez ci-dessous le détail et votre facture.
+                            {slot
+                                ? `Nos équipes préparent vos courses pour le retrait du ${formatSlot(slot).toLowerCase()}.`
+                                : "Nos équipes préparent vos courses."}{" "}
+                            Retrouvez ci-dessous le détail et votre facture.
                         </p>
                     </div>
                 </div>
@@ -128,6 +137,12 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                     <AccountCard title="Retrait" icon={<Store size={18} aria-hidden />}>
                         <p className="text-sm">
                             <span className="font-bold">Drive Trinity U Rennes Epitech</span>
+                            {slot && (
+                                <>
+                                    <br />
+                                    <span className="text-muted-foreground">{formatSlot(slot)}</span>
+                                </>
+                            )}
                         </p>
                         {billing && (
                             <div className="mt-4 border-t pt-4 text-sm">

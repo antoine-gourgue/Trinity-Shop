@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
     ArrowLeft,
-    CreditCard,
-    Leaf,
+    ArrowRight,
     Loader2,
-    Lock,
     Minus,
     Plus,
     ShoppingBasket,
@@ -18,8 +16,6 @@ import {
     UserRound,
 } from "lucide-react";
 import { useCart } from "@/app/contexts/CartContext";
-import { getActiveCartId } from "@/lib/server-actions/cart-actions";
-import { CartItemDetails, CartSuggestion, getCartDetails } from "@/lib/server-actions/cart-details-actions";
 import { discountPercent, formatBrand, formatPrice } from "@/lib/format";
 import { formatUnitPrice } from "@/lib/product-info";
 import { RAYONS } from "@/lib/rayons";
@@ -28,45 +24,17 @@ import ProductImage from "@/components/product/product-image";
 import ProductCard from "@/components/product/productCard";
 import ProductCarousel from "@/components/catalog/product-carousel";
 import CheckoutSteps from "@/components/cart/checkout-steps";
+import CheckoutSummary from "@/components/cart/checkout-summary";
+import { useCartSummary } from "@/components/cart/use-cart-summary";
 import { Button } from "@/components/ui/button";
 
 const OTHER_GROUP = { slug: "autres", name: "Autres produits", image: null as string | null };
 
 export default function CartPage() {
-    const { cartProducts, removeProduct, handleUpdateProductQuantity, refreshCart } = useCart();
+    const { removeProduct, handleUpdateProductQuantity, refreshCart } = useCart();
+    const { cartProducts, details, suggestions, totalItems, totalPrice, savings } = useCartSummary();
     const { data: session, status } = useSession();
-    const userId = session?.user?.id;
-    const billingAddress = session?.user?.billingAddress;
-
-    const [cartId, setCartId] = useState<string | null>(null);
-    const [details, setDetails] = useState<Record<string, CartItemDetails>>({});
-    const [suggestions, setSuggestions] = useState<CartSuggestion[]>([]);
-    const [paying, setPaying] = useState(false);
-    const [paymentError, setPaymentError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
-
-    const productIdsKey = cartProducts.map((p) => p.id).sort().join(",");
-
-    useEffect(() => {
-        if (!userId) return;
-        getActiveCartId().then((response) => setCartId(response?.cartId ?? null));
-    }, [userId, cartProducts.length]);
-
-    // Détails et suggestions rechargés seulement quand la liste des produits change
-    useEffect(() => {
-        if (!productIdsKey) return;
-        getCartDetails(productIdsKey.split(",")).then(({ details, suggestions }) => {
-            setDetails(details);
-            setSuggestions(suggestions);
-        });
-    }, [productIdsKey]);
-
-    const totalItems = cartProducts.reduce((acc, product) => acc + product.quantity, 0);
-    const totalPrice = cartProducts.reduce((acc, product) => acc + product.price * product.quantity, 0);
-    const savings = cartProducts.reduce((acc, product) => {
-        const regular = details[product.id]?.regularPrice;
-        return regular && regular > product.price ? acc + (regular - product.price) * product.quantity : acc;
-    }, 0);
 
     // Articles regroupés par rayon, dans l'ordre des rayons du magasin
     const groups = useMemo(() => {
@@ -86,47 +54,6 @@ export default function CartPage() {
             }
             await refreshCart();
         });
-    };
-
-    // Paiement simulé : même flux de commande que PayPal, sans transaction réelle
-    const handleSimulatedPayment = async () => {
-        setPaymentError(null);
-
-        if (!userId) {
-            setPaymentError("Connectez-vous pour finaliser la commande.");
-            return;
-        }
-        if (!cartId) {
-            setPaymentError("Aucun panier actif trouvé.");
-            return;
-        }
-
-        setPaying(true);
-        try {
-            // Petit délai pour matérialiser l'étape de paiement
-            await new Promise((resolve) => setTimeout(resolve, 1200));
-
-            const response = await fetch("/api/orders", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId, cartId, billingAddressId: billingAddress }),
-            });
-
-            if (!response.ok) {
-                console.error("Erreur lors de la création de la commande", await response.json());
-                setPaymentError("La commande n'a pas pu être créée. Réessayez.");
-                return;
-            }
-
-            const { data: order } = await response.json();
-            window.location.href = order?.id
-                ? `/user/${userId}/order/${order.id}?confirmation=1`
-                : `/user/${userId}/order`;
-        } catch {
-            setPaymentError("Une erreur est survenue pendant le paiement simulé.");
-        } finally {
-            setPaying(false);
-        }
     };
 
     if (status === "loading") {
@@ -171,25 +98,14 @@ export default function CartPage() {
         );
     }
 
-    const payButton = (className?: string) => (
-        <button
-            type="button"
-            onClick={handleSimulatedPayment}
-            disabled={paying || !cartId}
-            className={`flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 font-bold text-primary-foreground transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60 ${className ?? ""}`}
+    const validateButton = (className?: string) => (
+        <Link
+            href="/cart/retrait"
+            className={`flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 font-bold text-primary-foreground transition-colors hover:bg-brand-dark ${className ?? ""}`}
         >
-            {paying ? (
-                <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Paiement en cours…
-                </>
-            ) : (
-                <>
-                    <Lock size={16} />
-                    Payer {formatPrice(totalPrice)}
-                </>
-            )}
-        </button>
+            Valider mon panier
+            <ArrowRight size={18} aria-hidden />
+        </Link>
     );
 
     return (
@@ -337,61 +253,9 @@ export default function CartPage() {
                     })}
                 </div>
 
-                <aside className="space-y-4 lg:sticky lg:top-[140px]">
-                    <div className="rounded-3xl border bg-white p-6">
-                        <h2 className="text-lg font-black">Récapitulatif</h2>
-
-                        <dl className="mt-4 space-y-2.5 text-sm">
-                            <div className="flex justify-between">
-                                <dt className="text-muted-foreground">
-                                    Sous-total ({totalItems} article{totalItems > 1 ? "s" : ""})
-                                </dt>
-                                <dd className="font-bold">{formatPrice(totalPrice + savings)}</dd>
-                            </div>
-                            {savings > 0 && (
-                                <div className="flex justify-between">
-                                    <dt className="text-muted-foreground">Remises promotions</dt>
-                                    <dd className="font-bold text-promo">− {formatPrice(savings)}</dd>
-                                </div>
-                            )}
-                            <div className="flex justify-between">
-                                <dt className="text-muted-foreground">Préparation de la commande</dt>
-                                <dd className="font-bold text-bio">Offerte</dd>
-                            </div>
-                        </dl>
-
-                        <div className="mt-5 flex items-end justify-between border-t pt-5">
-                            <span className="font-extrabold">Total</span>
-                            <Price value={totalPrice} size="lg" />
-                        </div>
-                        {savings > 0 && (
-                            <p className="mt-3 rounded-xl bg-promo/10 px-3 py-2 text-center text-sm font-bold text-promo">
-                                Vous économisez {formatPrice(savings)} grâce aux promos
-                            </p>
-                        )}
-
-                        {payButton("mt-5 w-full")}
-                        {paymentError && <p className="mt-2 text-center text-sm text-destructive">{paymentError}</p>}
-                        <p className="mt-3 text-center text-xs text-muted-foreground">
-                            Paiement de démonstration — aucun débit réel n’est effectué.
-                        </p>
-                    </div>
-
-                    <ul className="space-y-3 rounded-3xl border bg-white p-5 text-sm">
-                        <li className="flex items-center gap-3">
-                            <CreditCard size={18} className="shrink-0 text-primary" aria-hidden />
-                            Paiement sécurisé : CB, Visa, Mastercard
-                        </li>
-                        <li className="flex items-center gap-3">
-                            <Store size={18} className="shrink-0 text-primary" aria-hidden />
-                            Commande préparée par nos équipes au drive
-                        </li>
-                        <li className="flex items-center gap-3">
-                            <Leaf size={18} className="shrink-0 text-primary" aria-hidden />
-                            Dates limites choisies avec soin
-                        </li>
-                    </ul>
-                </aside>
+                <CheckoutSummary totalItems={totalItems} totalPrice={totalPrice} savings={savings}>
+                    {validateButton("w-full")}
+                </CheckoutSummary>
             </div>
 
             {suggestions.length > 0 && (
@@ -423,7 +287,7 @@ export default function CartPage() {
                         <p className="text-xs text-muted-foreground">Total ({totalItems} art.)</p>
                         <Price value={totalPrice} size="md" />
                     </div>
-                    {payButton("flex-1 max-w-[220px]")}
+                    {validateButton("flex-1 max-w-[230px]")}
                 </div>
             </div>
         </div>

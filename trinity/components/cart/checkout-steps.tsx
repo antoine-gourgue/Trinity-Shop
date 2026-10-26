@@ -6,7 +6,7 @@ const STEPS = ["Mon panier", "Retrait au drive", "Paiement", "Confirmation"];
 // Étapes de la commande ; `current` commence à 0
 export default function CheckoutSteps({ current }: { current: number }) {
   return (
-    <ol className="flex items-center gap-2 overflow-x-auto pb-1 text-sm" aria-label="Étapes de la commande">
+    <ol className="-m-1.5 flex items-center gap-2 overflow-x-auto p-1.5 text-sm" aria-label="Étapes de la commande">
       {STEPS.map((label, index) => {
         const done = index < current;
         const active = index === current;
