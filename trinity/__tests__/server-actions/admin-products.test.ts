@@ -250,6 +250,7 @@ describe("createProduct", () => {
         categories: ["Produits à tartiner sucrés", "Catégorie supprimée"],
         hidden: false,
         stock: 120,
+        promoEndsAt: null,
     };
 
     beforeEach(() => {
@@ -278,6 +279,7 @@ describe("createProduct", () => {
                 // Prix saisis en euros, stockés en millièmes d'euro
                 price: 4590,
                 regularPrice: null,
+                promoEndsAt: null,
                 netContent: "400 g",
                 description: "Pâte à tartiner aux noisettes et au cacao",
                 nutriScore: "E",

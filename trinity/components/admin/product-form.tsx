@@ -28,6 +28,8 @@ export interface ProductFormValues {
   categories: string[];
   hidden: boolean;
   stock: string;
+  // Dernier jour de la promotion (AAAA-MM-JJ), vide sans date de fin
+  promoEndsAt: string;
 }
 
 // Fiche enregistrée par le formulaire : un produit existant, ou un nouveau produit créé à partir
@@ -95,6 +97,7 @@ export default function ProductForm({
       categories: values.categories,
       hidden: values.hidden,
       stock: Number(values.stock),
+      promoEndsAt: values.regularPrice.trim() && values.promoEndsAt ? values.promoEndsAt : null,
     };
     if (!Number.isFinite(input.price) || (input.regularPrice !== null && !Number.isFinite(input.regularPrice))) {
       setError("Saisissez les prix en euros, par exemple 2,39.");
@@ -175,6 +178,16 @@ export default function ProductForm({
               onChange={(e) => set("regularPrice", e.target.value)}
               placeholder="Pas de promotion"
               className={INPUT}
+            />
+          </Field>
+          <Field label="Dernier jour de la promotion" htmlFor="promoEndsAt" hint="Le lendemain, le prix barré redevient le prix de vente. Vide : sans date de fin.">
+            <input
+              id="promoEndsAt"
+              type="date"
+              value={values.promoEndsAt}
+              onChange={(e) => set("promoEndsAt", e.target.value)}
+              disabled={!values.regularPrice.trim()}
+              className={`${INPUT} disabled:cursor-not-allowed disabled:opacity-50`}
             />
           </Field>
           <Field label={creating ? "Stock initial (unités)" : "Stock (unités)"} htmlFor="stock">

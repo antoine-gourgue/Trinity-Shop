@@ -146,6 +146,7 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 | `APP_URL` | Facultatif : URL publique du site (liens des e-mails, URL canoniques, Open Graph, sitemap, robots.txt) ; à défaut, le domaine de production Vercel, sinon `http://localhost:3000` |
 | `STRIPE_SECRET_KEY` | Facultatif : clé secrète Stripe (`sk_test_…`) pour le paiement par carte ; sans clé, le paiement est simulé |
 | `STRIPE_WEBHOOK_SECRET` | Facultatif : secret du webhook Stripe (`whsec_…`) envoyé à `/api/payments/stripe/webhook`, pour créer la commande même si le client ne revient pas sur le site |
+| `CRON_SECRET` | Secret de la tâche nocturne `/api/cron/maintenance` (fin des promotions datées, purge des compteurs de tentatives) ; Vercel l'envoie à chaque appel planifié |
 | `SEED_ADMIN_PASSWORD` | Mot de passe du compte administrateur créé par le seed (12 caractères au moins) ; inutile en production |
 
 ## Commandes

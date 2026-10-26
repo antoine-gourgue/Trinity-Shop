@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Prisma, nutriScore, Role } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { restock } from "@/lib/stock";
+import { promoEndFromDay } from "@/lib/promotions";
 import { canCancelOrder, nextOrderStatus } from "@/lib/order-status";
 import { isBarcode } from "@/lib/barcode";
 import { fetchCategoryTaxonomy, fetchOpenFoodFactsProduct, isOpenFoodFactsImage, type CategoryTaxonomy } from "@/lib/open-food-facts";
@@ -39,13 +40,24 @@ const productFields = z.object({
   categories: z.array(z.string()).max(40),
   hidden: z.boolean(),
   stock: z.number().int("Le stock doit être un nombre entier.").min(0, "Le stock ne peut pas être négatif.").max(100000),
+  // Dernier jour de la promotion (AAAA-MM-JJ), ou null pour une promotion sans date de fin
+  promoEndsAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date de fin de promotion invalide.").nullable(),
 });
 
 const regularPriceAbovePrice = (data: { price: number; regularPrice: number | null }) =>
   data.regularPrice === null || data.regularPrice > data.price;
 const REGULAR_PRICE_ERROR = { message: "Le prix barré doit être supérieur au prix de vente." };
 
-const productSchema = productFields.refine(regularPriceAbovePrice, REGULAR_PRICE_ERROR);
+// Une date de fin n'a de sens que pour un produit en promotion, et pas déjà passée
+const promoEndValid = (data: { regularPrice: number | null; promoEndsAt: string | null }) =>
+  data.promoEndsAt === null || (data.regularPrice !== null && promoEndFromDay(data.promoEndsAt).getTime() > Date.now());
+const PROMO_END_ERROR = { message: "La date de fin doit être à venir et s'applique à un produit en promotion (prix barré)." };
+
+// Fin de promotion enregistrée : minuit le lendemain du dernier jour, et seulement s'il y a une promotion
+const promoEnd = (data: { regularPrice: number | null; promoEndsAt: string | null }) =>
+  data.promoEndsAt && data.regularPrice !== null ? promoEndFromDay(data.promoEndsAt) : null;
+
+const productSchema = productFields.refine(regularPriceAbovePrice, REGULAR_PRICE_ERROR).refine(promoEndValid, PROMO_END_ERROR);
 
 export type ProductInput = z.infer<typeof productSchema>;
 
@@ -78,6 +90,7 @@ export async function saveProduct(productId: string, input: ProductInput): Promi
         brandId: brand.id,
         price: euros(data.price),
         regularPrice: data.regularPrice === null ? null : euros(data.regularPrice),
+        promoEndsAt: promoEnd(data),
         netContent: data.netContent || null,
         description: data.description,
         nutriScore: data.nutriScore,
@@ -173,7 +186,8 @@ const newProductSchema = productFields
       .trim()
       .refine((value) => value === "" || isOpenFoodFactsImage(value), "La photo doit provenir d'Open Food Facts."),
   })
-  .refine(regularPriceAbovePrice, REGULAR_PRICE_ERROR);
+  .refine(regularPriceAbovePrice, REGULAR_PRICE_ERROR)
+  .refine(promoEndValid, PROMO_END_ERROR);
 
 export type NewProductInput = z.infer<typeof newProductSchema>;
 
@@ -204,6 +218,7 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
         brandId: brand.id,
         price: euros(data.price),
         regularPrice: data.regularPrice === null ? null : euros(data.regularPrice),
+        promoEndsAt: promoEnd(data),
         netContent: data.netContent || null,
         description: data.description,
         nutriScore: data.nutriScore,

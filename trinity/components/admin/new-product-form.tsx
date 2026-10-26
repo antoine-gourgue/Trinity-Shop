@@ -19,6 +19,7 @@ function proposalValues(proposal: ProductProposal): ProductFormValues {
     brand: proposal.brand,
     price: toPriceInput(proposal.price),
     regularPrice: "",
+    promoEndsAt: "",
     netContent: proposal.netContent ?? "",
     description: proposal.description,
     nutriScore: proposal.nutriScore,

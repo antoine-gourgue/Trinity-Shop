@@ -11,6 +11,7 @@ import { discountPercent, formatBrand, formatPrice, isBioBrand } from "@/lib/for
 import { formatAllergens, formatUnitPrice, ingredientParts, nutritionRows } from "@/lib/product-info";
 import { productDescription, productJsonLd, productPath, serializeJsonLd } from "@/lib/product-seo";
 import PriceBlock from "@/components/product/price-block";
+import { formatPromoEnd } from "@/lib/promotions";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
 import AddToCartButton from "@/components/product/add-to-cart-button";
@@ -192,6 +193,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <span className="text-sm font-bold text-promo">
                 Vous économisez {formatPrice(product.regularPrice - product.price)}
               </span>
+              {product.promoEndsAt && (
+                <span className="w-full text-xs text-muted-foreground">Offre valable jusqu’au {formatPromoEnd(product.promoEndsAt)}</span>
+              )}
             </p>
           )}
           <PriceBlock price={product.price} regularPrice={product.regularPrice} netContent={quantity} size="lg" />

@@ -8,6 +8,7 @@ import { AdminPageHeader, Badge, Panel, formatDate } from "@/components/admin/ad
 import { ProductThumb, StockBadge } from "@/components/admin/admin-bits";
 import { DeleteProductButton } from "@/components/admin/product-actions";
 import ProductForm from "@/components/admin/product-form";
+import { promoLastDay } from "@/lib/promotions";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export default async function AdminProductPage({ params }: Props) {
             brand: product.brand.name,
             price: toPriceInput(product.price),
             regularPrice: product.regularPrice ? toPriceInput(product.regularPrice) : "",
+            promoEndsAt: product.promoEndsAt ? promoLastDay(product.promoEndsAt) : "",
             netContent: product.netContent ?? "",
             description: product.description,
             nutriScore: product.nutriScore,
