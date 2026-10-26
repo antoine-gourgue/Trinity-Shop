@@ -3,6 +3,7 @@ import { z } from "zod";
 // Fiche produit de l'API Open Food Facts (v0) : seuls les champs utilisés par le site sont lus.
 // Un champ d'un type inattendu est ignoré plutôt que de faire échouer toute la fiche.
 const text = z.string().optional().catch(undefined);
+const tags = z.array(z.string()).optional().catch(undefined);
 
 const openFoodFactsProductSchema = z.object({
   code: text,
@@ -20,7 +21,9 @@ const openFoodFactsProductSchema = z.object({
   conservation_conditions: text,
   conservation_conditions_fr: text,
   manufacturing_places: text,
-  allergens_tags: z.array(z.string()).optional().catch(undefined),
+  allergens_tags: tags,
+  // Étiquettes de la taxonomie, catégories parentes comprises (« en:spreads », « en:sweet-spreads »)
+  categories_tags: tags,
   nutriments: z.record(z.unknown()).optional().catch(undefined),
 });
 
@@ -40,4 +43,44 @@ export async function fetchOpenFoodFactsProduct(barcode: string, init?: RequestI
   const result = openFoodFactsResponseSchema.safeParse(await response.json());
   if (!result.success || result.data.status === 0) return null;
   return result.data.product ?? null;
+}
+
+// Taxonomie des catégories, par étiquette : seuls le nom et les synonymes français sont lus,
+// et une entrée mal formée est ignorée
+const taxonomyEntrySchema = z
+  .object({
+    name: z.object({ fr: text }).optional().catch(undefined),
+    synonyms: z.object({ fr: tags }).optional().catch(undefined),
+  })
+  .catch({});
+
+export const categoryTaxonomySchema = z.record(taxonomyEntrySchema);
+
+export type CategoryTaxonomy = z.infer<typeof categoryTaxonomySchema>;
+
+// Entrées de la taxonomie pour quelques étiquettes seulement (la taxonomie complète pèse plusieurs Mo)
+export async function fetchCategoryTaxonomy(categoryTags: string[], init?: RequestInit): Promise<CategoryTaxonomy> {
+  if (!categoryTags.length) return {};
+  const url = new URL("https://world.openfoodfacts.org/api/v2/taxonomy");
+  url.searchParams.set("tagtype", "categories");
+  url.searchParams.set("tags", categoryTags.join(","));
+  url.searchParams.set("fields", "name,synonyms");
+  url.searchParams.set("lc", "fr");
+
+  const response = await fetch(url, init);
+  if (!response.ok) throw new Error(`Open Food Facts a répondu ${response.status} ${response.statusText}`);
+  const result = categoryTaxonomySchema.safeParse(await response.json());
+  return result.success ? result.data : {};
+}
+
+// Hôtes des photos Open Food Facts autorisés par next.config.js (images.remotePatterns)
+const IMAGE_HOSTS = new Set(["images.openfoodfacts.org", "static.openfoodfacts.org", "image.openfoodfacts.org"]);
+
+export function isOpenFoodFactsImage(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && IMAGE_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
 }

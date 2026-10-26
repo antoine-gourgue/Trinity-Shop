@@ -1,23 +1,10 @@
-import ProductImage from "@/components/product/product-image";
 import { formatPickupDate } from "@/lib/checkout";
 import { orderNumber } from "@/lib/account";
 import type { OrderStatus } from "@prisma/client";
 import { ORDER_STATUS_TONES, orderStatusLabel } from "@/lib/order-status";
-import { cn } from "@/lib/utils";
 import { Badge } from "./admin-ui";
 
-export function ProductThumb({ src, alt, size = "md" }: { src: string; alt: string; size?: "sm" | "md" | "lg" }) {
-  return (
-    <span
-      className={cn(
-        "relative block shrink-0 overflow-hidden rounded-xl border bg-white",
-        size === "sm" ? "h-10 w-10" : size === "md" ? "h-12 w-12" : "h-24 w-24"
-      )}
-    >
-      <ProductImage src={src} alt={alt} sizes="96px" className="p-1" />
-    </span>
-  );
-}
+export { ProductThumb } from "./product-thumb";
 
 export function customerName(user: { firstName: string; lastName: string }) {
   return `${user.firstName} ${user.lastName}`.trim();

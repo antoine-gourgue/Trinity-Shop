@@ -60,7 +60,7 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 
 - **Tableau de bord** : chiffre d'affaires, commandes et inscriptions sur la période, avec graphiques.
 - **Commandes** : recherche, filtres (créneau à venir ou passé, livraison) et détail.
-- **Produits** : édition, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
+- **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
 - **Stocks** : modification directe, filtre des ruptures.
 - **Clients** : rôles et suppression.
 

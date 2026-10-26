@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ExternalLink, ShoppingBag } from "lucide-react";
 import { LOW_STOCK, getAdminProduct } from "@/lib/admin/queries";
-import { discountPercent, formatBrand, formatPrice } from "@/lib/format";
+import { discountPercent, formatBrand, formatPrice, toPriceInput } from "@/lib/format";
 import NutriScore from "@/components/product/nutri-score";
 import { AdminPageHeader, Badge, Panel, formatDate } from "@/components/admin/admin-ui";
 import { ProductThumb, StockBadge } from "@/components/admin/admin-bits";
@@ -17,9 +17,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getAdminProduct((await params).id);
   return { title: data?.product.name ?? "Produit" };
 }
-
-// Prix stockés en millièmes d'euro, saisis en euros avec une virgule
-const toEurosInput = (price: number) => (price / 1000).toFixed(2).replace(".", ",");
 
 export default async function AdminProductPage({ params }: Props) {
   const data = await getAdminProduct((await params).id);
@@ -39,14 +36,14 @@ export default async function AdminProductPage({ params }: Props) {
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <ProductForm
           key={product.updatedAt.toISOString()}
-          productId={product.id}
+          target={{ productId: product.id }}
           categoryNames={categoryNames}
           brandNames={brandNames}
           initial={{
             name: product.name,
             brand: product.brand.name,
-            price: toEurosInput(product.price),
-            regularPrice: product.regularPrice ? toEurosInput(product.regularPrice) : "",
+            price: toPriceInput(product.price),
+            regularPrice: product.regularPrice ? toPriceInput(product.regularPrice) : "",
             netContent: product.netContent ?? "",
             description: product.description,
             nutriScore: product.nutriScore,

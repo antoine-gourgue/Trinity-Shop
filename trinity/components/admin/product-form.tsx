@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Save, Search, X } from "lucide-react";
-import { saveProduct, type ProductInput } from "@/lib/server-actions/admin-actions";
+import { createProduct, saveProduct, type ProductInput } from "@/lib/server-actions/admin-actions";
 import { toast } from "@/hooks/use-toast";
 import { formatBrand } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,10 @@ export interface ProductFormValues {
   stock: string;
 }
 
+// Fiche enregistrée par le formulaire : un produit existant, ou un nouveau produit créé à partir
+// de son code-barres et de sa photo Open Food Facts
+export type ProductFormTarget = { productId: string } | { barCode: string; picture: string };
+
 // Saisie en euros avec virgule ou point (« 2,39 »)
 const parseEuros = (value: string) => Number.parseFloat(value.replace(",", ".").replace(/\s/g, ""));
 
@@ -49,17 +53,18 @@ function Field({ label, hint, children, htmlFor }: { label: string; hint?: strin
 }
 
 export default function ProductForm({
-  productId,
+  target,
   initial,
   categoryNames,
   brandNames,
 }: {
-  productId: string;
+  target: ProductFormTarget;
   initial: ProductFormValues;
   categoryNames: string[];
   brandNames: string[];
 }) {
   const router = useRouter();
+  const creating = "barCode" in target;
   const [values, setValues] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [categorySearch, setCategorySearch] = useState("");
@@ -95,8 +100,19 @@ export default function ProductForm({
       setError("Saisissez les prix en euros, par exemple 2,39.");
       return;
     }
+    const failure = { ok: false as const, error: "L'enregistrement a échoué. Réessayez." };
     startTransition(async () => {
-      const result = await saveProduct(productId, input).catch(() => ({ ok: false as const, error: "L'enregistrement a échoué. Réessayez." }));
+      if ("barCode" in target) {
+        const created = await createProduct({ ...input, barCode: target.barCode, picture: target.picture }).catch(() => failure);
+        if (!created.ok) {
+          setError(created.error);
+          return;
+        }
+        toast({ description: "Produit créé." });
+        router.push(`/admin/products/${created.id}`);
+        return;
+      }
+      const result = await saveProduct(target.productId, input).catch(() => failure);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -161,7 +177,7 @@ export default function ProductForm({
               className={INPUT}
             />
           </Field>
-          <Field label="Stock (unités)" htmlFor="stock">
+          <Field label={creating ? "Stock initial (unités)" : "Stock (unités)"} htmlFor="stock">
             <input
               id="stock"
               type="number"
@@ -284,22 +300,33 @@ export default function ProductForm({
       {error && <p className="rounded-2xl bg-promo/10 px-4 py-3 text-sm font-semibold text-promo">{error}</p>}
 
       <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-end gap-3 rounded-3xl border bg-white/95 p-3 shadow-lg backdrop-blur">
-        {dirty && <p className="mr-auto pl-2 text-sm font-semibold text-muted-foreground">Modifications non enregistrées</p>}
+        {creating ? (
+          <p className="mr-auto pl-2 text-sm font-semibold text-muted-foreground">Vérifiez la proposition avant de créer le produit</p>
+        ) : (
+          dirty && <p className="mr-auto pl-2 text-sm font-semibold text-muted-foreground">Modifications non enregistrées</p>
+        )}
         <button
           type="button"
           onClick={() => setValues(initial)}
           disabled={!dirty || isPending}
           className="h-11 rounded-full border px-5 text-sm font-bold transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
         >
-          Annuler les modifications
+          {creating ? "Revenir à la proposition" : "Annuler les modifications"}
         </button>
         <button
           type="submit"
-          disabled={!dirty || isPending}
+          // Une proposition peut être créée telle quelle ; une fiche existante, seulement si elle a changé
+          disabled={(!creating && !dirty) || isPending}
           className="flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark disabled:opacity-50"
         >
-          {isPending ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Save size={16} aria-hidden />}
-          Enregistrer
+          {isPending ? (
+            <Loader2 size={16} className="animate-spin" aria-hidden />
+          ) : creating ? (
+            <Plus size={16} aria-hidden />
+          ) : (
+            <Save size={16} aria-hidden />
+          )}
+          {creating ? "Créer le produit" : "Enregistrer"}
         </button>
       </div>
     </form>

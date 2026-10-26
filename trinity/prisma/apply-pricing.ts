@@ -9,7 +9,7 @@
 import { PrismaClient } from "@prisma/client";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { computePrice } from "./pricing";
+import { computePrice } from "../lib/pricing";
 import { catalogSchema, enrichmentSchema, readJsonFile } from "./data-files";
 
 const DRY_RUN = process.argv.includes("--dry-run");

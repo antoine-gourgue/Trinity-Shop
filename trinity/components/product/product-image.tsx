@@ -21,9 +21,10 @@ function localImageFor(src: string) {
 }
 
 // Image produit : copie locale d'abord, puis OpenFoodFacts, puis pictogramme de repli
+// (aussi affiché d'emblée pour un produit créé sans photo)
 export default function ProductImage({ src, alt, sizes, priority, className }: ProductImageProps) {
   const local = localImageFor(src);
-  const candidates = local ? [local, src] : [src];
+  const candidates = local ? [local, src] : src ? [src] : [];
   const [attempt, setAttempt] = useState(0);
 
   if (attempt >= candidates.length) {

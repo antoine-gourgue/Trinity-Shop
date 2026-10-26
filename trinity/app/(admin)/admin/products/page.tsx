@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Package, Pencil } from "lucide-react";
+import { Package, Pencil, Plus } from "lucide-react";
 import { LOW_STOCK, PRODUCT_FILTERS, getAdminProducts, parseAdminParams } from "@/lib/admin/queries";
 import { discountPercent, formatBrand, formatPrice } from "@/lib/format";
 import NutriScore from "@/components/product/nutri-score";
@@ -26,7 +26,18 @@ export default async function AdminProductsPage({
 
   return (
     <div>
-      <AdminPageHeader title="Produits" description="Catalogue du drive : prix, promotions, stock et visibilité en ligne." />
+      <AdminPageHeader
+        title="Produits"
+        description="Catalogue du drive : prix, promotions, stock et visibilité en ligne."
+        actions={
+          <Link
+            href="/admin/products/new"
+            className="flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark"
+          >
+            <Plus size={16} aria-hidden /> Nouveau produit
+          </Link>
+        }
+      />
 
       <div className="mb-4 flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row">

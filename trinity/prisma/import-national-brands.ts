@@ -11,7 +11,7 @@
 import { PrismaClient, nutriScore } from "@prisma/client";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { computePrice, seeded } from "./pricing";
+import { computePrice, seeded } from "../lib/pricing";
 import {
   type CatalogEntry,
   catalogSchema,

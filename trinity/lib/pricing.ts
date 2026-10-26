@@ -1,8 +1,9 @@
-// Calcul des prix du catalogue, partagé par apply-pricing.ts et import-national-brands.ts.
+// Calcul des prix du catalogue, partagé par les scripts prisma/apply-pricing.ts et
+// prisma/import-national-brands.ts et par la création de produit du back-office.
 // Déterministe : le même code-barres donne toujours le même prix.
 
-import { RAYONS, findRayonForCategories } from "../lib/rayons";
-import { parseQuantity } from "../lib/product-info";
+import { RAYONS, findRayonForCategories } from "./rayons";
+import { parseQuantity } from "./product-info";
 
 // Prix de référence en € par kg (ou par litre), par sous-rayon puis par rayon
 const UNIT_PRICES: Record<string, number> = {

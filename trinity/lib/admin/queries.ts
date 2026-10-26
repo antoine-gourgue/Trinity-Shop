@@ -325,8 +325,17 @@ export async function getAdminProducts(params: AdminListParams) {
   };
 }
 
+// Catégories et marques existantes, proposées par le formulaire produit
+export async function getProductFormOptions() {
+  const [categories, brands] = await Promise.all([
+    prisma.category.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
+    prisma.brand.findMany({ select: { name: true }, distinct: ["name"], orderBy: { name: "asc" } }),
+  ]);
+  return { categoryNames: categories.map((c) => c.name), brandNames: brands.map((b) => b.name) };
+}
+
 export async function getAdminProduct(id: string) {
-  const [product, categories, brands, orderedCount] = await Promise.all([
+  const [product, options, orderedCount] = await Promise.all([
     prisma.product.findUnique({
       where: { id },
       include: {
@@ -335,13 +344,10 @@ export async function getAdminProduct(id: string) {
         categories: { select: { categoryName: true } },
       },
     }),
-    prisma.category.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
-    prisma.brand.findMany({ select: { name: true }, distinct: ["name"], orderBy: { name: "asc" } }),
+    getProductFormOptions(),
     prisma.productInCart.count({ where: { productId: id, cart: { orders: { some: {} } } } }),
   ]);
-  return product
-    ? { product, categoryNames: categories.map((c) => c.name), brandNames: brands.map((b) => b.name), orderedCount }
-    : null;
+  return product ? { product, ...options, orderedCount } : null;
 }
 
 // ——— Stocks ———

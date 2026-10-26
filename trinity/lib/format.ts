@@ -14,6 +14,11 @@ export function formatPrice(price: number) {
   return euroFormatter.format(toEuros(price));
 }
 
+// Valeur d'un champ de prix du back-office, saisi en euros avec une virgule (« 2,39 »)
+export function toPriceInput(price: number) {
+  return toEuros(price).toFixed(2).replace(".", ",");
+}
+
 const BRAND_LABELS: Record<string, string> = {
   u: "U",
   "u-saveurs": "U Saveurs",
