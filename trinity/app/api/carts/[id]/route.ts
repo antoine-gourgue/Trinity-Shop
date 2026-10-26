@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from 'next/server';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { canAccessCart } from "@/services/auth/guards";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const isLoggedIn = await isUserLoggedIn()
@@ -14,6 +15,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const {id} = await params;
     if (!id) {
         return NextResponse.json({error: 'Product ID is required'}, {status: 400});
+    }
+    if (!(await canAccessCart(id))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     try {
         const getCartById = await prisma.cart.findUnique({

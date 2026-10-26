@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
+import { canAccessUser } from "@/services/auth/guards";
 
 // Fetch user cart
 export async function GET(request: NextRequest) {
@@ -17,6 +18,9 @@ export async function GET(request: NextRequest) {
 
         if (!userId) {
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+        }
+        if (!(await canAccessUser(userId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Fetch the active (non-archived) cart
@@ -62,6 +66,9 @@ export async function POST(request: NextRequest) {
                 { error: "Invalid user ID, product ID, or quantity" },
                 { status: 400 }
             );
+        }
+        if (!(await canAccessUser(userId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Find the active (non-archived) cart

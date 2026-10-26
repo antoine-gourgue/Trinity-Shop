@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from 'next/server';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { isAdmin } from "@/services/auth/guards";
 import { parseSlotParam, slotToDate } from "@/lib/checkout";
 import { auth } from "@/auth";
 import { orderNumber } from "@/lib/account";
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
             { error: "Unauthorized" },
             { status: 401}
         );
+    }
+
+    if (!(await isAdmin())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     try {

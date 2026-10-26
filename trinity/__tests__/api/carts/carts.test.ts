@@ -28,6 +28,14 @@ jest.mock("@/services/auth/IsUserLoggedIn", () => ({
     isUserLoggedIn: jest.fn(),
 }));
 
+// Contrôles d'accès simulés : autorisés par défaut, chaque test peut les refuser
+jest.mock("@/services/auth/guards", () => ({
+    isAdmin: jest.fn().mockResolvedValue(true),
+    canAccessUser: jest.fn().mockResolvedValue(true),
+    canAccessOrder: jest.fn().mockResolvedValue(true),
+    canAccessCart: jest.fn().mockResolvedValue(true),
+}));
+
 describe("API: /api/carts", () => {
     afterEach(() => {
         jest.clearAllMocks();

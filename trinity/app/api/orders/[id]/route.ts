@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from 'next/server';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { canAccessOrder } from "@/services/auth/guards";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const isLoggedIn = await isUserLoggedIn()
@@ -14,6 +15,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const {id} = await params;
     if (!id) {
         return NextResponse.json({error: 'Product ID is required'}, {status: 400});
+    }
+    if (!(await canAccessOrder(id))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     try {
         const getOrderById = await prisma.order.findUnique({
@@ -63,6 +67,9 @@ export async function DELETE(request: NextRequest) {
 
         if (!orderId) {
             return NextResponse.json({error: "Order ID is required"}, {status: 400});
+        }
+        if (!(await canAccessOrder(orderId))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const order = await prisma.order.findUnique({

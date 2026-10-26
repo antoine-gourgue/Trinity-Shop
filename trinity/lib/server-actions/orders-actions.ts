@@ -4,8 +4,10 @@ import prisma from '@/lib/prisma'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
 import { orderNumber } from '@/lib/account'
 import { formatPickupDate } from '@/lib/checkout'
+import { requireAdmin, requireOrderAccess } from '@/services/auth/guards'
 
 export async function deleteOrder(orderId: string) {
+    await requireAdmin();
     return prisma.order.delete({
         where: { id: orderId },
     });
@@ -13,6 +15,7 @@ export async function deleteOrder(orderId: string) {
 
 
 export async function generateInvoice(orderId: string): Promise<string> {
+    await requireOrderAccess(orderId);
     const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: {
@@ -64,6 +67,7 @@ export async function generateInvoice(orderId: string): Promise<string> {
 }
 
 export async function getOrderById(orderId: string) {
+    await requireOrderAccess(orderId);
     return prisma.order.findUnique({
         where: { id: orderId },
         include: {

@@ -4,6 +4,7 @@ import { createMocks } from "node-mocks-http";
 import { GET, POST } from "@/app/api/orders/route";
 import {IncomingMessage} from "node:http";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { auth } from "@/auth";
 
 jest.mock("@/lib/prisma", () => ({
     order: {
@@ -13,6 +14,9 @@ jest.mock("@/lib/prisma", () => ({
     cart: {
         findUnique: jest.fn(),
         update: jest.fn(),
+    },
+    user: {
+        findUnique: jest.fn(),
     },
     $transaction: jest.fn((callback: any) => callback({
         order: {
@@ -32,6 +36,14 @@ jest.mock("next/server", () => ({
 
 jest.mock("@/services/auth/IsUserLoggedIn", () => ({
     isUserLoggedIn: jest.fn(),
+}));
+
+// Contrôles d'accès simulés : autorisés par défaut, chaque test peut les refuser
+jest.mock("@/services/auth/guards", () => ({
+    isAdmin: jest.fn().mockResolvedValue(true),
+    canAccessUser: jest.fn().mockResolvedValue(true),
+    canAccessOrder: jest.fn().mockResolvedValue(true),
+    canAccessCart: jest.fn().mockResolvedValue(true),
 }));
 
 describe("GET /api/orders", () => {
@@ -100,6 +112,11 @@ describe("GET /api/orders", () => {
 });
 
 describe("POST /api/orders", () => {
+    // Commande passée par le compte connecté « user123 »
+    beforeEach(() => {
+        (auth as jest.Mock).mockResolvedValue({ user: { id: "user123" } });
+    });
+
     afterEach(() => {
         jest.clearAllMocks();
     });
@@ -145,7 +162,7 @@ describe("POST /api/orders", () => {
 
         expect(prisma.cart.findUnique).toHaveBeenCalledWith({
             where: { id: "cart456" },
-            include: { productsInCart: true },
+            include: { productsInCart: { include: { product: { select: { price: true } } } } },
         });
 
         expect(prisma.order.create).toHaveBeenCalledWith({
@@ -153,6 +170,10 @@ describe("POST /api/orders", () => {
                 userId: "user123",
                 cartId: "cart456",
                 billingAddressId: "111111",
+                pickupSlot: null,
+                loyaltyDiscount: 0,
+                loyaltyPointsUsed: 0,
+                loyaltyPointsEarned: 0,
                 validated: true,
             },
         });
@@ -183,9 +204,32 @@ describe("POST /api/orders", () => {
         await POST(req as any);
 
         expect(jsonMock).toHaveBeenCalledWith(
-            { error: "User ID, Cart ID, and Billing Address are required" },
+            { error: "User ID and Cart ID are required" },
             { status: 400 }
         );
+    });
+
+    it("should return 403 when ordering for another account", async () => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (auth as jest.Mock).mockResolvedValue({ user: { id: "someone-else" } });
+
+        const { req } = createMocks({
+            method: "POST",
+            url: "/api/orders",
+        });
+
+        req.json = async () => ({
+            userId: "user123",
+            cartId: "cart456",
+            billingAddressId: "111111",
+        });
+
+        const jsonMock = jest.spyOn(NextResponse, "json");
+
+        await POST(req as any);
+
+        expect(jsonMock).toHaveBeenCalledWith({ error: "Forbidden" }, { status: 403 });
+        expect(prisma.order.create).not.toHaveBeenCalled();
     });
 
     it("should return 404 if cart is not found", async () => {

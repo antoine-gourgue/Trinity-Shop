@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { isAdmin } from "@/services/auth/guards";
 
 export async function GET(request: NextRequest) {
     const isLoggedIn = await isUserLoggedIn()
@@ -27,6 +28,10 @@ export async function POST(request: NextRequest) {
             { error: "Unauthorized" },
             { status: 401}
         );
+    }
+
+    if (!(await isAdmin())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     try {

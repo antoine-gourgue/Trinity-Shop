@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { isAdmin } from "@/services/auth/guards";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const isLoggedIn = await isUserLoggedIn()
@@ -41,6 +42,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         );
     }
 
+    if (!(await isAdmin())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { id } = await params;
     if (!id) {
         return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
@@ -65,6 +70,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             { error: "Unauthorized" },
             { status: 401}
         );
+    }
+
+    if (!(await isAdmin())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;

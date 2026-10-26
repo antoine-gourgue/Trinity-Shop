@@ -7,6 +7,7 @@ import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
 jest.mock('@/lib/prisma', () => ({
     user: {
         findMany: jest.fn(),
+        findUnique: jest.fn(),
         create: jest.fn(),
     },
 }));
@@ -19,6 +20,14 @@ jest.mock('next/server', () => ({
 
 jest.mock('@/services/auth/IsUserLoggedIn', () => ({
     isUserLoggedIn: jest.fn(),
+}));
+
+// Contrôles d'accès simulés : autorisés par défaut, chaque test peut les refuser
+jest.mock("@/services/auth/guards", () => ({
+    isAdmin: jest.fn().mockResolvedValue(true),
+    canAccessUser: jest.fn().mockResolvedValue(true),
+    canAccessOrder: jest.fn().mockResolvedValue(true),
+    canAccessCart: jest.fn().mockResolvedValue(true),
 }));
 
 jest.mock('resend', () => ({

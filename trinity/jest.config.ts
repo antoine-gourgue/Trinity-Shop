@@ -13,6 +13,9 @@ const config: Config = {
   coverageProvider: "v8",
   testEnvironment: "jsdom",
   moduleNameMapper: {
+    // next-auth est un module ES : auth.ts (importé en « @/auth » ou en relatif) et next-auth sont remplacés par des doublures
+    "(^|/)auth$": "<rootDir>/test-utils/auth.mock.ts",
+    "^next-auth$": "<rootDir>/test-utils/next-auth.mock.ts",
     "^@/(.*)$": "<rootDir>/$1",
   },
   coverageReporters: ["html", "text", "text-summary", "cobertura"],

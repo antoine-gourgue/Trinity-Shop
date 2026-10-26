@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { nutriScore } from "@prisma/client";
+import { requireAdmin } from "@/services/auth/guards";
 
 export async function updateProduct(
   productId: string,
@@ -13,6 +14,7 @@ export async function updateProduct(
   brandName: string,
   selectedCategories: string[]
 ) {
+  await requireAdmin();
   const brand = await prisma.brand.findFirst({
     where: { name: brandName },
     select: { id: true },
@@ -106,6 +108,7 @@ export async function getProductCategories(productId: string) {
 }
 
 export async function deleteProduct(productId: string) {
+  await requireAdmin();
   try {
     const product = await prisma.product.findUnique({
       where: { id: productId },

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import createUserRepository from "@/services/auth/createUserRepository";
 import {createUserSchema} from "@/schemas/createUserSchema";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { isAdmin } from "@/services/auth/guards";
 
 export async function GET(request: NextRequest) {
     const isLoggedIn = await isUserLoggedIn()
@@ -11,6 +12,10 @@ export async function GET(request: NextRequest) {
             { error: "Unauthorized" },
             { status: 401}
         );
+    }
+
+    if (!(await isAdmin())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const users = await prisma.user.findMany();

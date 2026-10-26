@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { canAccessUser } from "@/services/auth/guards";
 
 export async function GET(request: NextRequest) {
     const isLoggedIn = await isUserLoggedIn()
@@ -16,6 +17,9 @@ export async function GET(request: NextRequest) {
 
         if (!id) {
             return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+        }
+        if (!(await canAccessUser(id))) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const getOrderByUserId = await prisma.order.findMany({

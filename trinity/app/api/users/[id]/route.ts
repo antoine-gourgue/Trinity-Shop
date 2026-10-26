@@ -1,15 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { canAccessUser } from "@/services/auth/guards";
+import bcrypt from "bcrypt";
+
+// Champs renvoyés par l'API : jamais le mot de passe
+const PUBLIC_USER = {
+    id: true,
+    firstName: true,
+    lastName: true,
+    email: true,
+    phone: true,
+    role: true,
+    birthDate: true,
+    createdAt: true,
+    updatedAt: true,
+} as const;
+
+const FORBIDDEN = { error: "Forbidden" };
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     if (!id) {
         return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
+    if (!(await canAccessUser(id))) {
+        return NextResponse.json(FORBIDDEN, { status: 403 });
+    }
     try {
         const GetUserByID = await prisma.user.findUnique({
             where: { id: String(id) },
+            select: PUBLIC_USER,
         });
         if (!GetUserByID) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -33,11 +54,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!id) {
         return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
+    if (!(await canAccessUser(id))) {
+        return NextResponse.json(FORBIDDEN, { status: 403 });
+    }
     try {
         const DeleteUserByID = await prisma.user.delete({
             where: {
                 id: String(id)
-            }
+            },
+            select: PUBLIC_USER,
         });
         if (!DeleteUserByID) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -62,6 +87,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!id) {
         return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
+    if (!(await canAccessUser(id))) {
+        return NextResponse.json(FORBIDDEN, { status: 403 });
+    }
     try {
         const body = await request.json();
         const { firstName, lastName, email, password } = body;
@@ -77,8 +105,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                 firstName,
                 lastName,
                 email,
-                password,
+                password: await bcrypt.hash(password, 10),
             },
+            select: PUBLIC_USER,
         });
         return NextResponse.json({ data: updatedUser });
     } catch (error) {

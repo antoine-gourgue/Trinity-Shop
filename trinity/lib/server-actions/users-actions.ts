@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma"
 import {Role} from "@prisma/client";
 import bcrypt from "bcrypt";
+import { requireAddressAccess, requireAdmin, requireUserAccess } from "@/services/auth/guards";
 
 interface UpdateUserEmailProps {
     userId: string;
@@ -25,6 +26,7 @@ export async function updateUser(
     phone: string | null,
     role: string
 ) {
+    await requireAdmin();
     return prisma.user.update({
         where: { id: userId },
         data: {
@@ -39,6 +41,7 @@ export async function updateUser(
 
 export async function deleteUser(userId: string) {
     try {
+        await requireUserAccess(userId);
         await prisma.user.delete({
             where: { id: userId },
         });
@@ -55,6 +58,7 @@ export async function getUserById(userId: string) {
     if (!userId) {
         throw new Error("ID utilisateur manquant");
     }
+    await requireUserAccess(userId);
 
     const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -77,6 +81,7 @@ export async function getUserWithAddresses(userId: string) {
     if (!userId) return null;
 
     try {
+        await requireUserAccess(userId);
         return await prisma.user.findUnique({
             where: {id: userId},
             include: {addresses: true},
@@ -89,6 +94,7 @@ export async function getUserWithAddresses(userId: string) {
 
 export async function getUserDetails(userId: string) {
     try {
+        await requireUserAccess(userId);
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: {
@@ -114,6 +120,7 @@ export async function getUserDetails(userId: string) {
 
 
 export async function updateUserEmail({ userId, newEmail }: UpdateUserEmailProps) {
+    await requireUserAccess(userId);
     await prisma.user.update({
         where: { id: userId },
         data: { email: newEmail },
@@ -121,6 +128,7 @@ export async function updateUserEmail({ userId, newEmail }: UpdateUserEmailProps
 }
 
 export async function updateUserPassword(userId: string, currentPassword: string, newPassword: string) {
+    await requireUserAccess(userId);
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { password: true },
@@ -145,29 +153,32 @@ export async function updateUserPassword(userId: string, currentPassword: string
 
 
 export async function createUserAddress(userId: string, data: AddressData) {
+    await requireUserAccess(userId);
+    const { street, city, zipCode, country, type } = data;
     return prisma.address.create({
-        data: {
-            userId,
-            ...data,
-        },
+        data: { userId, street, city, zipCode, country, type },
     });
 }
 
 
 export async function updateUserAddress(addressId: string, data: AddressData) {
+    await requireAddressAccess(addressId);
+    const { street, city, zipCode, country, type } = data;
     return prisma.address.update({
         where: { id: addressId },
-        data,
+        data: { street, city, zipCode, country, type },
     });
 }
 
 export async function deleteUserAddress(addressId: string) {
+    await requireAddressAccess(addressId);
     return prisma.address.delete({
         where: { id: addressId },
     });
 }
 
 export async function setUserPhone(userId: string, newPhone: string) {
+    await requireUserAccess(userId);
     return prisma.user.update({
         where: { id: userId },
         data: { phone: newPhone },
@@ -175,6 +186,7 @@ export async function setUserPhone(userId: string, newPhone: string) {
 }
 
 export async function deleteUserPhone(userId: string) {
+    await requireUserAccess(userId);
     return prisma.user.update({
         where: { id: userId },
         data: { phone: null },
@@ -183,6 +195,7 @@ export async function deleteUserPhone(userId: string) {
 
 export async function getUserOrders(userId: string) {
     try {
+        await requireUserAccess(userId);
         return await prisma.order.findMany({
             where: {userId},
             include: {

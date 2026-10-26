@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GET, DELETE } from "@/app/api/orders/[id]/route";
 import { createMocks } from "node-mocks-http";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { canAccessOrder } from "@/services/auth/guards";
 
 jest.mock("@/lib/prisma", () => ({
     order: {
@@ -26,6 +27,14 @@ jest.mock("next/server", () => ({
 
 jest.mock("@/services/auth/IsUserLoggedIn", () => ({
     isUserLoggedIn: jest.fn(),
+}));
+
+// Contrôles d'accès simulés : autorisés par défaut, chaque test peut les refuser
+jest.mock("@/services/auth/guards", () => ({
+    isAdmin: jest.fn().mockResolvedValue(true),
+    canAccessUser: jest.fn().mockResolvedValue(true),
+    canAccessOrder: jest.fn().mockResolvedValue(true),
+    canAccessCart: jest.fn().mockResolvedValue(true),
 }));
 
 
@@ -171,6 +180,20 @@ describe("DELETE /api/orders/[id]", () => {
             { message: "Order deleted and cart restored successfully" },
             { status: 200 }
         );
+    });
+
+    it("should return 403 when the order belongs to someone else", async () => {
+        (canAccessOrder as jest.Mock).mockResolvedValueOnce(false);
+
+        const { req } = createMocks({ method: "DELETE", url: "/api/orders/order123" });
+        req.nextUrl = new URL("http://localhost/api/orders/order123");
+        const jsonMock = jest.spyOn(NextResponse, "json");
+
+        await DELETE(req as unknown as NextRequest);
+
+        expect(canAccessOrder).toHaveBeenCalledWith("order123");
+        expect(jsonMock).toHaveBeenCalledWith({ error: "Forbidden" }, { status: 403 });
+        expect(prisma.order.delete).not.toHaveBeenCalled();
     });
 
     it("should return 404 if the order does not exist", async () => {
