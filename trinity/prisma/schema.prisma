@@ -80,6 +80,7 @@ model Product {
   price            Int
   regularPrice     Int? // prix barré quand le produit est en promotion
   netContent       String? // contenance OpenFoodFacts, ex. « 540 g »
+  hidden           Boolean              @default(false) // retiré du catalogue (pas de photo officielle) ; la fiche reste accessible depuis les commandes
   description      String
   picture          String
   barCode          BigInt               @unique

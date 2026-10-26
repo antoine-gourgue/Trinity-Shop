@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { findRayonForCategories, rayonCategoryNames, RAYONS } from "@/lib/rayons";
 
 export interface CartItemDetails {
@@ -56,6 +57,7 @@ export async function getCartDetails(productIds: string[]) {
   const suggestions = categoryNames.length
     ? await prisma.product.findMany({
         where: {
+          ...VISIBLE_PRODUCT,
           id: { notIn: productIds },
           categories: { some: { categoryName: { in: categoryNames } } },
         },
@@ -84,7 +86,7 @@ export async function getCartDetails(productIds: string[]) {
 // Quelques promotions à proposer quand le panier est vide
 export async function getPromoSuggestions(limit = 4): Promise<CartSuggestion[]> {
   const products = await prisma.product.findMany({
-    where: { regularPrice: { not: null } },
+    where: { ...VISIBLE_PRODUCT, regularPrice: { not: null } },
     orderBy: [{ regularPrice: "desc" }, { name: "asc" }],
     take: limit,
     select: {

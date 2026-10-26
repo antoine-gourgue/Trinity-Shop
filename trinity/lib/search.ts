@@ -84,7 +84,7 @@ export async function searchProductIds(query: string) {
     SELECT p."id"
     FROM "Product" p
     JOIN "Brand" b ON b."id" = p."brandId"
-    WHERE ${Prisma.join(matches, " AND ")}
+    WHERE p."hidden" = false AND ${Prisma.join(matches, " AND ")}
     ORDER BY (${Prisma.join(scores, " + ")} + ${rayonScore}) DESC, p."name" ASC`;
   return rows.map((row) => row.id);
 }

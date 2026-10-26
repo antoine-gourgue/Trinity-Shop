@@ -2,7 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, CreditCard, Leaf, MapPin, ShoppingBasket, Sparkles, Store } from "lucide-react";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import RayonTiles from "@/components/catalog/rayon-tiles";
 import ProductSection from "@/components/catalog/product-section";
 
@@ -26,9 +28,9 @@ const STEPS = [
   },
 ];
 
-function productsWhere(where: object) {
+function productsWhere(where: Prisma.ProductWhereInput) {
   return prisma.product.findMany({
-    where,
+    where: { AND: [where, VISIBLE_PRODUCT] },
     include: { brand: true },
     orderBy: { name: "asc" },
     take: SECTION_SIZE,
@@ -45,9 +47,9 @@ export default async function HomePage({
   if (legacyQuery) redirect(`/produits?q=${encodeURIComponent(legacyQuery)}`);
 
   const [productCount, bioCount, nutriACount, promos, saveurs, nutriA, bio, matLou] = await Promise.all([
-    prisma.product.count(),
-    prisma.product.count({ where: { brand: { name: "u-bio" } } }),
-    prisma.product.count({ where: { nutriScore: "A" } }),
+    prisma.product.count({ where: VISIBLE_PRODUCT }),
+    prisma.product.count({ where: { ...VISIBLE_PRODUCT, brand: { name: "u-bio" } } }),
+    prisma.product.count({ where: { ...VISIBLE_PRODUCT, nutriScore: "A" } }),
     productsWhere({ regularPrice: { not: null } }),
     productsWhere({ brand: { name: "u-saveurs" } }),
     productsWhere({ nutriScore: "A" }),

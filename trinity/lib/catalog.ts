@@ -9,6 +9,9 @@ import {
   SortValue,
 } from "@/lib/catalog-options";
 
+// Produits proposés à la vente : les produits masqués restent en base pour les commandes passées
+export const VISIBLE_PRODUCT: Prisma.ProductWhereInput = { hidden: false };
+
 const ORDER_BY: Record<SortValue, Prisma.ProductOrderByWithRelationInput[]> = {
   pertinence: [{ name: "asc" }, { id: "asc" }],
   nom: [{ name: "asc" }, { id: "asc" }],
@@ -43,6 +46,7 @@ export async function getProductListing(
   // Identifiants classés par pertinence (recherche texte), utilisés par le tri « pertinence »
   ranking?: string[]
 ): Promise<ProductListing> {
+  base = { AND: [base, VISIBLE_PRODUCT] };
   const priceRange = PRICE_RANGES.find((range) => range.value === params.prix);
 
   const brandFilter: Prisma.ProductWhereInput = params.marques.length

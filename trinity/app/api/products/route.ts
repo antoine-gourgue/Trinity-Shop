@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { NextRequest, NextResponse } from "next/server";
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
 
@@ -11,6 +12,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const products = await prisma.product.findMany({
+      where: VISIBLE_PRODUCT,
       select: {
         id: true,
         name: true,

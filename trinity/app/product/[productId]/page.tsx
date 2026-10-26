@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { ChevronDown, ChevronRight, CreditCard, PackageCheck, Store } from "lucide-react";
 import prisma from "@/lib/prisma";
+import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { getOpenFoodFacts } from "@/lib/server-actions/products-actions";
 import { findRayonForCategories, rayonCategoryNames, rayonHref } from "@/lib/rayons";
 import { discountPercent, formatBrand, formatPrice, isBioBrand } from "@/lib/format";
@@ -53,6 +54,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     getOpenFoodFacts(product.barCode.toString()),
     prisma.product.findMany({
       where: {
+        ...VISIBLE_PRODUCT,
         id: { not: product.id },
         categories: { some: { categoryName: { in: similarCategories } } },
       },

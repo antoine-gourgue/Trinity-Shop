@@ -140,7 +140,8 @@
         ],
         "price": 2990,
         "regularPrice": null,
-        "quantity": "375 g e"
+        "quantity": "375 g e",
+        "hidden": true
     },
     {
         "name": "Pizza chèvre lardons fumés",
@@ -378,7 +379,8 @@
         ],
         "price": 2290,
         "regularPrice": null,
-        "quantity": "1.5 l"
+        "quantity": "1.5 l",
+        "hidden": true
     },
     {
         "name": "Mini gélifiés assortis",
@@ -725,7 +727,8 @@
         ],
         "price": 2090,
         "regularPrice": null,
-        "quantity": "300 g"
+        "quantity": "300 g",
+        "hidden": true
     },
     {
         "name": "4 Galettes De Sarrasin",
@@ -967,7 +970,8 @@
         ],
         "price": 2890,
         "regularPrice": null,
-        "quantity": "200 g"
+        "quantity": "200 g",
+        "hidden": true
     },
     {
         "name": "Yaourts bio au lait de brebis saveur vanille",
@@ -1060,7 +1064,8 @@
         ],
         "price": 1190,
         "regularPrice": null,
-        "quantity": "2 boites de 280 g"
+        "quantity": "2 boites de 280 g",
+        "hidden": true
     },
     {
         "name": "Beurre doux  82% de MG",
@@ -1778,7 +1783,8 @@
         ],
         "price": 2490,
         "regularPrice": null,
-        "quantity": null
+        "quantity": null,
+        "hidden": true
     },
     {
         "name": "Ribs porc marinade barbecue,",
@@ -1814,7 +1820,8 @@
         ],
         "price": 4490,
         "regularPrice": null,
-        "quantity": "277 g"
+        "quantity": "277 g",
+        "hidden": true
     },
     {
         "name": "Tarama Au Saumon Fumé",
@@ -1851,7 +1858,8 @@
         ],
         "price": 1190,
         "regularPrice": null,
-        "quantity": "1 litre"
+        "quantity": "1 litre",
+        "hidden": true
     },
     {
         "name": "Crème dessert au chocolat",
@@ -1934,7 +1942,8 @@
         ],
         "price": 6190,
         "regularPrice": null,
-        "quantity": "360g"
+        "quantity": "360g",
+        "hidden": true
     },
     {
         "name": "Sandwich au pain de mie aux céréales garni de fromage de chèvre, de tomates, de roquette et de courgettes grillées",
@@ -2811,7 +2820,8 @@
         ],
         "price": 4490,
         "regularPrice": null,
-        "quantity": "600 g"
+        "quantity": "600 g",
+        "hidden": true
     },
     {
         "name": "Chips Paysanne",
@@ -2836,7 +2846,8 @@
         ],
         "price": 1990,
         "regularPrice": 2990,
-        "quantity": "300 g (2 * 150 g)"
+        "quantity": "300 g (2 * 150 g)",
+        "hidden": true
     },
     {
         "name": "Fromage nature au lait pasteurisé 5% MG",
@@ -2877,7 +2888,8 @@
         ],
         "price": 490,
         "regularPrice": null,
-        "quantity": "50 cl"
+        "quantity": "50 cl",
+        "hidden": true
     },
     {
         "name": "Pommes de terre à la sarladaise",
@@ -3023,7 +3035,8 @@
         ],
         "price": 490,
         "regularPrice": null,
-        "quantity": "20 cl"
+        "quantity": "20 cl",
+        "hidden": true
     },
     {
         "name": "Riz long arborio",
@@ -3158,7 +3171,8 @@
         ],
         "price": 2490,
         "regularPrice": null,
-        "quantity": "1.5 kf (2x6 pots de 125 g)"
+        "quantity": "1.5 kf (2x6 pots de 125 g)",
+        "hidden": true
     },
     {
         "name": "20 moyens oeufs datés du jour de ponte,",
@@ -3270,7 +3284,8 @@
         ],
         "price": 690,
         "regularPrice": 990,
-        "quantity": "120 g"
+        "quantity": "120 g",
+        "hidden": true
     },
     {
         "name": "Coupelle dessert de fruits pommes, fraise et + pommes, framboise",
@@ -3426,7 +3441,8 @@
         ],
         "price": 1790,
         "regularPrice": null,
-        "quantity": "1 L e"
+        "quantity": "1 L e",
+        "hidden": true
     },
     {
         "name": "Carpaccio huile d'olive citron,",
@@ -3952,7 +3968,8 @@
         ],
         "price": 4090,
         "regularPrice": null,
-        "quantity": "1 Kg"
+        "quantity": "1 Kg",
+        "hidden": true
     },
     {
         "name": "Chips nature",
@@ -4244,7 +4261,8 @@
         ],
         "price": 490,
         "regularPrice": null,
-        "quantity": "1,5 L"
+        "quantity": "1,5 L",
+        "hidden": true
     },
     {
         "name": "Boisson au thé glacé saveur pomme  fraise",
@@ -4311,7 +4329,8 @@
         ],
         "price": 1990,
         "regularPrice": null,
-        "quantity": "1 l soit 5 portions"
+        "quantity": "1 l soit 5 portions",
+        "hidden": true
     },
     {
         "name": "Fruits de chez nous pomme d'Aquitaine",
@@ -5166,7 +5185,8 @@
         ],
         "price": 490,
         "regularPrice": null,
-        "quantity": "50 cl"
+        "quantity": "50 cl",
+        "hidden": true
     },
     {
         "name": "Gâteaux de riz nappés de caramel",
@@ -5225,7 +5245,8 @@
         ],
         "price": 390,
         "regularPrice": null,
-        "quantity": "6 * 20,8 g (125 g)"
+        "quantity": "6 * 20,8 g (125 g)",
+        "hidden": true
     },
     {
         "name": "Boules de céréales au miel",
@@ -5264,7 +5285,8 @@
         ],
         "price": 1590,
         "regularPrice": null,
-        "quantity": "300 g"
+        "quantity": "300 g",
+        "hidden": true
     },
     {
         "name": "Fromage à tartiner nature  5% de MG",
@@ -5408,7 +5430,8 @@
         ],
         "price": 390,
         "regularPrice": null,
-        "quantity": "70g x5 (350g)"
+        "quantity": "70g x5 (350g)",
+        "hidden": true
     },
     {
         "name": "Carottes râpées",
@@ -5560,7 +5583,8 @@
         ],
         "price": 490,
         "regularPrice": null,
-        "quantity": "20 cl"
+        "quantity": "20 cl",
+        "hidden": true
     },
     {
         "name": "Boisson au thé glacé à la pêche",
@@ -5663,7 +5687,8 @@
         ],
         "price": 1990,
         "regularPrice": null,
-        "quantity": "1 l"
+        "quantity": "1 l",
+        "hidden": true
     },
     {
         "name": "Yaourt à la Grecque brassé nature",
@@ -5864,7 +5889,8 @@
         ],
         "price": 990,
         "regularPrice": null,
-        "quantity": "200 g (20 pièces de 10 g)"
+        "quantity": "200 g (20 pièces de 10 g)",
+        "hidden": true
     },
     {
         "name": "Plateau Asiatique 14 Pièces + Sauces",
@@ -5943,7 +5969,8 @@
         ],
         "price": 4290,
         "regularPrice": null,
-        "quantity": "500 g"
+        "quantity": "500 g",
+        "hidden": true
     },
     {
         "name": "Risotto aux Champignons et Petits Légumes",
@@ -5963,7 +5990,8 @@
         ],
         "price": 1990,
         "regularPrice": null,
-        "quantity": "280 g"
+        "quantity": "280 g",
+        "hidden": true
     },
     {
         "name": "Cacahuètes enrobées saveur sweet chili",
@@ -6132,7 +6160,8 @@
         ],
         "price": 12090,
         "regularPrice": null,
-        "quantity": "970 g"
+        "quantity": "970 g",
+        "hidden": true
     },
     {
         "name": "Terrine de Sanglier aux 5 Baies",
@@ -6217,7 +6246,8 @@
         ],
         "price": 2990,
         "regularPrice": null,
-        "quantity": "190 g"
+        "quantity": "190 g",
+        "hidden": true
     },
     {
         "name": "Crème fraiche fluide",
@@ -6236,7 +6266,8 @@
         ],
         "price": 3090,
         "regularPrice": null,
-        "quantity": "50 cl"
+        "quantity": "50 cl",
+        "hidden": true
     },
     {
         "name": "Haricots Verts Extra Fins - Surgelés (+ 50 % Gratuit)",
@@ -6260,7 +6291,8 @@
         ],
         "price": 4190,
         "regularPrice": null,
-        "quantity": "1,5 kg"
+        "quantity": "1,5 kg",
+        "hidden": true
     },
     {
         "name": "Pur jus raisin blanc muscaté",
@@ -6466,7 +6498,8 @@
         ],
         "price": 4290,
         "regularPrice": null,
-        "quantity": "840 g"
+        "quantity": "840 g",
+        "hidden": true
     },
     {
         "name": "Muesli croustillant aux fruits",
@@ -6699,7 +6732,8 @@
         ],
         "price": 7290,
         "regularPrice": null,
-        "quantity": "380 g"
+        "quantity": "380 g",
+        "hidden": true
     },
     {
         "name": "Parmentier de morue à la crème fraîche",
@@ -6764,7 +6798,8 @@
         ],
         "price": 390,
         "regularPrice": null,
-        "quantity": "4 * 125 g (500 g)"
+        "quantity": "4 * 125 g (500 g)",
+        "hidden": true
     },
     {
         "name": "Taboulé à l'orientale",
@@ -6780,7 +6815,8 @@
         ],
         "price": 6490,
         "regularPrice": null,
-        "quantity": "800 g"
+        "quantity": "800 g",
+        "hidden": true
     },
     {
         "name": "Assiette tartinable 3 saveurs houmous tarama tzatziki",
@@ -6923,7 +6959,8 @@
         ],
         "price": 2290,
         "regularPrice": null,
-        "quantity": "300 g (2 * 150 g)"
+        "quantity": "300 g (2 * 150 g)",
+        "hidden": true
     },
     {
         "name": "Chips ondulées saveur chèvre poivre",
@@ -7131,7 +7168,8 @@
         ],
         "price": 5590,
         "regularPrice": null,
-        "quantity": "120 g"
+        "quantity": "120 g",
+        "hidden": true
     },
     {
         "name": "Croc Jambon de Dinde Fromage",
@@ -7153,7 +7191,8 @@
         ],
         "price": 6390,
         "regularPrice": null,
-        "quantity": "800 g e"
+        "quantity": "800 g e",
+        "hidden": true
     },
     {
         "name": "Oeufs moyens, frais, de poules élévées en plein air",
@@ -7277,7 +7316,8 @@
         ],
         "price": 1190,
         "regularPrice": null,
-        "quantity": "100 g"
+        "quantity": "100 g",
+        "hidden": true
     },
     {
         "name": "Chips saveur Wasabi",
@@ -7302,7 +7342,8 @@
         ],
         "price": 1290,
         "regularPrice": null,
-        "quantity": "135 g"
+        "quantity": "135 g",
+        "hidden": true
     },
     {
         "name": "Yaourt brassé nature",
@@ -7361,7 +7402,8 @@
         ],
         "price": 1690,
         "regularPrice": 2290,
-        "quantity": "300 g (1 part)"
+        "quantity": "300 g (1 part)",
+        "hidden": true
     },
     {
         "name": "Cônes menthe chocolat",
@@ -7490,7 +7532,8 @@
         ],
         "price": 1190,
         "regularPrice": null,
-        "quantity": "1 L"
+        "quantity": "1 L",
+        "hidden": true
     },
     {
         "name": "Lait 1/2 écrémé",
@@ -7509,7 +7552,8 @@
         ],
         "price": 4790,
         "regularPrice": 5990,
-        "quantity": "6 L (6 * 1 L)"
+        "quantity": "6 L (6 * 1 L)",
+        "hidden": true
     },
     {
         "name": "Beurre doux",
@@ -7734,7 +7778,8 @@
         ],
         "price": 2190,
         "regularPrice": null,
-        "quantity": "350 g"
+        "quantity": "350 g",
+        "hidden": true
     },
     {
         "name": "Velouté aux 7 légumes variés",
@@ -7815,7 +7860,8 @@
         ],
         "price": 3090,
         "regularPrice": null,
-        "quantity": "200 g (2 x 100 g)"
+        "quantity": "200 g (2 x 100 g)",
+        "hidden": true
     },
     {
         "name": "Mini baguettes",
@@ -7892,7 +7938,8 @@
         ],
         "price": 1890,
         "regularPrice": null,
-        "quantity": "200 g"
+        "quantity": "200 g",
+        "hidden": true
     },
     {
         "name": "Tablette de chocolat noir 74% de cacao d'Equateur",
@@ -7995,7 +8042,8 @@
         ],
         "price": 2590,
         "regularPrice": null,
-        "quantity": null
+        "quantity": null,
+        "hidden": true
     },
     {
         "name": "Olives vertes",
@@ -8021,7 +8069,8 @@
         ],
         "price": 3890,
         "regularPrice": null,
-        "quantity": "600 g / 400 g"
+        "quantity": "600 g / 400 g",
+        "hidden": true
     },
     {
         "name": "Tapenade noire",
@@ -8177,7 +8226,8 @@
         ],
         "price": 3390,
         "regularPrice": 4290,
-        "quantity": "500 g"
+        "quantity": "500 g",
+        "hidden": true
     },
     {
         "name": "Filets maquereaux sauce tomate basilic olives",
@@ -8317,7 +8367,8 @@
         ],
         "price": 3890,
         "regularPrice": null,
-        "quantity": "250 g"
+        "quantity": "250 g",
+        "hidden": true
     },
     {
         "name": "Marrons entiers",
@@ -8339,7 +8390,8 @@
         ],
         "price": 7990,
         "regularPrice": null,
-        "quantity": "800 g soit 561 g égoutté"
+        "quantity": "800 g soit 561 g égoutté",
+        "hidden": true
     },
     {
         "name": "Noix de Cajou",
@@ -8404,7 +8456,8 @@
         ],
         "price": 2290,
         "regularPrice": null,
-        "quantity": "300 g (2 * 150 g)"
+        "quantity": "300 g (2 * 150 g)",
+        "hidden": true
     },
     {
         "name": "Palmiers pur beurre",
@@ -8706,7 +8759,8 @@
         ],
         "price": 2790,
         "regularPrice": null,
-        "quantity": "400 g (4 x 100 g)"
+        "quantity": "400 g (4 x 100 g)",
+        "hidden": true
     },
     {
         "name": "Mayonnaise allégée en matières grasses à la moutarde de Dijon",
@@ -9060,7 +9114,8 @@
         ],
         "price": 1690,
         "regularPrice": null,
-        "quantity": "500 g (4 x 125 g)"
+        "quantity": "500 g (4 x 125 g)",
+        "hidden": true
     },
     {
         "name": "Emmental français au lait pasteurisé rapé 29% de MG",
@@ -9409,7 +9464,8 @@
         ],
         "price": 1390,
         "regularPrice": 1790,
-        "quantity": "1 l"
+        "quantity": "1 l",
+        "hidden": true
     },
     {
         "name": "Boisson aux fruits plate orange",
@@ -9466,7 +9522,8 @@
         ],
         "price": 990,
         "regularPrice": null,
-        "quantity": "1 L"
+        "quantity": "1 L",
+        "hidden": true
     },
     {
         "name": "Falafels",
@@ -9734,7 +9791,8 @@
         ],
         "price": 1390,
         "regularPrice": null,
-        "quantity": "125 g"
+        "quantity": "125 g",
+        "hidden": true
     },
     {
         "name": "Jambon de Bayonne Indication Géographique Protégée",
@@ -9906,7 +9964,8 @@
         ],
         "price": 390,
         "regularPrice": null,
-        "quantity": "50 cl"
+        "quantity": "50 cl",
+        "hidden": true
     },
     {
         "name": "Sauce curry épicée",
@@ -9986,7 +10045,8 @@
         ],
         "price": 2790,
         "regularPrice": null,
-        "quantity": "240 g (3 x 80 g)"
+        "quantity": "240 g (3 x 80 g)",
+        "hidden": true
     },
     {
         "name": "Magret de canard IGP du Sud Ouest séché au poivre",
@@ -10031,7 +10091,8 @@
         ],
         "price": 3090,
         "regularPrice": null,
-        "quantity": "184 g"
+        "quantity": "184 g",
+        "hidden": true
     },
     {
         "name": "Soufflés à base de maïs à la cacahuète",
@@ -10495,7 +10556,8 @@
         ],
         "price": 2790,
         "regularPrice": null,
-        "quantity": "300 g"
+        "quantity": "300 g",
+        "hidden": true
     },
     {
         "name": "Gourdes pomme-pomme poire pomme-banane sans sucre ajouté",
@@ -10713,7 +10775,8 @@
         ],
         "price": 3790,
         "regularPrice": null,
-        "quantity": "350 g"
+        "quantity": "350 g",
+        "hidden": true
     },
     {
         "name": "Lait 1/2 écrémé Stérilisé UHT",
@@ -10732,7 +10795,8 @@
         ],
         "price": 990,
         "regularPrice": null,
-        "quantity": "1 l"
+        "quantity": "1 l",
+        "hidden": true
     },
     {
         "name": "Lait Demi-écrémé stérilisé UHT",
@@ -10752,7 +10816,8 @@
         ],
         "price": 1090,
         "regularPrice": null,
-        "quantity": "1 L"
+        "quantity": "1 L",
+        "hidden": true
     },
     {
         "name": "6 oeufs de plein air calibre mixte,",
@@ -10815,7 +10880,8 @@
         ],
         "price": 1090,
         "regularPrice": null,
-        "quantity": "1l"
+        "quantity": "1l",
+        "hidden": true
     },
     {
         "name": "Jambon sec supérieur,",
@@ -11024,7 +11090,8 @@
         ],
         "price": 3490,
         "regularPrice": null,
-        "quantity": "375 g"
+        "quantity": "375 g",
+        "hidden": true
     },
     {
         "name": "Pâtes de fruits sport+framboise",
@@ -11216,7 +11283,8 @@
         ],
         "price": 1390,
         "regularPrice": 2090,
-        "quantity": "420 g (6 * 70 g)"
+        "quantity": "420 g (6 * 70 g)",
+        "hidden": true
     },
     {
         "name": "Spaghetti Au Blé Complet",
@@ -11330,7 +11398,8 @@
         ],
         "price": 2590,
         "regularPrice": null,
-        "quantity": "800 g"
+        "quantity": "800 g",
+        "hidden": true
     },
     {
         "name": "Saucisses cocktail",
@@ -11436,7 +11505,8 @@
         ],
         "price": 1790,
         "regularPrice": null,
-        "quantity": "1 l"
+        "quantity": "1 l",
+        "hidden": true
     },
     {
         "name": "Crème légère liquide UHT 15%MG",
@@ -11506,7 +11576,8 @@
         ],
         "price": 5090,
         "regularPrice": null,
-        "quantity": "375 g (3 * 125 g)"
+        "quantity": "375 g (3 * 125 g)",
+        "hidden": true
     },
     {
         "name": "Cassoulet au Confit de Canard",
@@ -11597,7 +11668,8 @@
         ],
         "price": 1890,
         "regularPrice": null,
-        "quantity": "600 g"
+        "quantity": "600 g",
+        "hidden": true
     },
     {
         "name": "Mousse canard au porto qualité supérieure",
@@ -11713,7 +11785,8 @@
         ],
         "price": 1990,
         "regularPrice": null,
-        "quantity": "1.5 l"
+        "quantity": "1.5 l",
+        "hidden": true
     },
     {
         "name": "Jus à base de concentré d'orange",
@@ -11955,7 +12028,8 @@
         ],
         "price": 2690,
         "regularPrice": null,
-        "quantity": "300 g"
+        "quantity": "300 g",
+        "hidden": true
     },
     {
         "name": "Haricots verts extra fins",
@@ -12374,7 +12448,8 @@
         ],
         "price": 3090,
         "regularPrice": 4690,
-        "quantity": "400 g (2 * 200 g)"
+        "quantity": "400 g (2 * 200 g)",
+        "hidden": true
     },
     {
         "name": "Muesli granola fruits jaunes",
@@ -12442,7 +12517,8 @@
         ],
         "price": 2090,
         "regularPrice": null,
-        "quantity": "120 g"
+        "quantity": "120 g",
+        "hidden": true
     },
     {
         "name": "Chocoh ! Lat",
@@ -12459,7 +12535,8 @@
         ],
         "price": 2890,
         "regularPrice": null,
-        "quantity": "200 g"
+        "quantity": "200 g",
+        "hidden": true
     },
     {
         "name": "Jus de carottes",
@@ -12648,7 +12725,8 @@
         ],
         "price": 4390,
         "regularPrice": null,
-        "quantity": "250 g"
+        "quantity": "250 g",
+        "hidden": true
     },
     {
         "name": "Crème aux oeufs frais à la vanille",
@@ -12713,7 +12791,8 @@
         ],
         "price": 4390,
         "regularPrice": null,
-        "quantity": "500 g (3/4 personnes)"
+        "quantity": "500 g (3/4 personnes)",
+        "hidden": true
     },
     {
         "name": "Poêlée champêtre aux légumes, pommes de terre et champignons de Paris",
@@ -12751,7 +12830,8 @@
         ],
         "price": 3390,
         "regularPrice": 4290,
-        "quantity": "200 g"
+        "quantity": "200 g",
+        "hidden": true
     },
     {
         "name": "Coulommiers au lait pasteurisé 23%MG",
@@ -12841,7 +12921,8 @@
         ],
         "price": 1590,
         "regularPrice": null,
-        "quantity": "170 g"
+        "quantity": "170 g",
+        "hidden": true
     },
     {
         "name": "Oeufs plein air calibre mixte",
@@ -12962,7 +13043,8 @@
         ],
         "price": 1990,
         "regularPrice": null,
-        "quantity": "1 l"
+        "quantity": "1 l",
+        "hidden": true
     },
     {
         "name": "Spécialité laitière maigre à la passion sucré aromatisé",
@@ -13062,7 +13144,8 @@
         ],
         "price": 2490,
         "regularPrice": null,
-        "quantity": "140 g"
+        "quantity": "140 g",
+        "hidden": true
     },
     {
         "name": "Jambon Supérieur avec couenne 2 tranches",
@@ -13081,7 +13164,8 @@
         ],
         "price": 2090,
         "regularPrice": null,
-        "quantity": "121 g"
+        "quantity": "121 g",
+        "hidden": true
     },
     {
         "name": "Jambon supérieur avec couenne",
@@ -13099,7 +13183,8 @@
         ],
         "price": 1790,
         "regularPrice": null,
-        "quantity": "126 g en 2 tranches"
+        "quantity": "126 g en 2 tranches",
+        "hidden": true
     },
     {
         "name": "Coffret snacks et sauce ketchup",
@@ -13343,7 +13428,8 @@
         ],
         "price": 1990,
         "regularPrice": null,
-        "quantity": "500 g"
+        "quantity": "500 g",
+        "hidden": true
     },
     {
         "name": "Pizza au jambon et aux champignons",
@@ -13556,7 +13642,8 @@
         ],
         "price": 5090,
         "regularPrice": 6790,
-        "quantity": "1,6 kg (16 * 100 g)"
+        "quantity": "1,6 kg (16 * 100 g)",
+        "hidden": true
     },
     {
         "name": "Fromage blanc fondu au lait pasteurisé  30% de MG",
@@ -13922,7 +14009,8 @@
         ],
         "price": 4990,
         "regularPrice": null,
-        "quantity": "280 g"
+        "quantity": "280 g",
+        "hidden": true
     },
     {
         "name": "Mini nems au poulet créole",
@@ -14385,7 +14473,8 @@
         ],
         "price": 390,
         "regularPrice": null,
-        "quantity": "1.25 l"
+        "quantity": "1.25 l",
+        "hidden": true
     },
     {
         "name": "Beurre tendre doux 82% de MG",
@@ -14807,7 +14896,8 @@
         ],
         "price": 1590,
         "regularPrice": null,
-        "quantity": "200 g"
+        "quantity": "200 g",
+        "hidden": true
     },
     {
         "name": "Bonbons au miel d'oranger",
@@ -15187,7 +15277,8 @@
         ],
         "price": 3090,
         "regularPrice": null,
-        "quantity": "200 g (2 x 100 g)"
+        "quantity": "200 g (2 x 100 g)",
+        "hidden": true
     },
     {
         "name": "Pétales de riz et de blé orge chocolat noir",
@@ -15521,7 +15612,8 @@
         ],
         "price": 4790,
         "regularPrice": null,
-        "quantity": "1.5 kg"
+        "quantity": "1.5 kg",
+        "hidden": true
     },
     {
         "name": "Mini nem au porc x10 + sauce nuoc mam,",
@@ -15708,7 +15800,8 @@
         ],
         "price": 2090,
         "regularPrice": null,
-        "quantity": "200 g"
+        "quantity": "200 g",
+        "hidden": true
     },
     {
         "name": "Confiture extra pêches de vigne Vallée du Rhone",
@@ -15872,7 +15965,8 @@
         ],
         "price": 1290,
         "regularPrice": null,
-        "quantity": "250 g"
+        "quantity": "250 g",
+        "hidden": true
     },
     {
         "name": "Terrine de campagne supérieure",
@@ -15939,7 +16033,8 @@
         ],
         "price": 4390,
         "regularPrice": null,
-        "quantity": "540 g (6 pièces)"
+        "quantity": "540 g (6 pièces)",
+        "hidden": true
     },
     {
         "name": "Yaourts au lait entier sucrés aux fruits rouges",
@@ -16187,7 +16282,8 @@
         ],
         "price": 2590,
         "regularPrice": null,
-        "quantity": "125 g"
+        "quantity": "125 g",
+        "hidden": true
     },
     {
         "name": "Petits pois très fins à l'étuvée",
@@ -16278,7 +16374,8 @@
         ],
         "price": 490,
         "regularPrice": null,
-        "quantity": "1.25 l"
+        "quantity": "1.25 l",
+        "hidden": true
     },
     {
         "name": "Mini Gratin de Pommes de Terre aux Cèpes",
@@ -16320,7 +16417,8 @@
         ],
         "price": 2490,
         "regularPrice": 3090,
-        "quantity": "900 g"
+        "quantity": "900 g",
+        "hidden": true
     },
     {
         "name": "Préparation surgelée à base de 80% de viande hachée de boeuf avec desprotéines végétales",
@@ -16493,7 +16591,8 @@
         ],
         "price": 4590,
         "regularPrice": null,
-        "quantity": "600 g"
+        "quantity": "600 g",
+        "hidden": true
     },
     {
         "name": "Wrap poulet rôti caesar",
@@ -16683,7 +16782,8 @@
         ],
         "price": 4290,
         "regularPrice": null,
-        "quantity": "283 g"
+        "quantity": "283 g",
+        "hidden": true
     },
     {
         "name": "Brochette d'abats de boeuf,",
@@ -17170,7 +17270,8 @@
         ],
         "price": 390,
         "regularPrice": null,
-        "quantity": "50 cl"
+        "quantity": "50 cl",
+        "hidden": true
     },
     {
         "name": "Mélange Gourmand (Frisée, mâche, chicorée rouge) 3/4 portions",
@@ -17601,7 +17702,8 @@
         ],
         "price": 3890,
         "regularPrice": null,
-        "quantity": "2 L"
+        "quantity": "2 L",
+        "hidden": true
     },
     {
         "name": "Boisson au thé glacé pêche",
@@ -18201,7 +18303,8 @@
         ],
         "price": 390,
         "regularPrice": null,
-        "quantity": "20 cl"
+        "quantity": "20 cl",
+        "hidden": true
     },
     {
         "name": "Dos de Cabillaud Assaisonnés,",
@@ -18366,7 +18469,8 @@
         ],
         "price": 2090,
         "regularPrice": null,
-        "quantity": "180 g"
+        "quantity": "180 g",
+        "hidden": true
     },
     {
         "name": "Jambon cuit supérieur avec couenne",
@@ -18467,7 +18571,8 @@
         ],
         "price": 3890,
         "regularPrice": null,
-        "quantity": "400 g"
+        "quantity": "400 g",
+        "hidden": true
     },
     {
         "name": "Filet de limande du Nord meunière,",
@@ -18658,7 +18763,8 @@
         ],
         "price": 1090,
         "regularPrice": null,
-        "quantity": "150 g"
+        "quantity": "150 g",
+        "hidden": true
     },
     {
         "name": "Boisson à base d'eau gazeuse extra pétillant saveur citron zéro sucre",
@@ -19071,7 +19177,8 @@
         ],
         "price": 3190,
         "regularPrice": null,
-        "quantity": "50 cl"
+        "quantity": "50 cl",
+        "hidden": true
     },
     {
         "name": "Petit Craquant",
@@ -19090,7 +19197,8 @@
         ],
         "price": 1090,
         "regularPrice": null,
-        "quantity": "150 g"
+        "quantity": "150 g",
+        "hidden": true
     },
     {
         "name": "Riz long étuvé Bio",
@@ -19214,7 +19322,8 @@
         ],
         "price": 2390,
         "regularPrice": null,
-        "quantity": "300 g"
+        "quantity": "300 g",
+        "hidden": true
     },
     {
         "name": "Paniers Feuilletés Noix de St-Jacques*, Surgelés",
@@ -19238,7 +19347,8 @@
         ],
         "price": 4590,
         "regularPrice": null,
-        "quantity": "600 g (6 x 100 g)"
+        "quantity": "600 g (6 x 100 g)",
+        "hidden": true
     },
     {
         "name": "Confiture Fruits Exotiques",
@@ -19266,7 +19376,8 @@
         ],
         "price": 1490,
         "regularPrice": 2090,
-        "quantity": "330 g"
+        "quantity": "330 g",
+        "hidden": true
     },
     {
         "name": "Goûters fourrés aux fruits rouges",
@@ -19499,7 +19610,8 @@
         ],
         "price": 1290,
         "regularPrice": null,
-        "quantity": "120 g"
+        "quantity": "120 g",
+        "hidden": true
     },
     {
         "name": "Jambon de Bayonne 12 mois",
@@ -19598,7 +19710,8 @@
         ],
         "price": 2090,
         "regularPrice": null,
-        "quantity": null
+        "quantity": null,
+        "hidden": true
     },
     {
         "name": "Boudin Noir aux oignons",
@@ -19714,7 +19827,8 @@
         ],
         "price": 2690,
         "regularPrice": null,
-        "quantity": "300 g"
+        "quantity": "300 g",
+        "hidden": true
     },
     {
         "name": "Nougat de Montélimar saveurs",
@@ -19826,7 +19940,8 @@
         ],
         "price": 4090,
         "regularPrice": null,
-        "quantity": "200 g (140 g net égoutté)"
+        "quantity": "200 g (140 g net égoutté)",
+        "hidden": true
     },
     {
         "name": "Yaourt nature",
@@ -19979,7 +20094,8 @@
         ],
         "price": 1690,
         "regularPrice": null,
-        "quantity": "280 g"
+        "quantity": "280 g",
+        "hidden": true
     },
     {
         "name": "Mortadelle Italienne",
