@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Download, Loader2 } from "lucide-react";
-import { generateInvoice } from "@/lib/server-actions/orders-actions";
+import { downloadInvoice as download } from "@/lib/download-invoice";
 
 interface InvoiceDownloadButtonProps {
     orderId: string;
@@ -16,19 +16,7 @@ export default function InvoiceDownloadButton({ orderId }: InvoiceDownloadButton
         setLoading(true);
         setError(false);
         try {
-            const pdfBase64 = await generateInvoice(orderId);
-            const pdfBlob = new Blob([Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))], {
-                type: "application/pdf",
-            });
-
-            const url = URL.createObjectURL(pdfBlob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `Facture_Commande_${orderId}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            await download(orderId);
         } catch (err) {
             console.error("Erreur lors du téléchargement de la facture :", err);
             setError(true);

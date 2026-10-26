@@ -1,9 +1,8 @@
 'use server'
 
 import prisma from "@/lib/prisma"
-import {Role} from "@prisma/client";
 import bcrypt from "bcrypt";
-import { requireAddressAccess, requireAdmin, requireUserAccess } from "@/services/auth/guards";
+import { requireAddressAccess, requireUserAccess } from "@/services/auth/guards";
 
 interface UpdateUserEmailProps {
     userId: string;
@@ -16,27 +15,6 @@ interface AddressData {
     zipCode: string;
     country: string;
     type: "domicile" | "livraison";
-}
-
-export async function updateUser(
-    userId: string,
-    firstName: string,
-    lastName: string,
-    email: string,
-    phone: string | null,
-    role: string
-) {
-    await requireAdmin();
-    return prisma.user.update({
-        where: { id: userId },
-        data: {
-            firstName,
-            lastName,
-            email,
-            phone,
-            role: role as Role,
-        },
-    });
 }
 
 export async function deleteUser(userId: string) {

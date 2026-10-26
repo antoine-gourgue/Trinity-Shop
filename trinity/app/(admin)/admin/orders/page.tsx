@@ -1,72 +1,97 @@
-import { columns, Order } from "./columns";
-import { DataTable } from "./data-table";
-import OrdersCharts from "@/components/charts/OrdersCharts";
-import prisma from "@/lib/prisma";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Eye, ShoppingBag } from "lucide-react";
+import { ORDER_FILTERS, articleCount, getAdminOrders, orderTotal, parseAdminParams } from "@/lib/admin/queries";
+import { orderNumber } from "@/lib/account";
+import { formatPrice } from "@/lib/format";
+import { AdminPageHeader, AdminPagination, AdminTable, EmptyState, Panel, Td, Th, adminHref, formatDate } from "@/components/admin/admin-ui";
+import { AdminFilterTabs, AdminSearch } from "@/components/admin/admin-toolbar";
+import { OrderNumber, PickupBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
+import { CancelOrderButton, InvoiceButton } from "@/components/admin/order-actions";
 
-async function getOrdersData(): Promise<Order[]> {
-    try {
-        const orders = await prisma.order.findMany({
-            select: {
-                id: true,
-                cartId: true,
-                userId: true,
-                billingAddress: {
-                    select: {
-                        street: true,
-                        city: true,
-                        zipCode: true,
-                        country: true,
-                    },
-                },
-                validated: true,
-                createdAt: true,
-                updatedAt: true,
-                user: {
-                    select: {
-                        email: true,
-                    },
-                },
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Commandes" };
 
-        return orders.map((order) => ({
-            id: order.id,
-            cartId: order.cartId,
-            userId: order.userId,
-            billingAddress: order.billingAddress
-                ? `${order.billingAddress.street}, ${order.billingAddress.zipCode} ${order.billingAddress.city}, ${order.billingAddress.country}`
-                : null,
-            validated: order.validated,
-            createdAt: new Date(order.createdAt).toISOString(),
-            updatedAt: new Intl.DateTimeFormat('fr-FR', {
-                year: 'numeric',
-                month: 'long',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-            }).format(new Date(order.updatedAt)),
-            email: order.user.email,
-        }));
-    } catch (error) {
-        console.error(error);
-        return [];
-    }
-}
+export default async function AdminOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = parseAdminParams(await searchParams);
+  const { orders, total, page, pageCount, counts } = await getAdminOrders(params);
+  const href = (p: number) => adminHref("/admin/orders", { q: params.q, filtre: params.filter, page: p });
 
+  return (
+    <div>
+      <AdminPageHeader title="Commandes" description="Commandes passées sur le drive, du plus récent au plus ancien." />
 
-export default async function OrdersPage() {
-    const orders = await getOrdersData();
+      <div className="mb-4 flex flex-col gap-3">
+        <AdminSearch placeholder="N° de commande, nom ou e-mail du client" />
+        <AdminFilterTabs filters={ORDER_FILTERS} active={params.filter} counts={counts} />
+      </div>
 
-    return (
-        <div className="container mx-auto py-10">
-            <OrdersCharts orders={orders} />
-
-            <div className="mt-8">
-                <DataTable columns={columns} data={orders} />
-            </div>
-        </div>
-    );
+      <Panel padded={false}>
+        {orders.length ? (
+          <>
+            <AdminTable>
+              <thead>
+                <tr>
+                  <Th>Commande</Th>
+                  <Th>Client</Th>
+                  <Th>Retrait au drive</Th>
+                  <Th className="text-right">Articles</Th>
+                  <Th className="text-right">Total</Th>
+                  <Th>Statut</Th>
+                  <Th className="text-right">Actions</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id} className="transition-colors hover:bg-muted/30">
+                    <Td>
+                      <Link href={`/admin/orders/${order.id}`} className="hover:text-primary hover:underline">
+                        <OrderNumber id={order.id} />
+                      </Link>
+                      <span className="block text-xs text-muted-foreground">{formatDate(order.createdAt, true)}</span>
+                    </Td>
+                    <Td>
+                      <span className="block font-semibold">{customerName(order.user)}</span>
+                      <span className="block text-xs text-muted-foreground">{order.user.email}</span>
+                    </Td>
+                    <Td className="whitespace-nowrap">{pickupLabel(order.pickupSlot)}</Td>
+                    <Td className="text-right tabular-nums">{articleCount(order)}</Td>
+                    <Td className="text-right font-black tabular-nums">{formatPrice(orderTotal(order))}</Td>
+                    <Td>
+                      <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} />
+                    </Td>
+                    <Td>
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          href={`/admin/orders/${order.id}`}
+                          aria-label={`Voir la commande ${orderNumber(order.id)}`}
+                          title="Voir le détail"
+                          className="flex h-9 w-9 items-center justify-center rounded-full border bg-white text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                        >
+                          <Eye size={16} aria-hidden />
+                        </Link>
+                        <InvoiceButton orderId={order.id} />
+                        <CancelOrderButton orderId={order.id} number={orderNumber(order.id)} />
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </AdminTable>
+            <AdminPagination page={page} pageCount={pageCount} total={total} href={href} unit={["commande", "commandes"]} />
+          </>
+        ) : (
+          <EmptyState
+            icon={ShoppingBag}
+            title={params.q ? `Aucune commande pour « ${params.q} »` : "Aucune commande"}
+            text="Les commandes validées par les clients apparaîtront ici."
+          />
+        )}
+      </Panel>
+    </div>
+  );
 }

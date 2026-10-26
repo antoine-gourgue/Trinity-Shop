@@ -4,14 +4,7 @@ import prisma from '@/lib/prisma'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
 import { orderNumber } from '@/lib/account'
 import { formatPickupDate } from '@/lib/checkout'
-import { requireAdmin, requireOrderAccess } from '@/services/auth/guards'
-
-export async function deleteOrder(orderId: string) {
-    await requireAdmin();
-    return prisma.order.delete({
-        where: { id: orderId },
-    });
-}
+import { requireOrderAccess } from '@/services/auth/guards'
 
 
 export async function generateInvoice(orderId: string): Promise<string> {
