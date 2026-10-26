@@ -13,6 +13,9 @@ const FULFILLMENT_KEY = "trinity:fulfillment";
 const OPENING_HOURS = [9, 10, 11, 12, 14, 15, 16, 17, 18, 19];
 const DAYS_AHEAD = 6;
 
+// Commandes préparées au plus par créneau d'une heure (retrait et livraison confondus)
+export const SLOT_CAPACITY = 8;
+
 function toIsoDate(date: Date) {
   const offset = date.getTimezoneOffset() * 60000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);

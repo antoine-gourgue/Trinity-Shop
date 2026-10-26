@@ -6,9 +6,10 @@ import { getAdminOrder, orderTotal } from "@/lib/admin/queries";
 import { orderNumber } from "@/lib/account";
 import { formatBrand, formatPrice } from "@/lib/format";
 import { orderDeliveryFee } from "@/lib/delivery";
-import { AdminPageHeader, Panel, formatDate } from "@/components/admin/admin-ui";
-import { PickupBadge, ProductThumb, customerName, pickupLabel } from "@/components/admin/admin-bits";
-import { CancelOrderButton, InvoiceButton } from "@/components/admin/order-actions";
+import { AdminPageHeader, Badge, Panel, formatDate } from "@/components/admin/admin-ui";
+import { OrderStatusBadge, ProductThumb, customerName, pickupLabel } from "@/components/admin/admin-bits";
+import { AdvanceOrderButton, CancelOrderButton, DeleteOrderButton, InvoiceButton } from "@/components/admin/order-actions";
+import { canCancelOrder, nextOrderStatus, orderStatusLabel } from "@/lib/order-status";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function AdminOrderPage({ params }: Props) {
   const articles = items.reduce((acc, item) => acc + item.quantity, 0);
   const shipping = order.shippingAddress;
   const fee = orderDeliveryFee(order, subtotal);
+  const next = nextOrderStatus(order.status);
 
   return (
     <div>
@@ -37,13 +39,15 @@ export default async function AdminOrderPage({ params }: Props) {
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
             Passée le {formatDate(order.createdAt, true)}
-            <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} delivery={!!shipping} />
+            <OrderStatusBadge status={order.status} delivery={!!shipping} />
           </span>
         }
         actions={
           <>
+            {next && <AdvanceOrderButton orderId={order.id} nextLabel={orderStatusLabel(next, !!shipping)} />}
             <InvoiceButton orderId={order.id} label />
-            <CancelOrderButton orderId={order.id} number={number} label redirectTo="/admin/orders" />
+            {canCancelOrder(order.status) && <CancelOrderButton orderId={order.id} number={number} label />}
+            {order.status === "cancelled" && <DeleteOrderButton orderId={order.id} number={number} label redirectTo="/admin/orders" />}
           </>
         }
       />
@@ -61,6 +65,13 @@ export default async function AdminOrderPage({ params }: Props) {
                   <p className="text-xs text-muted-foreground">
                     {formatBrand(item.product.brand.name)}
                     {item.product.netContent && ` · ${item.product.netContent}`} · {item.product.barCode.toString()}
+                  </p>
+                  <p className="mt-1">
+                    {item.allowSubstitute ? (
+                      <Badge tone="success">Remplacement accepté</Badge>
+                    ) : (
+                      <Badge tone="warning">Pas de remplacement</Badge>
+                    )}
                   </p>
                 </div>
                 <p className="shrink-0 text-right text-sm">

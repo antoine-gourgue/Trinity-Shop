@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarClock, ChevronRight, Truck } from "lucide-react";
 import ProductImage from "@/components/product/product-image";
+import type { OrderStatus as OrderStatusValue } from "@prisma/client";
 import OrderStatus from "@/components/account/order-status";
 import { formatPrice } from "@/lib/format";
 import { orderNumber } from "@/lib/account";
@@ -12,7 +13,7 @@ interface OrderCardProps {
   order: {
     id: string;
     createdAt: Date;
-    validated: boolean;
+    status: OrderStatusValue;
     pickupSlot?: Date | null;
     loyaltyDiscount?: number;
     shippingAddressId?: string | null;
@@ -58,7 +59,7 @@ export default function OrderCard({ href, order }: OrderCardProps) {
             </p>
           )}
         </div>
-        <OrderStatus validated={order.validated} />
+        <OrderStatus status={order.status} delivery={delivery} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">

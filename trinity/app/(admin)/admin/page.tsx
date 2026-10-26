@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowRight, CreditCard, Euro, Package, ShoppingBag, Shop
 import { getDashboard, LOW_STOCK, orderTotal } from "@/lib/admin/queries";
 import { formatPrice } from "@/lib/format";
 import { AdminPageHeader, EmptyState, Panel, StatCard, formatDate } from "@/components/admin/admin-ui";
-import { OrderNumber, PickupBadge, ProductThumb, StockBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
+import { OrderNumber, OrderStatusBadge, ProductThumb, StockBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
 import { RevenueChart, SignupsChart } from "@/components/admin/dashboard-charts";
 
 export const dynamic = "force-dynamic";
@@ -104,7 +104,7 @@ export default async function AdminDashboardPage() {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
                         <OrderNumber id={order.id} />
-                        <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} delivery={!!order.shippingAddressId} />
+                        <OrderStatusBadge status={order.status} delivery={!!order.shippingAddressId} />
                       </span>
                       <span className="mt-0.5 block truncate text-sm text-muted-foreground">
                         {customerName(order.user)} · {order.shippingAddressId ? "livraison" : "drive"} ·{" "}

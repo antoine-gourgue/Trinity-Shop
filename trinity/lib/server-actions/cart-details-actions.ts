@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { auth } from "@/auth";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { findRayonForCategories, rayonCategoryNames, RAYONS } from "@/lib/rayons";
 
@@ -9,6 +10,10 @@ export interface CartItemDetails {
   netContent: string | null;
   regularPrice: number | null;
   rayonSlug: string | null;
+  // Quantité disponible en stock (0 si le produit n'a pas de stock)
+  stock: number;
+  // Produit équivalent accepté en cas de rupture à la préparation
+  allowSubstitute: boolean;
 }
 
 export interface CartSuggestion {
@@ -37,8 +42,19 @@ export async function getCartDetails(productIds: string[]) {
       netContent: true,
       brand: { select: { name: true } },
       categories: { select: { categoryName: true } },
+      stock: { select: { quantity: true } },
     },
   });
+
+  // Préférences de remplacement des articles du panier actif du client
+  const session = await auth();
+  const items = session?.user?.id
+    ? await prisma.productInCart.findMany({
+        where: { productId: { in: productIds }, cart: { userId: session.user.id, archived: false } },
+        select: { productId: true, allowSubstitute: true },
+      })
+    : [];
+  const substitutes = new Map(items.map((item) => [item.productId, item.allowSubstitute]));
 
   const details: Record<string, CartItemDetails> = {};
   const rayonSlugs = new Set<string>();
@@ -50,6 +66,8 @@ export async function getCartDetails(productIds: string[]) {
       netContent: product.netContent,
       regularPrice: product.regularPrice,
       rayonSlug: match?.rayon.slug ?? null,
+      stock: product.stock?.quantity ?? 0,
+      allowSubstitute: substitutes.get(product.id) ?? true,
     };
   }
 

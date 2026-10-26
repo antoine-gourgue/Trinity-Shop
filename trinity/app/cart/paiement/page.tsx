@@ -22,6 +22,22 @@ import { z } from "zod";
 // Réponse de POST /api/orders : seul l'identifiant de la commande sert à la redirection
 const createdOrderSchema = z.object({ data: z.object({ id: z.string() }) });
 
+// Refus de la commande : créneau devenu complet ou articles en rupture
+const orderErrorSchema = z.object({ error: z.string(), products: z.array(z.string()).optional() });
+
+function orderErrorMessage(body: unknown) {
+    const parsed = orderErrorSchema.safeParse(body);
+    if (!parsed.success) return "La commande n'a pas pu être créée. Réessayez.";
+    if (parsed.data.error === "Pickup slot full") {
+        return "Ce créneau vient d'être complet : revenez à l'étape précédente pour en choisir un autre.";
+    }
+    if (parsed.data.error === "Out of stock") {
+        const names = parsed.data.products ?? [];
+        return `Stock insuffisant pour : ${names.join(", ")}. Modifiez ces articles dans votre panier.`;
+    }
+    return "La commande n'a pas pu être créée. Réessayez.";
+}
+
 const PAYMENT_METHODS = ["CB", "Visa", "Mastercard"];
 
 function PaiementContent() {
@@ -98,8 +114,8 @@ function PaiementContent() {
             });
 
             if (!response.ok) {
-                console.error("Erreur lors de la création de la commande", await response.json());
-                setPaymentError("La commande n'a pas pu être créée. Réessayez.");
+                const body: unknown = await response.json().catch(() => null);
+                setPaymentError(orderErrorMessage(body));
                 return;
             }
 

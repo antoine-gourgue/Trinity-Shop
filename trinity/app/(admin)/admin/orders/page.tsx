@@ -6,8 +6,9 @@ import { orderNumber } from "@/lib/account";
 import { formatPrice } from "@/lib/format";
 import { AdminPageHeader, AdminPagination, AdminTable, EmptyState, Panel, Td, Th, adminHref, formatDate } from "@/components/admin/admin-ui";
 import { AdminFilterTabs, AdminSearch } from "@/components/admin/admin-toolbar";
-import { OrderNumber, PickupBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
-import { CancelOrderButton, InvoiceButton } from "@/components/admin/order-actions";
+import { OrderNumber, OrderStatusBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
+import { CancelOrderButton, DeleteOrderButton, InvoiceButton } from "@/components/admin/order-actions";
+import { canCancelOrder } from "@/lib/order-status";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Commandes" };
@@ -68,7 +69,7 @@ export default async function AdminOrdersPage({
                     <Td className="text-right tabular-nums">{articleCount(order)}</Td>
                     <Td className="text-right font-black tabular-nums">{formatPrice(orderTotal(order))}</Td>
                     <Td>
-                      <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} delivery={!!order.shippingAddressId} />
+                      <OrderStatusBadge status={order.status} delivery={!!order.shippingAddressId} />
                     </Td>
                     <Td>
                       <div className="flex justify-end gap-2">
@@ -81,7 +82,8 @@ export default async function AdminOrdersPage({
                           <Eye size={16} aria-hidden />
                         </Link>
                         <InvoiceButton orderId={order.id} />
-                        <CancelOrderButton orderId={order.id} number={orderNumber(order.id)} />
+                        {canCancelOrder(order.status) && <CancelOrderButton orderId={order.id} number={orderNumber(order.id)} />}
+                        {order.status === "cancelled" && <DeleteOrderButton orderId={order.id} number={orderNumber(order.id)} />}
                       </div>
                     </Td>
                   </tr>

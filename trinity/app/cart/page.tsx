@@ -29,6 +29,7 @@ import { useCartSummary } from "@/components/cart/use-cart-summary";
 import { useLoyalty } from "@/components/cart/use-loyalty";
 import { pointsForAmount } from "@/lib/loyalty";
 import { Button } from "@/components/ui/button";
+import SubstituteToggle from "@/components/cart/substitute-toggle";
 
 const OTHER_GROUP = { slug: "autres", name: "Autres produits", image: null as string | null };
 
@@ -101,15 +102,26 @@ export default function CartPage() {
         );
     }
 
-    const validateButton = (className?: string) => (
-        <Link
-            href="/cart/retrait"
-            className={`flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 font-bold text-primary-foreground transition-colors hover:bg-brand-dark ${className ?? ""}`}
-        >
-            Valider mon panier
-            <ArrowRight size={18} aria-hidden />
-        </Link>
-    );
+    // Articles dont la quantité dépasse le stock : la commande serait refusée au paiement
+    const shortItems = cartProducts.filter((p) => details[p.id] && p.quantity > details[p.id].stock);
+
+    const validateButton = (className?: string) =>
+        shortItems.length > 0 ? (
+            <span
+                aria-disabled="true"
+                className={`flex h-12 cursor-not-allowed items-center justify-center rounded-full bg-muted px-6 text-center text-sm font-bold text-muted-foreground ${className ?? ""}`}
+            >
+                Ajustez les articles en rupture pour continuer
+            </span>
+        ) : (
+            <Link
+                href="/cart/retrait"
+                className={`flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 font-bold text-primary-foreground transition-colors hover:bg-brand-dark ${className ?? ""}`}
+            >
+                Valider mon panier
+                <ArrowRight size={18} aria-hidden />
+            </Link>
+        );
 
     return (
         <div className="mx-auto w-full max-w-[1400px] px-4 py-6 pb-28 md:px-6 lg:pb-6">
@@ -172,6 +184,8 @@ export default function CartPage() {
                                         const info = details[product.id];
                                         const discount = discountPercent(product.price, info?.regularPrice);
                                         const unitPrice = formatUnitPrice(product.price, info?.netContent);
+                                        const stock = info?.stock;
+                                        const atStockLimit = stock !== undefined && product.quantity >= stock;
                                         return (
                                             <li
                                                 key={product.id}
@@ -201,6 +215,18 @@ export default function CartPage() {
                                                         <p className="mt-1 text-xs text-muted-foreground">
                                                             {[info?.netContent, unitPrice].filter(Boolean).join(" · ") || `${formatPrice(product.price)} l’unité`}
                                                         </p>
+                                                        {stock !== undefined && product.quantity > stock && (
+                                                            <p className="mt-1 text-xs font-bold text-destructive">
+                                                                {stock === 0 ? "Épuisé : retirez cet article" : `Plus que ${stock} en stock`}
+                                                            </p>
+                                                        )}
+                                                        {info && (
+                                                            <SubstituteToggle
+                                                                key={`${product.id}-${info.allowSubstitute}`}
+                                                                productId={product.id}
+                                                                initial={info.allowSubstitute}
+                                                            />
+                                                        )}
                                                     </div>
 
                                                     <div className="col-span-2 flex items-center justify-between gap-4 sm:justify-end">
@@ -217,10 +243,10 @@ export default function CartPage() {
                                                             <span className="min-w-[2rem] text-center font-bold tabular-nums">{product.quantity}</span>
                                                             <button
                                                                 type="button"
-                                                                disabled={isPending}
+                                                                disabled={isPending || atStockLimit}
                                                                 onClick={() => startTransition(() => handleUpdateProductQuantity(product.id, product.quantity + 1))}
                                                                 aria-label="Ajouter un article"
-                                                                className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-secondary"
+                                                                className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
                                                             >
                                                                 <Plus size={16} />
                                                             </button>

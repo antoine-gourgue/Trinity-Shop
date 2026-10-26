@@ -7,6 +7,8 @@ import { GET, POST } from "@/app/api/orders/route";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { auth } from "@/auth";
 import { buildRequest } from "@/test-utils/requests";
+import { after } from "next/server";
+import { SLOT_CAPACITY } from "@/lib/checkout";
 
 // Fonction passée à prisma.$transaction, rejouée ici sur la doublure Prisma
 type TransactionCallback = (tx: typeof prisma) => Promise<unknown>;
@@ -15,6 +17,10 @@ jest.mock("@/lib/prisma", () => ({
     order: {
         findMany: jest.fn(),
         create: jest.fn(),
+        count: jest.fn(),
+    },
+    stock: {
+        updateMany: jest.fn(),
     },
     cart: {
         findUnique: jest.fn(),
@@ -40,7 +46,16 @@ jest.mock("next/server", () => ({
     NextResponse: {
         json: jest.fn(),
     },
+    after: jest.fn(),
 }));
+
+// L'e-mail de confirmation est envoyé après la réponse : ici on vérifie seulement qu'il est programmé
+jest.mock("@/lib/order-emails", () => ({
+    sendOrderConfirmation: jest.fn(),
+}));
+
+// Article de panier tel que le lit la route (prix et nom du produit)
+const CART_ITEM = { productId: "prod1", quantity: 2, product: { price: 1000, name: "Lait demi-écrémé" } };
 
 jest.mock("@/services/auth/IsUserLoggedIn", () => ({
     isUserLoggedIn: jest.fn(),
@@ -131,7 +146,7 @@ describe("POST /api/orders", () => {
         const mockCart = {
             id: "cart456",
             userId: "user123",
-            productsInCart: [],
+            productsInCart: [CART_ITEM],
         };
 
         const mockOrder = {
@@ -145,6 +160,7 @@ describe("POST /api/orders", () => {
         (prisma.cart.findUnique as jest.Mock).mockResolvedValue(mockCart);
         (prisma.order.create as jest.Mock).mockResolvedValue(mockOrder);
         (prisma.cart.update as jest.Mock).mockResolvedValue({ id: "cart456", archived: true });
+        (prisma.stock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
         (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => {
             return await callback(prisma);
@@ -165,7 +181,13 @@ describe("POST /api/orders", () => {
 
         expect(prisma.cart.findUnique).toHaveBeenCalledWith({
             where: { id: "cart456" },
-            include: { productsInCart: { include: { product: { select: { price: true } } } } },
+            include: { productsInCart: { include: { product: { select: { price: true, name: true } } } } },
+        });
+
+        // Le stock n'est décompté que s'il reste assez d'articles
+        expect(prisma.stock.updateMany).toHaveBeenCalledWith({
+            where: { productId: "prod1", quantity: { gte: 2 } },
+            data: { quantity: { decrement: 2 } },
         });
 
         expect(prisma.order.create).toHaveBeenCalledWith({
@@ -179,6 +201,7 @@ describe("POST /api/orders", () => {
                 loyaltyPointsUsed: 0,
                 loyaltyPointsEarned: 0,
                 validated: true,
+                stockDeducted: true,
             },
         });
 
@@ -188,6 +211,50 @@ describe("POST /api/orders", () => {
         });
 
         expect(jsonMock).toHaveBeenCalledWith({ data: mockOrder }, { status: 201 });
+        expect(after).toHaveBeenCalledTimes(1);
+    });
+
+    it("should refuse an empty cart", async () => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [] });
+        const jsonMock = jest.spyOn(NextResponse, "json");
+
+        await POST(buildRequest("/api/orders", { method: "POST", body: { userId: "user123", cartId: "cart456", billingAddressId: "111111" } }));
+
+        expect(prisma.order.create).not.toHaveBeenCalled();
+        expect(jsonMock).toHaveBeenCalledWith({ error: "Cart is empty" }, { status: 400 });
+    });
+
+    it("should refuse the order when an item is out of stock", async () => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [CART_ITEM] });
+        (prisma.stock.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+        (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
+        const jsonMock = jest.spyOn(NextResponse, "json");
+
+        await POST(buildRequest("/api/orders", { method: "POST", body: { userId: "user123", cartId: "cart456", billingAddressId: "111111" } }));
+
+        expect(prisma.order.create).not.toHaveBeenCalled();
+        expect(jsonMock).toHaveBeenCalledWith({ error: "Out of stock", products: ["Lait demi-écrémé"] }, { status: 409 });
+    });
+
+    it("should refuse a pickup slot that is already full", async () => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [CART_ITEM] });
+        (prisma.order.count as jest.Mock).mockResolvedValue(SLOT_CAPACITY);
+        (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
+        const jsonMock = jest.spyOn(NextResponse, "json");
+
+        await POST(
+            buildRequest("/api/orders", {
+                method: "POST",
+                body: { userId: "user123", cartId: "cart456", billingAddressId: "111111", pickupSlot: "2099-06-02_10" },
+            })
+        );
+
+        expect(prisma.stock.updateMany).not.toHaveBeenCalled();
+        expect(prisma.order.create).not.toHaveBeenCalled();
+        expect(jsonMock).toHaveBeenCalledWith({ error: "Pickup slot full" }, { status: 409 });
     });
 
     it("should return 400 if required fields are missing", async () => {
@@ -257,7 +324,8 @@ describe("POST /api/orders", () => {
     it("should store the delivery address of a home delivery", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.address.findUnique as jest.Mock).mockResolvedValue({ userId: "user123" });
-        (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [] });
+        (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [CART_ITEM] });
+        (prisma.stock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
         (prisma.order.create as jest.Mock).mockResolvedValue({ id: "order123" });
         (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
 

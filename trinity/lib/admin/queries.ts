@@ -58,6 +58,7 @@ const ORDER_SUMMARY = {
   createdAt: true,
   pickupSlot: true,
   validated: true,
+  status: true,
   loyaltyDiscount: true,
   shippingAddressId: true,
   user: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -98,8 +99,9 @@ export async function getDashboard() {
     soldItems,
   ] = await Promise.all([
     prisma.order.findMany({ select: ORDER_SUMMARY, orderBy: { createdAt: "desc" }, take: 5 }),
-    prisma.order.findMany({ where: { createdAt: { gte: since } }, select: ORDER_SUMMARY }),
-    prisma.order.count(),
+    // Les commandes annulées ne comptent ni dans le chiffre d'affaires ni dans les ventes
+    prisma.order.findMany({ where: { createdAt: { gte: since }, status: { not: "cancelled" } }, select: ORDER_SUMMARY }),
+    prisma.order.count({ where: { status: { not: "cancelled" } } }),
     prisma.user.count({ where: { role: Role.Customer } }),
     prisma.user.count({ where: { role: Role.Customer, createdAt: { gte: since } } }),
     prisma.user.findMany({ where: { createdAt: { gte: sixMonthsAgo } }, select: { createdAt: true } }),
@@ -116,7 +118,7 @@ export async function getDashboard() {
     // Articles des paniers commandés, pour le classement des meilleures ventes
     prisma.productInCart.groupBy({
       by: ["productId"],
-      where: { cart: { orders: { some: {} } } },
+      where: { cart: { orders: { some: { status: { not: "cancelled" } } } } },
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 5,
@@ -180,18 +182,19 @@ export async function getDashboard() {
 
 export const ORDER_FILTERS = [
   { value: "tous", label: "Toutes" },
-  { value: "a-venir", label: "Créneau à venir" },
-  { value: "passees", label: "Créneau passé" },
-  { value: "sans-creneau", label: "Sans créneau" },
+  { value: "a-preparer", label: "À préparer" },
+  { value: "pretes", label: "Prêtes" },
+  { value: "terminees", label: "Terminées" },
+  { value: "annulees", label: "Annulées" },
   { value: "livraison", label: "Livraison à domicile" },
 ] as const;
 
 export async function getAdminOrders(params: AdminListParams) {
-  const now = new Date();
   const filters: Record<string, Prisma.OrderWhereInput> = {
-    "a-venir": { pickupSlot: { gte: now } },
-    passees: { pickupSlot: { lt: now } },
-    "sans-creneau": { pickupSlot: null },
+    "a-preparer": { status: { in: ["received", "preparing"] } },
+    pretes: { status: "ready" },
+    terminees: { status: "completed" },
+    annulees: { status: "cancelled" },
     livraison: { shippingAddressId: { not: null } },
   };
   const q = params.q;

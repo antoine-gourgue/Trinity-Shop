@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Loader2, Trash2 } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ArrowRight, Ban, Download, Loader2, Trash2 } from "lucide-react";
 import { downloadInvoice } from "@/lib/download-invoice";
-import { deleteOrder } from "@/lib/server-actions/admin-actions";
+import { advanceOrderStatus, cancelOrder, deleteOrder } from "@/lib/server-actions/admin-actions";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ConfirmAction from "./confirm-action";
@@ -61,20 +61,86 @@ export function CancelOrderButton({
             type="button"
             className="flex h-11 items-center gap-2 rounded-full border border-promo/40 bg-white px-5 text-sm font-bold text-promo transition-colors hover:bg-promo hover:text-white"
           >
-            <Trash2 size={16} aria-hidden /> Annuler la commande
+            <Ban size={16} aria-hidden /> Annuler la commande
           </button>
         ) : (
           <button type="button" aria-label={`Annuler la commande ${number}`} title="Annuler la commande" className={cn(ICON_BUTTON, "hover:border-promo hover:text-promo")}>
-            <Trash2 size={16} aria-hidden />
+            <Ban size={16} aria-hidden />
           </button>
         )
       }
       title={`Annuler la commande #${number} ?`}
-      description="La commande et son panier seront supprimés. Les points Carte Trinity gagnés sont retirés au client et les bons utilisés lui sont rendus."
+      description="La commande reste visible, marquée « Annulée ». Ses articles sont remis en stock, les points Carte Trinity gagnés sont retirés au client et les bons utilisés lui sont rendus."
       confirmLabel="Annuler la commande"
       successMessage={`Commande #${number} annulée.`}
+      action={() => cancelOrder(orderId)}
+      redirectTo={redirectTo}
+    />
+  );
+}
+
+// Suppression définitive, proposée pour une commande déjà annulée
+export function DeleteOrderButton({
+  orderId,
+  number,
+  label = false,
+  redirectTo,
+}: {
+  orderId: string;
+  number: string;
+  label?: boolean;
+  redirectTo?: string;
+}) {
+  return (
+    <ConfirmAction
+      trigger={
+        label ? (
+          <button
+            type="button"
+            className="flex h-11 items-center gap-2 rounded-full border border-promo/40 bg-white px-5 text-sm font-bold text-promo transition-colors hover:bg-promo hover:text-white"
+          >
+            <Trash2 size={16} aria-hidden /> Supprimer
+          </button>
+        ) : (
+          <button type="button" aria-label={`Supprimer la commande ${number}`} title="Supprimer la commande" className={cn(ICON_BUTTON, "hover:border-promo hover:text-promo")}>
+            <Trash2 size={16} aria-hidden />
+          </button>
+        )
+      }
+      title={`Supprimer la commande #${number} ?`}
+      description="La commande annulée et son panier seront supprimés définitivement."
+      confirmLabel="Supprimer"
+      successMessage={`Commande #${number} supprimée.`}
       action={() => deleteOrder(orderId)}
       redirectTo={redirectTo}
     />
+  );
+}
+
+// Passe la commande à l'étape suivante de sa préparation
+export function AdvanceOrderButton({ orderId, nextLabel }: { orderId: string; nextLabel: string }) {
+  const [isPending, startTransition] = useTransition();
+
+  const advance = () => {
+    startTransition(async () => {
+      const result = await advanceOrderStatus(orderId);
+      toast(
+        result.ok
+          ? { description: `Commande passée à « ${nextLabel} ».` }
+          : { variant: "destructive", description: result.error }
+      );
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={advance}
+      disabled={isPending}
+      className="flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark disabled:opacity-60"
+    >
+      {isPending ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <ArrowRight size={16} aria-hidden />}
+      Passer à « {nextLabel} »
+    </button>
   );
 }

@@ -1,13 +1,14 @@
 import prisma from "@/lib/prisma";
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
-import { parseSlotParam, slotToDate } from "@/lib/checkout";
+import { SLOT_CAPACITY, parseSlotParam, slotToDate } from "@/lib/checkout";
 import { auth } from "@/auth";
 import { orderNumber } from "@/lib/account";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
 import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
+import { sendOrderConfirmation } from "@/lib/order-emails";
 
 // Commande envoyée par le tunnel ; un champ du mauvais type compte comme absent
 const orderBodySchema = z.object({
@@ -22,6 +23,14 @@ const orderBodySchema = z.object({
 });
 
 class InvalidVouchersError extends Error {}
+class SlotFullError extends Error {}
+
+// Articles dont le stock ne suffit plus au moment de commander
+class OutOfStockError extends Error {
+    constructor(readonly products: string[]) {
+        super("Out of stock");
+    }
+}
 
 export async function GET() {
     const isLoggedIn = await isUserLoggedIn()
@@ -152,7 +161,7 @@ export async function POST(request: NextRequest) {
 
         const cart = await prisma.cart.findUnique({
             where: { id: cartId },
-            include: { productsInCart: { include: { product: { select: { price: true } } } } },
+            include: { productsInCart: { include: { product: { select: { price: true, name: true } } } } },
         });
 
         if (!cart) {
@@ -166,6 +175,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        if (cart.productsInCart.length === 0) {
+            return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
+        }
+
         const total = cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 
         const order = await prisma.$transaction(async (prisma) => {
@@ -174,6 +187,23 @@ export async function POST(request: NextRequest) {
                 select: { loyaltyNumber: true, loyaltyPoints: true },
             });
             const hasCard = !!user?.loyaltyNumber;
+
+            // Créneau complet : le nombre de commandes par heure est limité
+            if (pickupSlot && (await prisma.order.count({ where: { pickupSlot, status: { not: "cancelled" } } })) >= SLOT_CAPACITY) {
+                throw new SlotFullError();
+            }
+
+            // Stock décompté article par article : la mise à jour n'aboutit que si la quantité suffit,
+            // et une seule rupture annule toute la transaction
+            const missing: string[] = [];
+            for (const item of cart.productsInCart) {
+                const { count } = await prisma.stock.updateMany({
+                    where: { productId: item.productId, quantity: { gte: item.quantity } },
+                    data: { quantity: { decrement: item.quantity } },
+                });
+                if (count === 0) missing.push(item.product.name);
+            }
+            if (missing.length > 0) throw new OutOfStockError(missing);
 
             if (requestedVouchers > 0 && (!hasCard || requestedVouchers > maxVouchers(user.loyaltyPoints, total))) {
                 throw new InvalidVouchersError();
@@ -193,6 +223,7 @@ export async function POST(request: NextRequest) {
                     loyaltyPointsUsed,
                     loyaltyPointsEarned,
                     validated: true,
+                    stockDeducted: true,
                 },
             });
 
@@ -223,10 +254,19 @@ export async function POST(request: NextRequest) {
             return newOrder;
         });
 
+        // E-mail de confirmation envoyé après la réponse, sans retarder la commande
+        after(() => sendOrderConfirmation(order.id));
+
         return NextResponse.json({ data: order }, { status: 201 });
     } catch (error) {
         if (error instanceof InvalidVouchersError) {
             return NextResponse.json({ error: "Not enough loyalty points" }, { status: 400 });
+        }
+        if (error instanceof SlotFullError) {
+            return NextResponse.json({ error: "Pickup slot full" }, { status: 409 });
+        }
+        if (error instanceof OutOfStockError) {
+            return NextResponse.json({ error: "Out of stock", products: error.products }, { status: 409 });
         }
         if (error instanceof Error) {
             console.error("Error creating order:", error.message);

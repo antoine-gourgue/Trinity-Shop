@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { nutriScore, Role } from "@prisma/client";
+import { nutriScore, Prisma, Role } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { restock } from "@/lib/stock";
+import { canCancelOrder, nextOrderStatus } from "@/lib/order-status";
 import { currentAccess, requireAdmin } from "@/services/auth/guards";
 
 // Actions du back-office : toutes réservées aux administrateurs. Elles renvoient un
@@ -174,27 +176,68 @@ export async function deleteCustomer(userId: string): Promise<AdminResult> {
 
 // ——— Commandes ———
 
-// Annule la commande : les points gagnés sont retirés et les bons utilisés rendus au client
-export async function deleteOrder(orderId: string): Promise<AdminResult> {
-  await requireAdmin();
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    select: {
-      userId: true,
-      cartId: true,
-      loyaltyPointsEarned: true,
-      loyaltyPointsUsed: true,
-      user: { select: { loyaltyPoints: true } },
-    },
-  });
-  if (!order) return fail("Commande introuvable.");
+const ORDER_REVERSAL = {
+  userId: true,
+  cartId: true,
+  status: true,
+  stockDeducted: true,
+  loyaltyPointsEarned: true,
+  loyaltyPointsUsed: true,
+  user: { select: { loyaltyPoints: true } },
+  cart: { select: { productsInCart: { select: { productId: true, quantity: true } } } },
+} satisfies Prisma.OrderSelect;
 
+// Ce que défait une annulation : points gagnés retirés et bons utilisés rendus au client,
+// articles remis en stock s'ils avaient été décomptés
+function reverseOrder(orderId: string, order: Prisma.OrderGetPayload<{ select: typeof ORDER_REVERSAL }>) {
   // Le solde ne descend pas sous zéro si le client a déjà dépensé les points gagnés
   const pointsDelta = order.loyaltyPointsUsed - order.loyaltyPointsEarned;
   const balance = Math.max(0, order.user.loyaltyPoints + pointsDelta);
-  await prisma.$transaction([
+  return [
     prisma.loyaltyTransaction.deleteMany({ where: { orderId } }),
     ...(pointsDelta !== 0 ? [prisma.user.update({ where: { id: order.userId }, data: { loyaltyPoints: balance } })] : []),
+    ...(order.stockDeducted ? restock(order.cart.productsInCart) : []),
+  ];
+}
+
+// Fait passer la commande à l'étape suivante (reçue → en préparation → prête → retirée ou livrée)
+export async function advanceOrderStatus(orderId: string): Promise<AdminResult> {
+  await requireAdmin();
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+  if (!order) return fail("Commande introuvable.");
+  const next = nextOrderStatus(order.status);
+  if (!next) return fail("Cette commande est déjà terminée ou annulée.");
+
+  // Mise à jour conditionnelle : deux clics simultanés ne sautent pas d'étape
+  const { count } = await prisma.order.updateMany({ where: { id: orderId, status: order.status }, data: { status: next } });
+  if (count === 0) return fail("La commande a changé entre-temps : rechargez la page.");
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+// Annule la commande sans l'effacer : elle reste visible, marquée « Annulée »
+export async function cancelOrder(orderId: string): Promise<AdminResult> {
+  await requireAdmin();
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: ORDER_REVERSAL });
+  if (!order) return fail("Commande introuvable.");
+  if (!canCancelOrder(order.status)) return fail("Une commande terminée ou déjà annulée ne peut pas être annulée.");
+
+  await prisma.$transaction([
+    ...reverseOrder(orderId, order),
+    prisma.order.update({ where: { id: orderId }, data: { status: "cancelled", stockDeducted: false } }),
+  ]);
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+// Supprime définitivement la commande ; une commande annulée a déjà été défaite
+export async function deleteOrder(orderId: string): Promise<AdminResult> {
+  await requireAdmin();
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: ORDER_REVERSAL });
+  if (!order) return fail("Commande introuvable.");
+
+  await prisma.$transaction([
+    ...(order.status === "cancelled" ? [] : reverseOrder(orderId, order)),
     prisma.productInCart.deleteMany({ where: { cartId: order.cartId } }),
     // Le panier archivé n'a plus d'usage : sa suppression emporte la commande
     prisma.cart.delete({ where: { id: order.cartId } }),

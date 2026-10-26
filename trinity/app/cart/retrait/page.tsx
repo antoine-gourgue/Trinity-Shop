@@ -11,7 +11,7 @@ import { useCartSummary } from "@/components/cart/use-cart-summary";
 import { useLoyalty } from "@/components/cart/use-loyalty";
 import AddAddressModal from "@/app/user/modal/AddAddressModal";
 import { pointsForAmount } from "@/lib/loyalty";
-import { getMyAddresses } from "@/lib/server-actions/checkout-actions";
+import { getFullSlots, getMyAddresses } from "@/lib/server-actions/checkout-actions";
 import { DELIVERY_FEE, FREE_DELIVERY_FROM, deliveryFee, formatAddressLine, type Fulfillment } from "@/lib/delivery";
 import {
     PickupSlot,
@@ -98,6 +98,8 @@ export default function RetraitPage() {
     const [mode, setMode] = useState<Fulfillment>("pickup");
     const [addressId, setAddressId] = useState<string | null>(null);
     const [addresses, setAddresses] = useState<Address[] | null>(null);
+    // Créneaux qui ont atteint leur nombre maximal de commandes
+    const [fullSlots, setFullSlots] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const available = pickupDays();
@@ -118,6 +120,15 @@ export default function RetraitPage() {
         if (status === "unauthenticated") router.replace("/cart");
     }, [status, router]);
 
+    useEffect(() => {
+        if (!days.length) return;
+        getFullSlots(days.map((day) => day.date)).then((full) => {
+            setFullSlots(new Set(full));
+            // Le créneau déjà retenu a pu se remplir entre-temps
+            setSlot((current) => (current && full.includes(slotParam(current)) ? null : current));
+        });
+    }, [days]);
+
     const loadAddresses = useCallback(async () => {
         const list = await getMyAddresses();
         setAddresses(list);
@@ -135,6 +146,7 @@ export default function RetraitPage() {
 
     const chooseSlot = (start: number) => {
         const next = { date: selectedDay, start };
+        if (fullSlots.has(slotParam(next))) return;
         setSlot(next);
         saveSlot(next);
     };
@@ -288,21 +300,28 @@ export default function RetraitPage() {
                         <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
                             {hours.map((start) => {
                                 const active = slot?.date === selectedDay && slot.start === start;
+                                const full = fullSlots.has(slotParam({ date: selectedDay, start }));
                                 return (
                                     <li key={start}>
                                         <button
                                             type="button"
                                             onClick={() => chooseSlot(start)}
                                             aria-pressed={active}
+                                            disabled={full}
                                             className={cn(
-                                                "flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border text-sm font-bold transition-colors",
+                                                "flex h-12 w-full flex-col items-center justify-center rounded-xl border text-sm font-bold transition-colors",
                                                 active
                                                     ? "border-primary bg-primary text-primary-foreground"
-                                                    : "bg-white hover:border-primary hover:text-primary"
+                                                    : full
+                                                      ? "cursor-not-allowed bg-muted text-muted-foreground"
+                                                      : "bg-white hover:border-primary hover:text-primary"
                                             )}
                                         >
-                                            {active && <Check size={14} aria-hidden />}
-                                            {start}h – {start + 1}h
+                                            <span className={cn("flex items-center gap-1.5", full && "line-through")}>
+                                                {active && <Check size={14} aria-hidden />}
+                                                {start}h – {start + 1}h
+                                            </span>
+                                            {full && <span className="text-[11px] font-semibold">Complet</span>}
                                         </button>
                                     </li>
                                 );

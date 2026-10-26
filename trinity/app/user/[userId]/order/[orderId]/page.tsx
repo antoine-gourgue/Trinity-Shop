@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CircleCheck, MapPin, Store, Truck } from "lucide-react";
 import { getOrderById } from "@/lib/server-actions/orders-actions";
 import InvoiceDownloadButton from "@/components/invoice/InvoiceDownloadButton";
+import ReorderButton from "@/components/account/reorder-button";
 import ProductImage from "@/components/product/product-image";
 import OrderStatus from "@/components/account/order-status";
+import OrderProgress from "@/components/account/order-progress";
 import { AccountCard } from "@/components/account/account-ui";
 import Price from "@/components/product/price";
 import { formatBrand, formatPrice } from "@/lib/format";
@@ -77,7 +79,11 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                         })}
                     </h1>
                 </div>
-                <OrderStatus validated={order.validated} className="text-sm" />
+                <OrderStatus status={order.status} delivery={!!order.shippingAddressId} className="text-sm" />
+            </div>
+
+            <div className="rounded-2xl border bg-white p-5">
+                <OrderProgress status={order.status} delivery={!!order.shippingAddressId} />
             </div>
 
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -150,7 +156,8 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                 + {order.loyaltyPointsEarned} points cumulés sur votre Carte Trinity
                             </p>
                         )}
-                        <div className="mt-5">
+                        <div className="mt-5 space-y-3">
+                            <ReorderButton orderId={order.id} />
                             <InvoiceDownloadButton orderId={order.id} />
                         </div>
                     </AccountCard>
