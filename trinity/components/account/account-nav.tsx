@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { CreditCard, LayoutDashboard, LogOut, MapPin, Package, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { CreditCard, Heart, LayoutDashboard, LogOut, MapPin, Package, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AccountNavProps {
@@ -22,6 +22,7 @@ export default function AccountNav({ userId, firstName, lastName, email, isAdmin
   const items = [
     { href: `/user?userId=${userId}`, label: "Tableau de bord", icon: LayoutDashboard, active: pathname === "/user" },
     { href: `/user/${userId}/order`, label: "Mes commandes", icon: Package, active: pathname.includes("/order") },
+    { href: "/user/favoris", label: "Mes favoris", icon: Heart, active: pathname === "/user/favoris" },
     { href: "/user/fidelite", label: "Ma Carte Trinity", icon: CreditCard, active: pathname === "/user/fidelite" },
     { href: `/user/info?userId=${userId}`, label: "Mes informations", icon: UserRound, active: pathname === "/user/info" },
     { href: `/user/addresses?userId=${userId}`, label: "Mes adresses", icon: MapPin, active: pathname === "/user/addresses" },

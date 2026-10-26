@@ -13,6 +13,7 @@ import PriceBlock from "@/components/product/price-block";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
 import AddToCartButton from "@/components/product/add-to-cart-button";
+import FavoriteButton from "@/components/product/favorite-button";
 import ProductCarousel from "@/components/catalog/product-carousel";
 import ProductCard from "@/components/product/productCard";
 import NutritionTable from "@/components/product/nutrition-table";
@@ -134,6 +135,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 -{discount} %
               </span>
             )}
+            <FavoriteButton productId={product.id} className="absolute bottom-3 right-3 h-11 w-11" />
           </div>
 
           <div className="order-2 px-1 md:px-0">

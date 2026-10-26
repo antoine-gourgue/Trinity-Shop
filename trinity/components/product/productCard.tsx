@@ -3,6 +3,7 @@ import PriceBlock from "@/components/product/price-block";
 import ProductImage from "@/components/product/product-image";
 import NutriScore from "@/components/product/nutri-score";
 import AddToCartButton from "@/components/product/add-to-cart-button";
+import FavoriteButton from "@/components/product/favorite-button";
 import { discountPercent, formatBrand, isBioBrand } from "@/lib/format";
 
 interface ProductProps {
@@ -22,24 +23,28 @@ export default function ProductCard({ id, name, price, regularPrice, netContent,
 
     return (
         <article className="group relative flex h-full flex-col rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-lg sm:p-4">
-            <Link href={href} className="relative block aspect-square overflow-hidden rounded-lg bg-white">
-                <ProductImage
-                    src={picture}
-                    alt={name}
-                    sizes="(min-width: 1280px) 18vw, (min-width: 1024px) 23vw, (min-width: 640px) 31vw, 46vw"
-                    className="p-2 transition-transform duration-300 group-hover:scale-105"
-                />
-                {isBioBrand(brand) && (
-                    <span className="absolute left-0 top-0 rounded-md bg-bio px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">
-                        Bio
-                    </span>
-                )}
-                {discount && (
-                    <span className="absolute right-0 top-0 rounded-md bg-promo px-2 py-0.5 text-xs font-black text-white">
-                        -{discount} %
-                    </span>
-                )}
-            </Link>
+            <div className="relative">
+                <Link href={href} className="relative block aspect-square overflow-hidden rounded-lg bg-white">
+                    <ProductImage
+                        src={picture}
+                        alt={name}
+                        sizes="(min-width: 1280px) 18vw, (min-width: 1024px) 23vw, (min-width: 640px) 31vw, 46vw"
+                        className="p-2 transition-transform duration-300 group-hover:scale-105"
+                    />
+                    {isBioBrand(brand) && (
+                        <span className="absolute left-0 top-0 rounded-md bg-bio px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">
+                            Bio
+                        </span>
+                    )}
+                    {discount && (
+                        <span className="absolute right-0 top-0 rounded-md bg-promo px-2 py-0.5 text-xs font-black text-white">
+                            -{discount} %
+                        </span>
+                    )}
+                </Link>
+                {/* Bouton hors du lien : un bouton ne peut pas être imbriqué dans un lien */}
+                <FavoriteButton productId={id} className="absolute bottom-1 right-1" />
+            </div>
 
             <div className="mt-3 flex flex-1 flex-col">
                 {brand && (
