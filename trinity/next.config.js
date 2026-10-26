@@ -3,6 +3,8 @@ const withPWA = require("next-pwa")({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  // Les ~900 images produits (public/products) ne doivent pas être préchargées par le service worker
+  publicExcludes: ["!noprecache/**/*", "!products/**/*"],
 });
 
 /** @type {import('next').NextConfig} */

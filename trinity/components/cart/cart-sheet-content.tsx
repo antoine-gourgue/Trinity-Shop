@@ -1,12 +1,12 @@
 "use client";
 
 import { useTransition } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, ShoppingBasket, Trash2 } from "lucide-react";
 import { useCart } from "@/app/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import Price from "@/components/product/price";
+import ProductImage from "@/components/product/product-image";
 import { formatPrice } from "@/lib/format";
 
 interface CartSheetContentProps {
@@ -54,13 +54,7 @@ export default function CartSheetContent({ onNavigate }: CartSheetContentProps) 
               onClick={onNavigate}
               className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-white"
             >
-              <Image
-                src={product.picture}
-                alt={product.name}
-                fill
-                sizes="64px"
-                className="object-contain p-1"
-              />
+              <ProductImage src={product.picture} alt={product.name} sizes="64px" className="p-1" />
             </Link>
 
             <div className="flex min-w-0 flex-1 flex-col gap-2">
