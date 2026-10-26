@@ -7,7 +7,7 @@ import prisma from "@/lib/prisma";
 import { getOpenFoodFacts } from "@/lib/server-actions/products-actions";
 import { findRayonForCategories, rayonCategoryNames, rayonHref } from "@/lib/rayons";
 import { discountPercent, formatBrand, formatPrice, isBioBrand } from "@/lib/format";
-import { formatAllergens, formatUnitPrice, nutritionRows } from "@/lib/product-info";
+import { formatAllergens, formatUnitPrice, ingredientParts, nutritionRows } from "@/lib/product-info";
 import PriceBlock from "@/components/product/price-block";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
@@ -104,20 +104,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </Link>
             </li>
           )}
-          <li className="flex min-w-0 items-center gap-1">
+          <li className="hidden min-w-0 items-center gap-1 sm:flex">
             <ChevronRight size={12} aria-hidden />
             <span aria-current="page" className="truncate font-semibold text-foreground">{product.name}</span>
           </li>
         </ol>
       </nav>
 
-      <div className="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="grid gap-8 rounded-3xl border bg-white p-5 md:grid-cols-2 md:p-8">
-          <div className="relative aspect-square overflow-hidden rounded-2xl bg-white">
+      <div className="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6">
+        {/* Sur mobile la carte s'efface : image, titre, achat puis détails s'enchaînent (voir les order-*) */}
+        <div className="contents md:grid md:grid-cols-2 md:grid-rows-[auto_1fr] md:gap-x-8 md:gap-y-6 md:rounded-3xl md:border md:bg-white md:p-8">
+          <div className="relative order-1 aspect-[4/3] overflow-hidden rounded-3xl border bg-white sm:aspect-[16/10] md:row-span-2 md:aspect-square md:rounded-2xl md:border-0">
             <ProductImage
               src={product.picture}
               alt={product.name}
-              sizes="(min-width: 1024px) 420px, 90vw"
+              sizes="(min-width: 1024px) 420px, (min-width: 768px) 45vw, 90vw"
               priority
               className="p-4"
             />
@@ -133,7 +134,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
 
-          <div className="flex flex-col">
+          <div className="order-2 px-1 md:px-0">
             {brandLabel && (
               <Link
                 href={`/produits?marque=${encodeURIComponent(product.brand.name)}`}
@@ -142,12 +143,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 {brandLabel}
               </Link>
             )}
-            <h1 className="mt-1 text-2xl font-black leading-tight md:text-3xl">{product.name}</h1>
+            <h1 className="mt-1 text-xl font-black leading-tight sm:text-2xl md:text-3xl">{product.name}</h1>
             {quantity && <p className="mt-1 text-sm text-muted-foreground">{quantity}</p>}
+          </div>
 
-            <NutriScore grade={product.nutriScore} className="mt-5 h-14" />
+          <div className="order-4 rounded-3xl border bg-white p-5 md:rounded-none md:border-0 md:bg-transparent md:p-0">
+            <NutriScore grade={product.nutriScore} className="h-12 md:h-14" />
 
-            <dl className="mt-6 divide-y rounded-2xl bg-muted/60 text-sm">
+            <dl className="mt-5 divide-y rounded-2xl bg-muted/60 text-sm md:mt-6">
               {facts.map((fact) => (
                 <div key={fact.label} className="flex justify-between gap-4 px-4 py-2.5">
                   <dt className="text-muted-foreground">{fact.label}</dt>
@@ -158,7 +161,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </div>
 
-        <aside id="achat" className="rounded-3xl border bg-white p-6">
+        <aside id="achat" className="order-3 rounded-3xl border bg-white p-5 md:p-6">
           {discount && product.regularPrice && (
             <p className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-md bg-promo px-2 py-0.5 text-sm font-black text-white">-{discount} %</span>
@@ -202,7 +205,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </aside>
       </div>
 
-      <div className="mt-10 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="mt-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-8">
           <InfoSection id="description" title="Description">
             <p>{description ?? "Aucune description disponible pour ce produit."}</p>
@@ -216,7 +219,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <InfoSection id="composition" title="Composition et origine">
             <h3 className="text-lg font-black">Ingrédients</h3>
             <p className="mt-2">
-              {ingredients ? `Ingrédients : ${ingredients}` : "Liste des ingrédients non renseignée."}
+              {ingredients ? (
+                <>
+                  Ingrédients :{" "}
+                  {ingredientParts(ingredients).map((part, index) =>
+                    part.allergen ? <strong key={index}>{part.text}</strong> : part.text
+                  )}
+                </>
+              ) : (
+                "Liste des ingrédients non renseignée."
+              )}
             </p>
             {allergens.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -289,7 +301,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </p>
               <ProductCarousel label="Vous aimerez aussi">
                 {similar.map((item) => (
-                  <li key={item.id} className="w-[85%] shrink-0 snap-start sm:w-[45%] lg:w-[85%]">
+                  <li key={item.id} className="w-[46%] shrink-0 snap-start sm:w-[31%] lg:w-[85%]">
                     <ProductCard
                       id={item.id}
                       name={item.name}
@@ -340,11 +352,11 @@ function InfoSection({ id, title, children }: { id: string; title: string; child
   return (
     <section id={id} className="scroll-mt-[230px]">
       <details open className="group">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-1 text-2xl font-black [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-1 text-xl font-black md:text-2xl [&::-webkit-details-marker]:hidden">
           {title}
           <ChevronDown size={24} className="shrink-0 transition-transform group-open:rotate-180" aria-hidden />
         </summary>
-        <div className="mt-4 rounded-3xl bg-white p-6 text-[15px] leading-relaxed shadow-sm md:p-10">{children}</div>
+        <div className="mt-3 rounded-3xl bg-white p-5 text-[15px] leading-relaxed shadow-sm md:mt-4 md:p-10">{children}</div>
       </details>
     </section>
   );

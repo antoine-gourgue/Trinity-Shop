@@ -55,6 +55,14 @@ export function formatAllergens(tags?: string[] | null) {
   return (tags ?? []).map((tag) => ALLERGENS[tag]).filter(Boolean);
 }
 
+// OpenFoodFacts entoure les allergènes de tirets bas (« _lait_ ») : on les découpe pour les mettre en gras
+export function ingredientParts(text: string) {
+  return text
+    .split(/_([^_]+)_/)
+    .map((part, index) => ({ text: part, allergen: index % 2 === 1 }))
+    .filter((part) => part.text);
+}
+
 const numberFormatter = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
 
 const NUTRIENTS: { key: string; label: string }[] = [
