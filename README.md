@@ -6,6 +6,27 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 
 > Le paiement est une démonstration : aucune donnée bancaire n'est demandée et aucun débit n'est effectué.
 
+## Aperçu
+
+| Accueil | Rayon et filtres |
+|---|---|
+| ![Page d'accueil avec les rayons et les mises en avant](.github/readme/accueil.png) | ![Rayon Pâtes avec ses sous-rayons et ses filtres](.github/readme/rayon.png) |
+| **Recherche avec suggestions** | **Fiche produit** |
+| ![Suggestions de rayons et de produits pendant la frappe](.github/readme/recherche.png) | ![Fiche produit avec prix au kilo et Nutri-Score](.github/readme/produit.png) |
+| **Retrait ou livraison** | **Espace client** |
+| ![Choix entre retrait au drive et livraison, puis du créneau](.github/readme/commande.png) | ![Tableau de bord de l'espace client](.github/readme/compte.png) |
+
+<table>
+  <tr>
+    <th>Back-office</th>
+    <th>Mobile</th>
+  </tr>
+  <tr>
+    <td><img src=".github/readme/admin.png" alt="Tableau de bord de l'administration : chiffre d'affaires, clients, stocks"></td>
+    <td width="240"><img src=".github/readme/mobile.png" alt="Rayon Crèmerie sur mobile, avec la barre de navigation" width="220"></td>
+  </tr>
+</table>
+
 ## Sommaire
 
 - [Fonctionnalités](#fonctionnalités)
@@ -60,7 +81,9 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 
 ```text
 .
-├── .github/workflows/ci.yml   CI GitHub Actions
+├── .github/
+│   ├── workflows/ci.yml       CI GitHub Actions
+│   └── readme/                Captures d'écran de ce README
 └── trinity/                   Application Next.js
     ├── app/                   Pages et routes API (App Router)
     │   ├── (customer)/        Accueil, catalogue, rayons
