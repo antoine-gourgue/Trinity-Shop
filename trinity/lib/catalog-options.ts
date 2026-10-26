@@ -3,6 +3,7 @@
 export const PAGE_SIZE = 24;
 
 export const SORT_OPTIONS = [
+  { value: "pertinence", label: "Pertinence" },
   { value: "nom", label: "Nom (A → Z)" },
   { value: "prix-croissant", label: "Prix croissant" },
   { value: "prix-decroissant", label: "Prix décroissant" },
@@ -11,6 +12,15 @@ export const SORT_OPTIONS = [
 
 export type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 export const DEFAULT_SORT: SortValue = "nom";
+
+// La pertinence n'a de sens que pour une recherche, où elle devient le tri par défaut
+export function defaultSort(q?: string): SortValue {
+  return q ? "pertinence" : DEFAULT_SORT;
+}
+
+export function sortOptions(q?: string) {
+  return SORT_OPTIONS.filter((option) => q || option.value !== "pertinence");
+}
 
 // Bornes en millièmes d'euro, comme les prix en base
 export const PRICE_RANGES = [
@@ -48,12 +58,13 @@ function asString(value: string | string[] | undefined) {
 }
 
 export function parseListingParams(raw: RawParams): ListingParams {
-  const tri = asString(raw.tri);
+  const q = asString(raw.q);
+  const tri = sortOptions(q).find((option) => option.value === asString(raw.tri))?.value ?? defaultSort(q);
   const page = Number.parseInt(asString(raw.page) ?? "1", 10);
   const prix = asString(raw.prix);
 
   return {
-    q: asString(raw.q),
+    q,
     cat: asString(raw.cat),
     categorie: asString(raw.categorie),
     marques: asList(raw.marque),
@@ -62,7 +73,7 @@ export function parseListingParams(raw: RawParams): ListingParams {
       .filter((grade): grade is NutriGrade => NUTRI_GRADES.includes(grade as NutriGrade)),
     prix: PRICE_RANGES.some((range) => range.value === prix) ? prix : undefined,
     promo: asString(raw.promo) === "1",
-    tri: SORT_OPTIONS.some((option) => option.value === tri) ? (tri as SortValue) : DEFAULT_SORT,
+    tri,
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
 }
@@ -84,7 +95,7 @@ export function listingHref(
   next.nutriscores.forEach((grade) => query.append("nutriscore", grade));
   if (next.prix) query.set("prix", next.prix);
   if (next.promo) query.set("promo", "1");
-  if (next.tri !== DEFAULT_SORT) query.set("tri", next.tri);
+  if (next.tri !== defaultSort(next.q)) query.set("tri", next.tri);
   if (next.page > 1) query.set("page", String(next.page));
 
   const search = query.toString();

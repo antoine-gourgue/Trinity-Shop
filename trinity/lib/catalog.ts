@@ -10,6 +10,7 @@ import {
 } from "@/lib/catalog-options";
 
 const ORDER_BY: Record<SortValue, Prisma.ProductOrderByWithRelationInput[]> = {
+  pertinence: [{ name: "asc" }, { id: "asc" }],
   nom: [{ name: "asc" }, { id: "asc" }],
   "prix-croissant": [{ price: "asc" }, { id: "asc" }],
   "prix-decroissant": [{ price: "desc" }, { id: "asc" }],
@@ -38,7 +39,9 @@ export interface ProductListing {
 // Chaque facette est comptée sans son propre filtre pour rester cliquable.
 export async function getProductListing(
   base: Prisma.ProductWhereInput,
-  params: ListingParams
+  params: ListingParams,
+  // Identifiants classés par pertinence (recherche texte), utilisés par le tri « pertinence »
+  ranking?: string[]
 ): Promise<ProductListing> {
   const priceRange = PRICE_RANGES.find((range) => range.value === params.prix);
 
@@ -75,13 +78,15 @@ export async function getProductListing(
   const page = Math.min(params.page, pageCount);
 
   const [products, brands] = await Promise.all([
-    prisma.product.findMany({
-      where,
-      orderBy: ORDER_BY[params.tri],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: { brand: true },
-    }),
+    params.tri === "pertinence" && ranking
+      ? rankedPage(where, ranking, page)
+      : prisma.product.findMany({
+          where,
+          orderBy: ORDER_BY[params.tri],
+          skip: (page - 1) * PAGE_SIZE,
+          take: PAGE_SIZE,
+          include: { brand: true },
+        }),
     prisma.brand.findMany({
       where: { id: { in: brandGroups.map((group) => group.brandId) } },
       select: { id: true, name: true },
@@ -112,4 +117,19 @@ export async function getProductListing(
       promoCount,
     },
   };
+}
+
+// Page de résultats dans l'ordre du classement (Prisma ne sait pas trier sur une liste d'identifiants)
+async function rankedPage(where: Prisma.ProductWhereInput, ranking: string[], page: number) {
+  const position = new Map(ranking.map((id, index) => [id, index]));
+  const byRank = (a: { id: string }, b: { id: string }) =>
+    (position.get(a.id) ?? Infinity) - (position.get(b.id) ?? Infinity);
+
+  const matching = await prisma.product.findMany({ where, select: { id: true } });
+  const pageIds = matching
+    .sort(byRank)
+    .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    .map((product) => product.id);
+  const products = await prisma.product.findMany({ where: { id: { in: pageIds } }, include: { brand: true } });
+  return products.sort(byRank);
 }

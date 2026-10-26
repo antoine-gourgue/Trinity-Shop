@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Prisma } from "@prisma/client";
 import { SearchX } from "lucide-react";
 import { getProductListing } from "@/lib/catalog";
+import { searchProductIds } from "@/lib/search";
 import { ListingParams, activeFilterCount, parseListingParams } from "@/lib/catalog-options";
 import { formatBrand } from "@/lib/format";
 import ListingHeader from "@/components/catalog/listing-header";
@@ -29,21 +30,16 @@ export async function generateMetadata({ searchParams }: ProduitsPageProps): Pro
 export default async function ProduitsPage({ searchParams }: ProduitsPageProps) {
   const params = parseListingParams(await searchParams);
 
+  // Recherche sans tenir compte des accents, dans le nom, la marque et les catégories
+  const ranking = params.q ? await searchProductIds(params.q) : undefined;
   const base: Prisma.ProductWhereInput = {
     AND: [
-      params.q
-        ? {
-            OR: [
-              { name: { contains: params.q, mode: "insensitive" } },
-              { brand: { name: { contains: params.q.replace(/\s+/g, "-"), mode: "insensitive" } } },
-            ],
-          }
-        : {},
+      ranking ? { id: { in: ranking } } : {},
       params.categorie ? { categories: { some: { categoryName: params.categorie } } } : {},
     ],
   };
 
-  const listing = await getProductListing(base, params);
+  const listing = await getProductListing(base, params, ranking);
   const title = pageTitle(params);
 
   return (

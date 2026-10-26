@@ -70,7 +70,7 @@ export default function ProductListing({ basePath, params, listing, emptyState }
           </p>
           <div className="flex items-center gap-2">
             <MobileFilters activeCount={filterCount}>{filters}</MobileFilters>
-            <SortSelect value={params.tri} />
+            <SortSelect value={params.tri} search={params.q} />
           </div>
         </div>
 
