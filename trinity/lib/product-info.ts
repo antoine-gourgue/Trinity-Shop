@@ -1,16 +1,20 @@
 import { formatPrice } from "./format";
 
-// Contenance OpenFoodFacts (« 120 g », « 4 x 125 g », « 1,5 L ») convertie en kg ou en litres
+// Contenance OpenFoodFacts (« 120 g », « 4 x 125 g », « 6 bouteilles de 50 cl », « 1,5 L ») convertie en kg ou en litres
 export function parseQuantity(quantity?: string | null) {
   if (!quantity) return null;
   const match = quantity
     .toLowerCase()
     .replace(",", ".")
-    .match(/(?:(\d+)\s*[x×]\s*)?(\d+(?:\.\d+)?)\s*(kg|mg|g|cl|ml|l)\b/);
+    .match(
+      /(?:(\d+)\s*(?:[x×]|(?:bouteilles?|briques?|canettes?|pots?|sachets?|boîtes?|barquettes?)\s+de)\s*)?(\d+(?:\.\d+)?)\s*(kilos?|kg|grammes?|mg|g|cl|ml|litres?|l)\b/
+    );
   if (!match) return null;
 
   const count = match[1] ? Number.parseInt(match[1], 10) : 1;
   const value = Number.parseFloat(match[2]) * count;
+  // Unités écrites en toutes lettres (« 1 litre », « 500 grammes »)
+  const unitKey = match[3].startsWith("kilo") ? "kg" : match[3].startsWith("gramme") ? "g" : match[3].startsWith("litre") ? "l" : match[3];
   const factors: Record<string, [number, "kg" | "L"]> = {
     kg: [1, "kg"],
     g: [1 / 1000, "kg"],
@@ -19,7 +23,7 @@ export function parseQuantity(quantity?: string | null) {
     cl: [1 / 100, "L"],
     ml: [1 / 1000, "L"],
   };
-  const [factor, unit] = factors[match[3]];
+  const [factor, unit] = factors[unitKey];
   const amount = value * factor;
   return amount > 0 ? { amount, unit } : null;
 }

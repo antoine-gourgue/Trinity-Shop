@@ -26,6 +26,8 @@ interface JsonProduct {
   nutriscore?: string;
   brands: string[];
   price?: number;
+  regularPrice?: number | null;
+  quantity?: string | null;
   description?: string;
   stockId?: string;
 }
@@ -173,6 +175,8 @@ async function main() {
           nutriScore: nutriScoreToEnum(product.nutriscore || ""),
           brandId,
           price: product.price ?? faker.number.int({ min: 100, max: 10000 }),
+          regularPrice: product.regularPrice ?? null,
+          netContent: product.quantity ?? null,
           description: product.description ?? faker.commerce.productDescription(),
           categories: {
             create: product.categories.map((cat) => ({
