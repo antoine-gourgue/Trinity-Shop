@@ -18,7 +18,7 @@ export default function NutriScore({ grade, className }: NutriScoreProps) {
       alt={`Nutri-Score ${value}`}
       width={68}
       height={36}
-      className={cn("h-7 w-auto", className)}
+      className={cn("h-7 w-auto shrink-0 self-start object-contain", className)}
     />
   );
 }
