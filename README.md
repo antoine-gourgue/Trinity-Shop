@@ -209,7 +209,7 @@ La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request e
 
 ## Déploiement
 
-L'application est déployée sur **Vercel**, qui construit chaque commit de `main`. Les jobs **« Lint, types, tests »** et **« Build »** de la CI sont à déclarer comme [Deployment Checks](https://vercel.com/docs/deployment-checks) dans les réglages du projet Vercel : la nouvelle version n'est alors mise en ligne que si la CI réussit.
+L'application est déployée sur **Vercel**, qui construit chaque commit de `main`. Les jobs **« Lint, types, tests »** et **« Build »** de la CI sont déclarés comme [Deployment Checks](https://vercel.com/docs/deployment-checks) du projet Vercel : une nouvelle version de production n'est mise en ligne qu'une fois la CI réussie (attente de 15 minutes au plus).
 
 Variables à définir dans Vercel : `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `NEXTAUTH_SECRET` et, si besoin, `RESEND_API_KEY`.
 
