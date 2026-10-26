@@ -63,8 +63,15 @@ model User {
   sessions  Session[]
   orders    Order[]
   addresses Address[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+
+  // Carte Trinity (programme de fidélité)
+  loyaltyNumber       String? // unicité vérifiée à la création de la carte
+  loyaltyPoints       Int                  @default(0)
+  loyaltyJoinedAt     DateTime?
+  loyaltyTransactions LoyaltyTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Product {
@@ -160,15 +167,19 @@ model Address {
 }
 
 model Order {
-  id                String   @id @default(cuid())
-  userId            String
-  cartId            String
-  billingAddressId  String?
-  shippingAddressId String?
-  validated         Boolean  @default(false)
-  pickupSlot        DateTime? // début du créneau de retrait au drive (créneaux d'une heure)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                  String               @id @default(cuid())
+  userId              String
+  cartId              String
+  billingAddressId    String?
+  shippingAddressId   String?
+  validated           Boolean              @default(false)
+  pickupSlot          DateTime? // début du créneau de retrait au drive (créneaux d'une heure)
+  loyaltyDiscount     Int                  @default(0) // remise Carte Trinity, en millièmes d'euro
+  loyaltyPointsUsed   Int                  @default(0)
+  loyaltyPointsEarned Int                  @default(0)
+  loyaltyTransactions LoyaltyTransaction[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   cart            Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
@@ -194,4 +205,19 @@ enum nutriScore {
   D
   E
   unknown
+}
+
+// Mouvement de points Carte Trinity : positif quand des points sont gagnés, négatif quand ils sont utilisés
+model LoyaltyTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  orderId   String?
+  points    Int
+  label     String
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
 }

@@ -4,10 +4,13 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, CalendarClock, Check, CreditCard, Loader2, Lock, Pencil } from "lucide-react";
+import { ArrowLeft, CalendarClock, Check, Coins, CreditCard, Loader2, Lock, Pencil } from "lucide-react";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 import CheckoutSummary from "@/components/cart/checkout-summary";
 import { useCartSummary } from "@/components/cart/use-cart-summary";
+import { useLoyalty } from "@/components/cart/use-loyalty";
+import ActivateCardButton from "@/components/account/activate-card-button";
+import { POINTS_PER_VOUCHER, VOUCHER_VALUE, formatCardNumber, maxVouchers, pointsForAmount } from "@/lib/loyalty";
 import ProductImage from "@/components/product/product-image";
 import { getActiveCartId } from "@/lib/server-actions/cart-actions";
 import { formatSlot, parseSlotParam, saveSlot, slotParam } from "@/lib/checkout";
@@ -24,6 +27,8 @@ function PaiementContent() {
     const billingAddress = session?.user?.billingAddress;
     const { cartProducts, totalItems, totalPrice, savings } = useCartSummary();
 
+    const { loyalty, reload: reloadLoyalty } = useLoyalty();
+    const [vouchers, setVouchers] = useState(0);
     const [cartId, setCartId] = useState<string | null>(null);
     const [paying, setPaying] = useState(false);
     const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -38,6 +43,12 @@ function PaiementContent() {
         if (!userId) return;
         getActiveCartId().then((response) => setCartId(response?.cartId ?? null));
     }, [userId, cartProducts.length]);
+
+    // Bons Carte Trinity : jamais plus que le solde ni que le montant de la commande
+    const availableVouchers = loyalty ? maxVouchers(loyalty.points, totalPrice) : 0;
+    const usedVouchers = Math.min(vouchers, availableVouchers);
+    const loyaltyDiscount = usedVouchers * VOUCHER_VALUE;
+    const amountToPay = totalPrice - loyaltyDiscount;
 
     // Paiement simulé : même flux de commande que PayPal, sans transaction réelle
     const handleSimulatedPayment = async () => {
@@ -55,7 +66,7 @@ function PaiementContent() {
             const response = await fetch("/api/orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId, cartId, billingAddressId: billingAddress, pickupSlot: slotParam(slot) }),
+                body: JSON.stringify({ userId, cartId, billingAddressId: billingAddress, pickupSlot: slotParam(slot), loyaltyVouchers: usedVouchers }),
             });
 
             if (!response.ok) {
@@ -126,6 +137,65 @@ function PaiementContent() {
                     </section>
 
                     <section className="rounded-3xl border bg-white p-5 md:p-6">
+                        <h2 className="flex items-center gap-2 text-lg font-black">
+                            <Coins size={20} className="text-highlight" aria-hidden />
+                            Ma Carte Trinity
+                        </h2>
+                        {loyalty === undefined ? (
+                            <p className="mt-3 text-sm text-muted-foreground">Chargement de votre carte…</p>
+                        ) : loyalty === null ? (
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-secondary p-4">
+                                <p className="max-w-sm text-sm">
+                                    <span className="font-bold">Vous n’avez pas encore de Carte Trinity.</span> Activez-la
+                                    gratuitement pour gagner {pointsForAmount(totalPrice)} points avec cette commande.
+                                </p>
+                                <ActivateCardButton onActivated={reloadLoyalty} />
+                            </div>
+                        ) : (
+                            <>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Solde : <span className="font-bold text-foreground">{loyalty.points} points</span> · carte n°{" "}
+                                    {formatCardNumber(loyalty.number)}
+                                </p>
+                                {availableVouchers > 0 ? (
+                                    <div className="mt-4">
+                                        <p className="text-sm font-bold">Utiliser mes bons de {formatPrice(VOUCHER_VALUE)}</p>
+                                        <div role="radiogroup" aria-label="Bons à utiliser" className="mt-2 flex flex-wrap gap-2">
+                                            {Array.from({ length: Math.min(availableVouchers, 6) + 1 }, (_, count) => (
+                                                <button
+                                                    key={count}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={usedVouchers === count}
+                                                    onClick={() => setVouchers(count)}
+                                                    className={`rounded-full border px-4 py-2 text-sm font-bold transition-colors ${
+                                                        usedVouchers === count
+                                                            ? "border-primary bg-primary text-primary-foreground"
+                                                            : "bg-white hover:border-primary hover:text-primary"
+                                                    }`}
+                                                >
+                                                    {count === 0
+                                                        ? "Ne pas utiliser"
+                                                        : `${count} bon${count > 1 ? "s" : ""} · − ${formatPrice(count * VOUCHER_VALUE)}`}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className="mt-2 text-xs text-muted-foreground">
+                                            Chaque bon utilise {POINTS_PER_VOUCHER} points de votre solde.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="mt-3 text-sm">
+                                        {loyalty.points >= POINTS_PER_VOUCHER
+                                            ? `Votre commande doit dépasser ${formatPrice(VOUCHER_VALUE)} pour utiliser un bon.`
+                                            : `Plus que ${POINTS_PER_VOUCHER - loyalty.points} points pour obtenir votre premier bon de ${formatPrice(VOUCHER_VALUE)}.`}
+                                    </p>
+                                )}
+                            </>
+                        )}
+                    </section>
+
+                    <section className="rounded-3xl border bg-white p-5 md:p-6">
                         <h2 className="text-lg font-black">Moyen de paiement</h2>
                         <div className="mt-4 flex items-center gap-4 rounded-2xl border-2 border-primary bg-secondary/60 p-4">
                             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -175,7 +245,14 @@ function PaiementContent() {
                     </section>
                 </div>
 
-                <CheckoutSummary totalItems={totalItems} totalPrice={totalPrice} savings={savings} slotLabel={formatSlot(slot)}>
+                <CheckoutSummary
+                    totalItems={totalItems}
+                    totalPrice={totalPrice}
+                    savings={savings}
+                    slotLabel={formatSlot(slot)}
+                    loyaltyDiscount={loyaltyDiscount}
+                    pointsToEarn={loyalty ? pointsForAmount(amountToPay) : null}
+                >
                     <button
                         type="button"
                         onClick={handleSimulatedPayment}
@@ -190,7 +267,7 @@ function PaiementContent() {
                         ) : (
                             <>
                                 <Lock size={16} />
-                                Payer {formatPrice(totalPrice)}
+                                Payer {formatPrice(amountToPay)}
                             </>
                         )}
                     </button>

@@ -41,6 +41,12 @@ export async function generateInvoice(orderId: string): Promise<string> {
         orderNumber: number,
         createdAt: order.createdAt,
         pickupLabel: order.pickupSlot ? formatPickupDate(order.pickupSlot) : null,
+        loyalty: {
+            discount: order.loyaltyDiscount,
+            pointsUsed: order.loyaltyPointsUsed,
+            pointsEarned: order.loyaltyPointsEarned,
+            cardNumber: order.user.loyaltyNumber,
+        },
         customer: {
             name: `${order.user.firstName} ${order.user.lastName}`,
             email: order.user.email,

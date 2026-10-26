@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, MapPin, Package, ShoppingBasket } from "lucide-react";
+import { ArrowRight, CreditCard, MapPin, Package, ShoppingBasket } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { accountLinks, requireUser } from "@/lib/account";
 import OrderCard from "@/components/account/order-card";
@@ -44,6 +44,8 @@ export default async function UserPage() {
             select: {
                 firstName: true,
                 createdAt: true,
+                loyaltyNumber: true,
+                loyaltyPoints: true,
                 _count: { select: { orders: true, addresses: true } },
             },
         }),
@@ -75,6 +77,14 @@ export default async function UserPage() {
             value: `${cartItems} article${cartItems > 1 ? "s" : ""}`,
         },
         {
+            href: "/user/fidelite",
+            icon: CreditCard,
+            label: "Ma Carte Trinity",
+            value: user?.loyaltyNumber
+                ? `${user.loyaltyPoints} point${user.loyaltyPoints > 1 ? "s" : ""}`
+                : "À activer gratuitement",
+        },
+        {
             href: links.addresses,
             icon: MapPin,
             label: "Mes adresses",
@@ -90,17 +100,17 @@ export default async function UserPage() {
                 {memberSince && <p className="mt-1 text-white/75">Client Trinity depuis {memberSince}.</p>}
             </section>
 
-            <ul className="grid gap-4 sm:grid-cols-3">
+            <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
                 {tiles.map(({ href, icon: Icon, label, value }) => (
                     <li key={label}>
                         <Link
                             href={href}
-                            className="group flex items-center gap-4 rounded-3xl border bg-white p-5 transition-shadow hover:shadow-lg"
+                            className="group flex h-full items-center gap-4 rounded-3xl border bg-white p-5 transition-shadow hover:shadow-lg"
                         >
                             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                                 <Icon size={22} aria-hidden />
                             </span>
-                            <span>
+                            <span className="min-w-0">
                                 <span className="block font-extrabold">{label}</span>
                                 <span className="block text-sm text-muted-foreground">{value}</span>
                             </span>

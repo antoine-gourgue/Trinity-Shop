@@ -1,106 +1,100 @@
-'use client';
-import React, { useState } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { BadgePercent, ChevronDown, ChevronRight, Coins, Smartphone } from "lucide-react";
+import { POINTS_PER_VOUCHER } from "@/lib/loyalty";
+
+const BENEFITS = [
+    { icon: Coins, title: "1 € = 1 point", text: "Chaque euro payé sur vos commandes en ligne vous rapporte un point." },
+    { icon: BadgePercent, title: `${POINTS_PER_VOUCHER} points = 5 €`, text: "Vos points se transforment en bons de réduction au paiement." },
+    { icon: Smartphone, title: "Dématérialisée", text: "Votre carte et son code-barres sont dans votre espace client." },
+];
+
+const SECTIONS = [
+    {
+        title: "Qu’est-ce que la Carte Trinity ?",
+        content:
+            "La Carte Trinity est la carte de fidélité gratuite de Trinity Shop. Elle est dématérialisée et rattachée à votre compte client : elle possède un numéro et un code-barres, et vous permet de cumuler des points à chaque commande pour les transformer en bons de réduction.",
+    },
+    {
+        title: "Comment adhérer au programme ?",
+        content:
+            "Connectez-vous à votre compte, ouvrez la rubrique « Ma Carte Trinity » de votre espace client et cliquez sur « Activer ma Carte Trinity ». L’adhésion est gratuite, sans engagement, et immédiate.",
+    },
+    {
+        title: "Comment cumuler des points ?",
+        content:
+            "Chaque commande en ligne vous rapporte 1 point par euro payé, calculé sur le montant après remises. Les points sont crédités automatiquement dès la validation de la commande et apparaissent dans l’historique de votre carte.",
+    },
+    {
+        title: "Comment utiliser mes points ?",
+        content: `Par tranche de ${POINTS_PER_VOUCHER} points, vous obtenez un bon de 5 €. À l’étape Paiement de votre commande, choisissez le nombre de bons à utiliser : la remise est déduite du total, dans la limite du montant de la commande.`,
+    },
+    {
+        title: "Mes points ont-ils une date de validité ?",
+        content: "Non : vos points restent disponibles sur votre carte tant que votre compte client existe.",
+    },
+    {
+        title: "Et si je perds ma carte ?",
+        content:
+            "Votre Carte Trinity est dématérialisée : elle reste toujours disponible dans votre espace client, avec votre solde et votre historique de points.",
+    },
+    {
+        title: "Protection de vos données personnelles",
+        content:
+            "Les informations liées à votre carte sont utilisées uniquement pour la gestion du programme de fidélité Trinity. Conformément à la législation en vigueur, vous disposez d’un droit d’accès, de modification et de suppression de vos données.",
+    },
+    {
+        title: "Modification des conditions du programme",
+        content:
+            "Trinity se réserve le droit de faire évoluer les conditions du programme de fidélité. Les adhérents en sont informés par e-mail ou via leur espace client.",
+    },
+];
 
 export default function TrinityLoyaltyProgram() {
-    const [activeIndex, setActiveIndex] = useState<number | null>(null);
-
-    const toggleAccordion = (index: number) => {
-        setActiveIndex(activeIndex === index ? null : index);
-    };
-
-    const sections = [
-        {
-            title: "Qu'est-ce que la carte de fidélité « Carte Trinity » ?",
-            content: "La carte de fidélité « Carte Trinity » est une carte à code-barres proposée par la société Trinity. Elle permet aux clients de cumuler des points de fidélité lors de leurs achats dans les magasins partenaires Trinity et de bénéficier d'offres exclusives."
-        },
-        {
-            title: "Comment adhérer au programme de fidélité ?",
-            content: "Pour adhérer au programme de fidélité Trinity, il vous suffit de demander votre carte en magasin ou de vous inscrire en ligne sur notre site officiel. La carte est gratuite et accessible à tous les clients majeurs."
-        },
-        {
-            title: "Comment bénéficier de mes avantages Carte Trinity ?",
-            content: "Présentez votre Carte Trinity à chaque passage en caisse ou renseignez votre numéro de carte lors de vos achats en ligne. Cumulez des points et profitez d'offres spéciales tout au long de l'année."
-        },
-        {
-            title: "Quelles sont les règles d'attribution des avantages Carte Trinity ?",
-            content: "Les points de fidélité sont attribués sur chaque achat effectué dans un magasin partenaire. Certains produits ou périodes promotionnelles permettent de cumuler des points supplémentaires."
-        },
-        {
-            title: "Comment utiliser mes points Carte Trinity ?",
-            content: "Les points cumulés peuvent être utilisés pour obtenir des remises sur vos prochains achats ou pour accéder à des offres exclusives. Présentez simplement votre carte lors du paiement."
-        },
-        {
-            title: "Combien de temps ma Carte Trinity est-elle valable ?",
-            content: "La Carte Trinity est valable sans limitation de durée. Toutefois, un compte inactif depuis plus de 13 mois sera désactivé, et les points non utilisés seront perdus."
-        },
-        {
-            title: "Que faire en cas de perte ou de vol de ma Carte Trinity ?",
-            content: "En cas de perte ou de vol, signalez-le immédiatement en magasin ou via votre espace client en ligne. Une nouvelle carte vous sera remise et vos points seront transférés."
-        },
-        {
-            title: "Protection de vos données personnelles",
-            content: "Les informations collectées lors de votre inscription sont utilisées uniquement pour la gestion du programme de fidélité Trinity. Conformément à la législation en vigueur, vous disposez d'un droit d'accès, de modification et de suppression de vos données."
-        },
-        {
-            title: "Modification des conditions générales du programme",
-            content: "Trinity se réserve le droit de modifier à tout moment les conditions du programme de fidélité. Les adhérents seront informés de toute modification par email ou via leur espace client en ligne."
-        }
-    ];
-
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-            <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
-                <Link href="/" className="hover:underline text-gray-700 font-medium">Accueil</Link>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
-                <span className="text-teal-600 font-medium">Programme de fidélité Trinity</span>
+        <div className="mx-auto w-full max-w-4xl px-4 py-8">
+            <nav aria-label="Fil d'Ariane" className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
+                <Link href="/" className="hover:text-primary hover:underline">
+                    Accueil
+                </Link>
+                <ChevronRight size={14} aria-hidden />
+                <span className="font-semibold text-foreground">Programme de fidélité</span>
             </nav>
 
-            <div className="bg-gray-50 rounded-lg border p-6">
-            <div className="inline-block bg-yellow-400 px-3 py-1 rounded-sm shadow-md transform -rotate-3 mb-4">
-                <span className="font-bold text-black">Information</span>
-            </div>
+            <section className="relative overflow-hidden rounded-3xl bg-brand-dark p-6 text-white md:p-10">
+                <span className="inline-block -rotate-2 rounded-lg bg-highlight px-3 py-1 text-sm font-black text-brand-dark">
+                    Carte Trinity
+                </span>
+                <h1 className="mt-4 max-w-xl text-3xl font-black leading-tight md:text-4xl">
+                    Le programme de fidélité qui récompense vos courses
+                </h1>
+                <ul className="mt-8 grid gap-4 md:grid-cols-3">
+                    {BENEFITS.map(({ icon: Icon, title, text }) => (
+                        <li key={title} className="rounded-2xl bg-white/10 p-4">
+                            <Icon size={24} className="text-highlight" aria-hidden />
+                            <p className="mt-3 font-extrabold">{title}</p>
+                            <p className="mt-1 text-sm text-white/75">{text}</p>
+                        </li>
+                    ))}
+                </ul>
+                <Link
+                    href="/user/fidelite"
+                    className="mt-8 inline-flex h-12 items-center rounded-full bg-white px-6 font-bold text-brand-dark transition-colors hover:bg-highlight"
+                >
+                    Activer ou voir ma carte
+                </Link>
+            </section>
 
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold text-teal-700 mb-2">Programme de fidélité Carte Trinity</h1>
-                <p className="text-gray-600">
-                    Rejoignez le programme de fidélité Trinity et profitez d'avantages exclusifs tout en cumulant des points à chaque achat.
-                </p>
-            </div>
-
-            <div className="space-y-4">
-                {sections.map((section, index) => (
-                    <div key={index} className="border border-gray-300 rounded-lg overflow-hidden">
-                        <button
-                            className={`w-full flex justify-between items-center p-4 text-left ${activeIndex === index ? 'bg-teal-100' : 'bg-white'}`}
-                            onClick={() => toggleAccordion(index)}
-                        >
-                            <span className="font-semibold text-gray-800">{section.title}</span>
-                            <svg
-                                className={`w-5 h-5 transform transition-transform ${activeIndex === index ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                        {activeIndex === index && (
-                            <div className="p-4 text-gray-700 border-t border-gray-300">
-                                <p>{section.content}</p>
-                            </div>
-                        )}
-                    </div>
+            <h2 className="mb-4 mt-10 text-2xl font-black">Questions fréquentes</h2>
+            <div className="space-y-3">
+                {SECTIONS.map((section, index) => (
+                    <details key={section.title} open={index === 0} className="group overflow-hidden rounded-2xl border bg-white">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold [&::-webkit-details-marker]:hidden">
+                            {section.title}
+                            <ChevronDown size={20} className="shrink-0 text-primary transition-transform group-open:rotate-180" aria-hidden />
+                        </summary>
+                        <p className="border-t px-5 py-4 leading-relaxed text-muted-foreground">{section.content}</p>
+                    </details>
                 ))}
-            </div>
-
-            <div className="mt-8 text-center">
-                <p className="text-sm text-gray-500">
-                    Dernière mise à jour : <strong>{new Date().toLocaleDateString('fr-FR')}</strong>
-                </p>
-            </div>
             </div>
         </div>
     );

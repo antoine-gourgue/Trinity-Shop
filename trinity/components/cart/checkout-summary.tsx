@@ -1,4 +1,4 @@
-import { CalendarClock, CreditCard, Leaf, Store } from "lucide-react";
+import { CalendarClock, Coins, CreditCard, Leaf, Store } from "lucide-react";
 import Price from "@/components/product/price";
 import { formatPrice } from "@/lib/format";
 
@@ -7,11 +7,24 @@ interface CheckoutSummaryProps {
   totalPrice: number;
   savings: number;
   slotLabel?: string | null;
+  loyaltyDiscount?: number;
+  // Points Carte Trinity que la commande rapportera (null : pas de carte)
+  pointsToEarn?: number | null;
   children: React.ReactNode;
 }
 
 // Récapitulatif affiché à droite de chaque étape de commande ; `children` porte l'action de l'étape
-export default function CheckoutSummary({ totalItems, totalPrice, savings, slotLabel, children }: CheckoutSummaryProps) {
+export default function CheckoutSummary({
+  totalItems,
+  totalPrice,
+  savings,
+  slotLabel,
+  loyaltyDiscount = 0,
+  pointsToEarn,
+  children,
+}: CheckoutSummaryProps) {
+  const total = totalPrice - loyaltyDiscount;
+
   return (
     <aside className="space-y-4 lg:sticky lg:top-[140px]">
       <div className="rounded-3xl border bg-white p-6">
@@ -28,6 +41,12 @@ export default function CheckoutSummary({ totalItems, totalPrice, savings, slotL
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Remises promotions</dt>
               <dd className="font-bold text-promo">− {formatPrice(savings)}</dd>
+            </div>
+          )}
+          {loyaltyDiscount > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Bons Carte Trinity</dt>
+              <dd className="font-bold text-promo">− {formatPrice(loyaltyDiscount)}</dd>
             </div>
           )}
           <div className="flex justify-between">
@@ -51,8 +70,14 @@ export default function CheckoutSummary({ totalItems, totalPrice, savings, slotL
 
         <div className="mt-5 flex items-end justify-between border-t pt-5">
           <span className="font-extrabold">Total</span>
-          <Price value={totalPrice} size="lg" />
+          <Price value={total} size="lg" />
         </div>
+        {pointsToEarn !== undefined && pointsToEarn !== null && pointsToEarn > 0 && (
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-sm font-semibold text-brand-dark">
+            <Coins size={16} className="text-highlight" aria-hidden />
+            Cette commande vous rapportera {pointsToEarn} point{pointsToEarn > 1 ? "s" : ""}
+          </p>
+        )}
         {savings > 0 && (
           <p className="mt-3 rounded-xl bg-promo/10 px-3 py-2 text-center text-sm font-bold text-promo">
             Vous économisez {formatPrice(savings)} grâce aux promos

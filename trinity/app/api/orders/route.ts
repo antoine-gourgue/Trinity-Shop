@@ -2,6 +2,11 @@ import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from 'next/server';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { parseSlotParam, slotToDate } from "@/lib/checkout";
+import { auth } from "@/auth";
+import { orderNumber } from "@/lib/account";
+import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
+
+class InvalidVouchersError extends Error {}
 
 export async function GET(request: NextRequest) {
     const isLoggedIn = await isUserLoggedIn()
@@ -76,6 +81,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Une commande ne peut être passée que pour le compte connecté
+        const session = await auth();
+        if (session?.user?.id !== userId) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        // Bons Carte Trinity demandés (100 points = 5 €), vérifiés plus bas dans la transaction
+        const requestedVouchers = Number.isInteger(body.loyaltyVouchers) ? Math.max(0, body.loyaltyVouchers) : 0;
+
         // Adresse de facturation résolue côté serveur : la session peut être
         // antérieure à la création d'une adresse, et un nouveau compte n'en a pas
         if (!billingAddressId) {
@@ -103,7 +117,7 @@ export async function POST(request: NextRequest) {
 
         const cart = await prisma.cart.findUnique({
             where: { id: cartId },
-            include: { productsInCart: true },
+            include: { productsInCart: { include: { product: { select: { price: true } } } } },
         });
 
         if (!cart) {
@@ -117,13 +131,31 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const total = cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+
         const order = await prisma.$transaction(async (prisma) => {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { loyaltyNumber: true, loyaltyPoints: true },
+            });
+            const hasCard = !!user?.loyaltyNumber;
+
+            if (requestedVouchers > 0 && (!hasCard || requestedVouchers > maxVouchers(user.loyaltyPoints, total))) {
+                throw new InvalidVouchersError();
+            }
+            const loyaltyDiscount = requestedVouchers * VOUCHER_VALUE;
+            const loyaltyPointsUsed = requestedVouchers * POINTS_PER_VOUCHER;
+            const loyaltyPointsEarned = hasCard ? pointsForAmount(total - loyaltyDiscount) : 0;
+
             const newOrder = await prisma.order.create({
                 data: {
                     userId,
                     cartId,
                     billingAddressId,
                     pickupSlot,
+                    loyaltyDiscount,
+                    loyaltyPointsUsed,
+                    loyaltyPointsEarned,
                     validated: true,
                 },
             });
@@ -133,11 +165,33 @@ export async function POST(request: NextRequest) {
                 data: { archived: true },
             });
 
+            // Solde et historique de la Carte Trinity
+            if (hasCard && (loyaltyPointsUsed > 0 || loyaltyPointsEarned > 0)) {
+                const number = orderNumber(newOrder.id);
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: { loyaltyPoints: { increment: loyaltyPointsEarned - loyaltyPointsUsed } },
+                });
+                await prisma.loyaltyTransaction.createMany({
+                    data: [
+                        ...(loyaltyPointsUsed > 0
+                            ? [{ userId, orderId: newOrder.id, points: -loyaltyPointsUsed, label: `Bon de réduction, commande n° ${number}` }]
+                            : []),
+                        ...(loyaltyPointsEarned > 0
+                            ? [{ userId, orderId: newOrder.id, points: loyaltyPointsEarned, label: `Points gagnés, commande n° ${number}` }]
+                            : []),
+                    ],
+                });
+            }
+
             return newOrder;
         });
 
         return NextResponse.json({ data: order }, { status: 201 });
     } catch (error) {
+        if (error instanceof InvalidVouchersError) {
+            return NextResponse.json({ error: "Not enough loyalty points" }, { status: 400 });
+        }
         if (error instanceof Error) {
             console.error("Error creating order:", error.message);
             return NextResponse.json(

@@ -119,6 +119,14 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                 <dt className="text-muted-foreground">Sous-total</dt>
                                 <dd className="font-bold">{formatPrice(totalAmount)}</dd>
                             </div>
+                            {order.loyaltyDiscount > 0 && (
+                                <div className="flex justify-between">
+                                    <dt className="text-muted-foreground">
+                                        Bons Carte Trinity ({order.loyaltyPointsUsed} pts)
+                                    </dt>
+                                    <dd className="font-bold text-promo">− {formatPrice(order.loyaltyDiscount)}</dd>
+                                </div>
+                            )}
                             <div className="flex justify-between">
                                 <dt className="text-muted-foreground">Préparation de la commande</dt>
                                 <dd className="font-bold text-bio">Offerte</dd>
@@ -126,8 +134,13 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                         </dl>
                         <div className="mt-4 flex items-end justify-between border-t pt-4">
                             <span className="font-extrabold">Total</span>
-                            <Price value={totalAmount} size="lg" />
+                            <Price value={totalAmount - order.loyaltyDiscount} size="lg" />
                         </div>
+                        {order.loyaltyPointsEarned > 0 && (
+                            <p className="mt-3 rounded-xl bg-highlight/25 px-3 py-2 text-center text-sm font-bold text-brand-dark">
+                                + {order.loyaltyPointsEarned} points cumulés sur votre Carte Trinity
+                            </p>
+                        )}
                         <div className="mt-5">
                             <InvoiceDownloadButton orderId={order.id} />
                         </div>

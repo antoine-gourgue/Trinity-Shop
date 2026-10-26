@@ -10,6 +10,7 @@ export interface InvoiceData {
   orderNumber: string;
   createdAt: Date;
   pickupLabel: string | null;
+  loyalty: { discount: number; pointsUsed: number; pointsEarned: number; cardNumber: string | null };
   customer: { name: string; email: string; address: string[] };
   items: {
     name: string;
@@ -207,13 +208,13 @@ export async function buildInvoicePdf(data: InvoiceData) {
   page.drawLine({ start: { x: MARGIN, y: y + 14 }, end: { x: right, y: y + 14 }, thickness: 0.75, color: COLORS.border });
 
   // Totaux : sur une nouvelle page s'il ne reste pas la place
-  const totalsHeight = 150;
+  const totalsHeight = 190;
   if (y - totalsHeight < FOOTER_TOP) {
     page = pdf.addPage([A4.width, A4.height]);
     y = A4.height - MARGIN - 10;
   }
 
-  const total = subtotal - savings;
+  const total = subtotal - savings - data.loyalty.discount;
   const vat = total - total / (1 + VAT_RATE);
   const boxX = right - 230;
   let lineY = y - 10;
@@ -224,6 +225,9 @@ export async function buildInvoicePdf(data: InvoiceData) {
   };
   totalLine(`Sous-total (${articles} article${articles > 1 ? "s" : ""})`, euros(subtotal));
   if (savings > 0) totalLine("Remises promotions", `- ${euros(savings)}`, COLORS.promo);
+  if (data.loyalty.discount > 0) {
+    totalLine(`Bons Carte Trinity (${data.loyalty.pointsUsed} pts)`, `- ${euros(data.loyalty.discount)}`, COLORS.promo);
+  }
   totalLine("Préparation de la commande", "Offerte", COLORS.primary);
 
   lineY -= 16;
@@ -235,6 +239,17 @@ export async function buildInvoicePdf(data: InvoiceData) {
     color: COLORS.muted,
     align: "right",
   });
+  if (data.loyalty.cardNumber) {
+    write(page, `Carte Trinity n° ${data.loyalty.cardNumber}`, right, lineY - 44, { size: 8, color: COLORS.muted, align: "right" });
+    if (data.loyalty.pointsEarned > 0) {
+      write(page, `+ ${data.loyalty.pointsEarned} points cumulés avec cette commande`, right, lineY - 57, {
+        size: 8,
+        font: bold,
+        color: COLORS.primary,
+        align: "right",
+      });
+    }
+  }
 
   // Remerciement à gauche des totaux
   write(page, "Merci pour votre commande !", MARGIN, y - 10, { size: 13, font: bold, color: COLORS.brandDark });

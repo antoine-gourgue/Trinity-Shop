@@ -8,6 +8,8 @@ import { ArrowLeft, ArrowRight, CalendarDays, Check, Loader2, Store } from "luci
 import CheckoutSteps from "@/components/cart/checkout-steps";
 import CheckoutSummary from "@/components/cart/checkout-summary";
 import { useCartSummary } from "@/components/cart/use-cart-summary";
+import { useLoyalty } from "@/components/cart/use-loyalty";
+import { pointsForAmount } from "@/lib/loyalty";
 import { PickupSlot, formatSlot, loadSlot, pickupDays, pickupHours, saveSlot, slotParam } from "@/lib/checkout";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +17,7 @@ export default function RetraitPage() {
     const router = useRouter();
     const { status } = useSession();
     const { cartProducts, totalItems, totalPrice, savings } = useCartSummary();
+    const { loyalty } = useLoyalty();
 
     // Jours calculés côté navigateur (fuseau horaire du client), puis créneau déjà choisi repris
     const [days, setDays] = useState<ReturnType<typeof pickupDays>>([]);
@@ -157,6 +160,7 @@ export default function RetraitPage() {
                     totalPrice={totalPrice}
                     savings={savings}
                     slotLabel={slot ? formatSlot(slot) : null}
+                    pointsToEarn={loyalty ? pointsForAmount(totalPrice) : null}
                 >
                     <button
                         type="button"

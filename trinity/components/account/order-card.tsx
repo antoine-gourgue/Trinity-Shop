@@ -13,6 +13,7 @@ interface OrderCardProps {
     createdAt: Date;
     validated: boolean;
     pickupSlot?: Date | null;
+    loyaltyDiscount?: number;
     cart: { productsInCart: { quantity: number; product: { id: string; name: string; price: number; picture: string } }[] };
   };
 }
@@ -21,7 +22,7 @@ const MAX_THUMBNAILS = 5;
 
 export default function OrderCard({ href, order }: OrderCardProps) {
   const items = order.cart.productsInCart;
-  const total = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const total = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0) - (order.loyaltyDiscount ?? 0);
   const articleCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (

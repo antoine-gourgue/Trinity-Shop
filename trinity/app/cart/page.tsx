@@ -26,6 +26,8 @@ import ProductCarousel from "@/components/catalog/product-carousel";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 import CheckoutSummary from "@/components/cart/checkout-summary";
 import { useCartSummary } from "@/components/cart/use-cart-summary";
+import { useLoyalty } from "@/components/cart/use-loyalty";
+import { pointsForAmount } from "@/lib/loyalty";
 import { Button } from "@/components/ui/button";
 
 const OTHER_GROUP = { slug: "autres", name: "Autres produits", image: null as string | null };
@@ -33,6 +35,7 @@ const OTHER_GROUP = { slug: "autres", name: "Autres produits", image: null as st
 export default function CartPage() {
     const { removeProduct, handleUpdateProductQuantity, refreshCart } = useCart();
     const { cartProducts, details, suggestions, totalItems, totalPrice, savings } = useCartSummary();
+    const { loyalty } = useLoyalty();
     const { data: session, status } = useSession();
     const [isPending, startTransition] = useTransition();
 
@@ -253,7 +256,12 @@ export default function CartPage() {
                     })}
                 </div>
 
-                <CheckoutSummary totalItems={totalItems} totalPrice={totalPrice} savings={savings}>
+                <CheckoutSummary
+                    totalItems={totalItems}
+                    totalPrice={totalPrice}
+                    savings={savings}
+                    pointsToEarn={loyalty ? pointsForAmount(totalPrice) : null}
+                >
                     {validateButton("w-full")}
                 </CheckoutSummary>
             </div>
