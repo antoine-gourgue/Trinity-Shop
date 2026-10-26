@@ -816,7 +816,7 @@ describe("API: /api/products/[id]", () => {
       (prisma.product.findFirst as jest.Mock).mockResolvedValue(null);
 
       const { req } = createMocks({ method: "GET" });
-      const params = Promise.resolve({ barcode: BigInt(123456789) });
+      const params = Promise.resolve({ barcode: "123456789" });
 
       await getProductByBarcode(req as any, { params });
 
@@ -844,7 +844,7 @@ describe("API: /api/products/[id]", () => {
       const jsonMock = jest.spyOn(NextResponse, "json");
 
       const { req } = createMocks({ method: "GET" });
-      const params = Promise.resolve({ barcode: BigInt(987654321) });
+      const params = Promise.resolve({ barcode: "987654321" });
 
       await getProductByBarcode(req as any, { params });
 
@@ -874,7 +874,7 @@ describe("API: /api/products/[id]", () => {
       const jsonMock = jest.spyOn(NextResponse, "json");
 
       const { req } = createMocks({ method: "GET" });
-      const params = Promise.resolve({ barcode: BigInt(123456789) });
+      const params = Promise.resolve({ barcode: "123456789" });
 
       await getProductByBarcode(req as any, { params });
 
@@ -897,7 +897,7 @@ describe("API: /api/products/[id]", () => {
       );
 
       const { req } = createMocks({ method: "GET" });
-      const params = Promise.resolve({ barcode: BigInt(111222333) });
+      const params = Promise.resolve({ barcode: "111222333" });
 
       await getProductByBarcode(req as any, { params });
 
@@ -915,7 +915,7 @@ describe("API: /api/products/[id]", () => {
 
       const { req } = createMocks({ method: "GET" });
       const jsonMock = jest.spyOn(NextResponse, "json");
-      const params = Promise.resolve({ barcode: BigInt(123456789) });
+      const params = Promise.resolve({ barcode: "123456789" });
 
       await getProductByBarcode(req as any, { params });
 
