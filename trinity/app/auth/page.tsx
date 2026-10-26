@@ -16,7 +16,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 import Link from "next/link";
-import { onCreateCredentials } from "../../services/auth/submit";
+import { useCredentialsSignIn } from "@/hooks/use-credentials-sign-in";
 import { createUserSchema } from "@/schemas/createUserSchema";
 
 export default function SignIn() {
@@ -31,10 +31,11 @@ export default function SignIn() {
     });
 
     const [serverError, setServerError] = useState<string | null>(null);
+    const signInWithCredentials = useCredentialsSignIn();
 
     const handleSubmit = async (values: z.infer<typeof createUserSchema>) => {
       setServerError(null);
-      const result = await onCreateCredentials(values);
+      const result = await signInWithCredentials(values);
       if (result?.error) setServerError(result.error);
     };
 
