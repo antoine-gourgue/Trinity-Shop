@@ -10,7 +10,7 @@ export default function ShopShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-muted/50 pb-20 md:pb-0">
       <TopBar />
-      <div className="sticky top-0 z-40 shadow-sm">
+      <div data-sticky-header className="sticky top-0 z-40 shadow-sm">
         <Header rayons={RAYON_LINKS} />
         <RayonsNav rayons={RAYON_LINKS} />
       </div>

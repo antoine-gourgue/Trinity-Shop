@@ -7,12 +7,13 @@ import prisma from "@/lib/prisma";
 import { getOpenFoodFacts } from "@/lib/server-actions/products-actions";
 import { findRayonForCategories, rayonCategoryNames, rayonHref } from "@/lib/rayons";
 import { discountPercent, formatBrand, formatPrice, isBioBrand } from "@/lib/format";
-import { formatAllergens, nutritionRows } from "@/lib/product-info";
+import { formatAllergens, formatUnitPrice, nutritionRows } from "@/lib/product-info";
 import PriceBlock from "@/components/product/price-block";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
 import AddToCartButton from "@/components/product/add-to-cart-button";
 import ProductSection from "@/components/catalog/product-section";
+import ProductStickyBar from "@/components/product/product-sticky-bar";
 
 interface ProductPageProps {
   params: Promise<{ productId: string }>;
@@ -156,7 +157,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </div>
 
-        <aside className="rounded-3xl border bg-white p-6 lg:sticky lg:top-[140px]">
+        <aside id="achat" className="rounded-3xl border bg-white p-6 lg:sticky lg:top-[140px]">
           {discount && product.regularPrice && (
             <p className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-md bg-promo px-2 py-0.5 text-sm font-black text-white">-{discount} %</span>
@@ -201,7 +202,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <InfoCard title="Description">
+        <InfoCard id="description" title="Description">
           <p>{description ?? "Aucune description disponible pour ce produit."}</p>
           {conservation && (
             <>
@@ -211,7 +212,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           )}
         </InfoCard>
 
-        <InfoCard title="Valeurs nutritionnelles" className="lg:row-span-2">
+        <InfoCard id="nutrition" title="Valeurs nutritionnelles" className="lg:row-span-2">
           {nutrition.length > 0 ? (
             <table className="w-full text-sm">
               <caption className="sr-only">Valeurs nutritionnelles pour 100 g</caption>
@@ -239,7 +240,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             Informations issues d’OpenFoodFacts, données collaboratives sous licence ODbL.
           </p>
         </InfoCard>
-        <InfoCard title="Ingrédients et allergènes">
+        <InfoCard id="composition" title="Ingrédients et allergènes">
           <p>{ingredients ?? "Liste des ingrédients non renseignée."}</p>
           {allergens.length > 0 && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -256,17 +257,48 @@ export default async function ProductPage({ params }: ProductPageProps) {
       </div>
 
       <ProductSection
+        id="similaires"
         title={match?.subCategory ? `Dans le rayon ${match.subCategory.label}` : "Vous aimerez aussi"}
         href={match ? rayonHref(match.rayon, match.subCategory?.slug) : undefined}
         products={similar}
+      />
+
+      <ProductStickyBar
+        productId={product.id}
+        name={product.name}
+        picture={product.picture}
+        price={product.price}
+        regularPrice={product.regularPrice}
+        unitPrice={formatUnitPrice(product.price, quantity)}
+        disabled={stock === 0}
+        triggerId="achat"
+        sections={[
+          { id: "description", label: "Description" },
+          { id: "composition", label: "Ingrédients & allergènes" },
+          { id: "nutrition", label: "Valeurs nutritionnelles" },
+          ...(similar.length > 0 ? [{ id: "similaires", label: "Dans le même rayon" }] : []),
+        ]}
       />
     </div>
   );
 }
 
-function InfoCard({ title, className, children }: { title: string; className?: string; children: React.ReactNode }) {
+function InfoCard({
+  id,
+  title,
+  className,
+  children,
+}: {
+  id: string;
+  title: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className={`rounded-3xl border bg-white p-6 text-sm leading-relaxed md:p-8 ${className ?? ""}`}>
+    <section
+      id={id}
+      className={`scroll-mt-[230px] rounded-3xl border bg-white p-6 text-sm leading-relaxed md:p-8 ${className ?? ""}`}
+    >
       <h2 className="mb-3 text-lg font-black">{title}</h2>
       {children}
     </section>

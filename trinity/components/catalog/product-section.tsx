@@ -5,6 +5,7 @@ import ProductCard from "@/components/product/productCard";
 import ProductCarousel from "@/components/catalog/product-carousel";
 
 interface ProductSectionProps {
+  id?: string;
   title: string;
   subtitle?: string;
   href?: string;
@@ -12,11 +13,11 @@ interface ProductSectionProps {
 }
 
 // Section titrée avec un carrousel de produits et un lien « Voir tout »
-export default function ProductSection({ title, subtitle, href, products }: ProductSectionProps) {
+export default function ProductSection({ id, title, subtitle, href, products }: ProductSectionProps) {
   if (products.length === 0) return null;
 
   return (
-    <section className="mt-12">
+    <section id={id} className="mt-12 scroll-mt-[230px]">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <h2 className="text-xl font-black md:text-2xl">{title}</h2>
