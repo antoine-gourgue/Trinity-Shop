@@ -17,7 +17,8 @@ interface ProductStickyBarProps {
   disabled?: boolean;
   // Élément de référence : la barre apparaît une fois qu'il est sorti de l'écran
   triggerId: string;
-  sections: { id: string; label: string }[];
+  // track: false pour un lien sans suivi de position (ex. un panneau collant)
+  sections: { id: string; label: string; track?: boolean }[];
 }
 
 // Barre produit qui suit le défilement (vignette, sections, prix et ajout au panier)
@@ -52,6 +53,7 @@ export default function ProductStickyBar({
       let current: string | null = null;
       let currentTop = -Infinity;
       for (const section of sections) {
+        if (section.track === false) continue;
         const top = document.getElementById(section.id)?.getBoundingClientRect().top;
         if (top !== undefined && top <= threshold && top > currentTop) {
           current = section.id;

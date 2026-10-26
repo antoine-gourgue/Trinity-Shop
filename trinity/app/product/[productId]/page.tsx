@@ -282,7 +282,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </div>
 
         {similar.length > 0 && (
-          <aside id="similaires" className="mt-4 scroll-mt-[230px] lg:mt-12">
+          <aside id="similaires" className="mt-4 scroll-mt-[230px] lg:sticky lg:top-[240px] lg:mt-12">
             <div className="relative rounded-3xl bg-brand-dark px-4 pb-6 pt-12 md:px-6">
               <p className="absolute -top-4 left-5 -rotate-2 rounded-lg bg-highlight px-4 py-2 font-black text-brand-dark shadow-md">
                 Vous aimerez aussi :
@@ -329,7 +329,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           { id: "description", label: "Description" },
           { id: "composition", label: "Composition & origine" },
           ...(conservation || manufacturingPlaces ? [{ id: "conseils", label: "Conseils" }] : []),
-          ...(similar.length > 0 ? [{ id: "similaires", label: "Vous aimerez aussi" }] : []),
+          ...(similar.length > 0 ? [{ id: "similaires", label: "Vous aimerez aussi", track: false }] : []),
         ]}
       />
     </div>
