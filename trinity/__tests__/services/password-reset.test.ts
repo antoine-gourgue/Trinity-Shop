@@ -4,7 +4,6 @@
 import { createHash } from "crypto";
 import bcrypt from "bcrypt";
 import prisma from "@/lib/prisma";
-import { appOrigin } from "@/lib/app-url";
 import { requestPasswordResetAction, resetPasswordAction } from "@/lib/server-actions/password-reset-actions";
 import { INVALID_RESET_LINK } from "@/schemas/passwordResetSchema";
 import { createResetToken, isPasswordResetLinkValid, PASSWORD_RESET_TTL_MS } from "@/services/auth/passwordReset";
@@ -300,17 +299,5 @@ describe("createResetToken", () => {
         expect(first.tokenHash).toBe(sha256(first.token));
         expect(first.expires.toISOString()).toBe("2026-10-26T11:00:00.000Z");
         expect(second.token).not.toBe(first.token);
-    });
-});
-
-describe("appOrigin", () => {
-    it("prefers APP_URL, then the Vercel production domain, then localhost", () => {
-        expect(appOrigin()).toBe("http://localhost:3000");
-
-        process.env.VERCEL_PROJECT_PRODUCTION_URL = "trinity.example.com";
-        expect(appOrigin()).toBe("https://trinity.example.com");
-
-        process.env.APP_URL = "https://shop.example.com/";
-        expect(appOrigin()).toBe("https://shop.example.com");
     });
 });

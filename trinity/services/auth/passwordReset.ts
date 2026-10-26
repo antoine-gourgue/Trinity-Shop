@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { after } from "next/server";
 import { Resend } from "resend";
 import prisma from "@/lib/prisma";
-import { appOrigin } from "@/lib/app-url";
+import { siteUrl } from "@/lib/site-url";
 import PasswordResetEmail from "@/components/password-reset-email";
 
 // Durée de validité d'un lien de réinitialisation : 1 heure
@@ -34,7 +34,7 @@ export function createResetToken(now = new Date()) {
 
 export function passwordResetUrl(email: string, token: string) {
   const params = new URLSearchParams({ token, email });
-  return `${appOrigin()}/auth/reinitialiser?${params.toString()}`;
+  return `${siteUrl()}/auth/reinitialiser?${params.toString()}`;
 }
 
 // Envoi « au mieux », comme l'e-mail de bienvenue : sans clé Resend, rien n'est envoyé
