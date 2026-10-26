@@ -6,9 +6,9 @@ import { ChevronRight, CreditCard, PackageCheck, Store } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { getOpenFoodFacts } from "@/lib/server-actions/products-actions";
 import { findRayonForCategories, rayonCategoryNames, rayonHref } from "@/lib/rayons";
-import { formatBrand, isBioBrand } from "@/lib/format";
-import { formatAllergens, formatUnitPrice, nutritionRows } from "@/lib/product-info";
-import Price from "@/components/product/price";
+import { discountPercent, formatBrand, formatPrice, isBioBrand } from "@/lib/format";
+import { formatAllergens, nutritionRows } from "@/lib/product-info";
+import PriceBlock from "@/components/product/price-block";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
 import AddToCartButton from "@/components/product/add-to-cart-button";
@@ -59,8 +59,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
     }),
   ]);
 
-  const quantity: string | undefined = off?.quantity || undefined;
-  const unitPrice = formatUnitPrice(product.price, quantity);
+  const quantity: string | undefined = product.netContent || off?.quantity || undefined;
+  const discount = discountPercent(product.price, product.regularPrice);
   const stock = product.stock?.quantity ?? 0;
   const allergens = formatAllergens(off?.allergens_tags);
   const nutrition = nutritionRows(off?.nutriments);
@@ -124,6 +124,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 Bio
               </span>
             )}
+            {discount && (
+              <span className="absolute right-0 top-0 rounded-lg bg-promo px-3 py-1 text-sm font-black text-white">
+                -{discount} %
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col">
@@ -152,8 +157,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </div>
 
         <aside className="rounded-3xl border bg-white p-6 lg:sticky lg:top-[140px]">
-          <Price value={product.price} size="lg" />
-          {unitPrice && <p className="mt-1 text-sm text-muted-foreground">soit {unitPrice}</p>}
+          {discount && product.regularPrice && (
+            <p className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-md bg-promo px-2 py-0.5 text-sm font-black text-white">-{discount} %</span>
+              <span className="text-sm font-bold text-promo">
+                Vous économisez {formatPrice(product.regularPrice - product.price)}
+              </span>
+            </p>
+          )}
+          <PriceBlock price={product.price} regularPrice={product.regularPrice} netContent={quantity} size="lg" />
 
           <p className="mt-4 flex items-center gap-2 text-sm font-bold">
             <span

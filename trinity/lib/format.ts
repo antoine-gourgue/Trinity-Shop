@@ -41,3 +41,9 @@ export function formatBrand(brand?: string | null) {
 export function isBioBrand(brand?: string | null) {
   return !!brand && brand.toLowerCase().includes("bio");
 }
+
+// Remise en pourcentage entière, ou null si le produit n'est pas en promotion
+export function discountPercent(price: number, regularPrice?: number | null) {
+  if (!regularPrice || regularPrice <= price) return null;
+  return Math.round((1 - price / regularPrice) * 100);
+}

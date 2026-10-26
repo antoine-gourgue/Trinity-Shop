@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { BadgePercent, ChevronRight } from "lucide-react";
 import type { RayonLink } from "@/lib/rayons";
 import SubcategoryIcon from "@/components/catalog/subcategory-icon";
 
@@ -13,6 +13,15 @@ export default function RayonsNav({ rayons }: RayonsNavProps) {
   return (
     <nav aria-label="Rayons" className="relative hidden border-b bg-white md:block">
       <ul className="mx-auto flex h-12 max-w-[1400px] items-stretch justify-between overflow-x-auto px-6 lg:overflow-visible xl:justify-start">
+        <li className="flex">
+          <Link
+            href="/produits?promo=1"
+            className="flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-extrabold text-promo transition-colors hover:border-promo lg:px-2 lg:text-[13px] xl:px-3 xl:text-sm"
+          >
+            <BadgePercent size={18} aria-hidden />
+            <span className="lg:sr-only xl:not-sr-only">Promos</span>
+          </Link>
+        </li>
         {rayons.map((rayon) => (
           <li key={rayon.slug} className="group flex">
             <Link

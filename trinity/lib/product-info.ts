@@ -1,4 +1,4 @@
-import { formatPrice } from "@/lib/format";
+import { formatPrice } from "./format";
 
 // Contenance OpenFoodFacts (« 120 g », « 4 x 125 g », « 1,5 L ») convertie en kg ou en litres
 export function parseQuantity(quantity?: string | null) {

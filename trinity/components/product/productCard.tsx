@@ -1,21 +1,24 @@
 import Link from "next/link";
-import Price from "@/components/product/price";
+import PriceBlock from "@/components/product/price-block";
 import ProductImage from "@/components/product/product-image";
 import NutriScore from "@/components/product/nutri-score";
 import AddToCartButton from "@/components/product/add-to-cart-button";
-import { formatBrand, isBioBrand } from "@/lib/format";
+import { discountPercent, formatBrand, isBioBrand } from "@/lib/format";
 
 interface ProductProps {
     id: string;
     name: string;
     price: number;
+    regularPrice?: number | null;
+    netContent?: string | null;
     picture: string;
     nutriScore?: string;
     brand?: string;
 }
 
-export default function ProductCard({ id, name, price, picture, nutriScore, brand }: ProductProps) {
+export default function ProductCard({ id, name, price, regularPrice, netContent, picture, nutriScore, brand }: ProductProps) {
     const href = `/product/${id}`;
+    const discount = discountPercent(price, regularPrice);
 
     return (
         <article className="group relative flex h-full flex-col rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-lg sm:p-4">
@@ -31,6 +34,11 @@ export default function ProductCard({ id, name, price, picture, nutriScore, bran
                         Bio
                     </span>
                 )}
+                {discount && (
+                    <span className="absolute right-0 top-0 rounded-md bg-promo px-2 py-0.5 text-xs font-black text-white">
+                        -{discount} %
+                    </span>
+                )}
             </Link>
 
             <div className="mt-3 flex flex-1 flex-col">
@@ -44,13 +52,14 @@ export default function ProductCard({ id, name, price, picture, nutriScore, bran
                         {name}
                     </Link>
                 </h3>
+                <p className="mt-0.5 h-4 truncate text-xs text-muted-foreground">{netContent}</p>
                 <div className="mt-2 h-7">
                     <NutriScore grade={nutriScore} />
                 </div>
             </div>
 
-            <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                <Price value={price} />
+            <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <PriceBlock price={price} regularPrice={regularPrice} netContent={netContent} />
                 <AddToCartButton productId={id} productName={name} />
             </div>
         </article>

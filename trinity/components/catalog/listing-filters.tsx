@@ -21,13 +21,25 @@ const NUTRI_COLORS: Record<string, string> = {
 interface ListingFiltersProps {
   basePath: string;
   params: ListingParams;
-  facets: { brands: FacetOption[]; nutriScores: FacetOption[] };
+  facets: { brands: FacetOption[]; nutriScores: FacetOption[]; promoCount: number };
 }
 
 // Filtres sous forme de liens : fonctionnent sans JavaScript et restent partageables
 export default function ListingFilters({ basePath, params, facets }: ListingFiltersProps) {
   return (
     <div className="divide-y rounded-2xl border bg-white">
+      <FilterGroup title="Offres">
+        <FilterOption
+          href={listingHref(basePath, params, { promo: !params.promo })}
+          active={params.promo}
+          count={facets.promoCount}
+          disabled={!params.promo && facets.promoCount === 0}
+        >
+          <span className="rounded-md bg-promo px-1.5 py-0.5 text-[11px] font-black text-white">%</span>
+          En promotion
+        </FilterOption>
+      </FilterGroup>
+
       <FilterGroup title="Prix">
         {PRICE_RANGES.map((range) => {
           const active = params.prix === range.value;

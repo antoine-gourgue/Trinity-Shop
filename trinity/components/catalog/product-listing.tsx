@@ -30,6 +30,7 @@ export default function ProductListing({ basePath, params, listing, emptyState }
   const filters = <ListingFilters basePath={basePath} params={params} facets={facets} />;
 
   const activeChips = [
+    ...(params.promo ? [{ label: "En promotion", href: listingHref(basePath, params, { promo: false }) }] : []),
     ...params.marques.map((marque) => ({
       label: formatBrand(marque),
       href: listingHref(basePath, params, { marques: params.marques.filter((m) => m !== marque) }),
@@ -47,7 +48,7 @@ export default function ProductListing({ basePath, params, listing, emptyState }
         ]
       : []),
   ];
-  const clearHref = listingHref(basePath, params, { marques: [], nutriscores: [], prix: undefined });
+  const clearHref = listingHref(basePath, params, { marques: [], nutriscores: [], prix: undefined, promo: false });
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">

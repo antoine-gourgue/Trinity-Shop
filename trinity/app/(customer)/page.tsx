@@ -44,10 +44,11 @@ export default async function HomePage({
   const legacyQuery = (await searchParams).product;
   if (legacyQuery) redirect(`/produits?q=${encodeURIComponent(legacyQuery)}`);
 
-  const [productCount, bioCount, nutriACount, saveurs, nutriA, bio, matLou] = await Promise.all([
+  const [productCount, bioCount, nutriACount, promos, saveurs, nutriA, bio, matLou] = await Promise.all([
     prisma.product.count(),
     prisma.product.count({ where: { brand: { name: "u-bio" } } }),
     prisma.product.count({ where: { nutriScore: "A" } }),
+    productsWhere({ regularPrice: { not: null } }),
     productsWhere({ brand: { name: "u-saveurs" } }),
     productsWhere({ nutriScore: "A" }),
     productsWhere({ brand: { name: "u-bio" } }),
@@ -90,10 +91,10 @@ export default async function HomePage({
                 Découvrir les rayons <ArrowRight size={16} aria-hidden />
               </Link>
               <Link
-                href="/produits"
+                href="/produits?promo=1"
                 className="rounded-full border border-white/40 px-5 py-3 text-sm font-bold transition-colors hover:bg-white/10"
               >
-                Tous les produits
+                Voir les promos
               </Link>
             </div>
           </div>
@@ -138,6 +139,12 @@ export default async function HomePage({
         <RayonTiles />
       </section>
 
+      <ProductSection
+        title="Les promos du moment"
+        subtitle="Des remises sur une sélection de produits de tous les rayons."
+        href="/produits?promo=1"
+        products={promos}
+      />
       <ProductSection
         title="U Saveurs, le goût des régions"
         subtitle="Des recettes de terroir sélectionnées par nos équipes."

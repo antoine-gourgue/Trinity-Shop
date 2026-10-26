@@ -2,9 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useSession } from "next-auth/react";
-import { Loader2, Minus, Plus, ShoppingBasket } from "lucide-react";
+import Link from "next/link";
+import { CircleCheck, Loader2, Minus, Plus, ShoppingBasket } from "lucide-react";
 import { useCart } from "@/app/contexts/CartContext";
 import LoginModal from "@/components/modal/LoginModal";
+import { ToastAction } from "@/components/ui/toast";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 interface AddToCartButtonProps {
@@ -40,6 +43,24 @@ export default function AddToCartButton({
     startTransition(async () => {
       try {
         await addProductToCart(productId, 1);
+        toast({
+          title: "Ajouté au panier",
+          description: (
+            <span className="flex items-center gap-2">
+              <CircleCheck size={16} className="shrink-0 text-bio" aria-hidden />
+              <span className="line-clamp-1">{productName}</span>
+            </span>
+          ),
+          duration: 3000,
+          className: "rounded-2xl border-l-4 border-l-primary p-4 pr-8",
+          action: (
+            <ToastAction altText="Voir mon panier" asChild>
+              <Link href="/cart" className="shrink-0 rounded-full border-primary px-3 font-bold text-primary">
+                Voir le panier
+              </Link>
+            </ToastAction>
+          ),
+        });
       } catch (error) {
         console.error("Erreur lors de l'ajout au panier :", error);
       }

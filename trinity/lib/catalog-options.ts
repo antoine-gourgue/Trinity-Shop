@@ -30,6 +30,7 @@ export interface ListingParams {
   marques: string[];
   nutriscores: NutriGrade[];
   prix?: string;
+  promo: boolean;
   tri: SortValue;
   page: number;
 }
@@ -60,6 +61,7 @@ export function parseListingParams(raw: RawParams): ListingParams {
       .map((grade) => grade.toUpperCase())
       .filter((grade): grade is NutriGrade => NUTRI_GRADES.includes(grade as NutriGrade)),
     prix: PRICE_RANGES.some((range) => range.value === prix) ? prix : undefined,
+    promo: asString(raw.promo) === "1",
     tri: SORT_OPTIONS.some((option) => option.value === tri) ? (tri as SortValue) : DEFAULT_SORT,
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
@@ -81,6 +83,7 @@ export function listingHref(
   next.marques.forEach((marque) => query.append("marque", marque));
   next.nutriscores.forEach((grade) => query.append("nutriscore", grade));
   if (next.prix) query.set("prix", next.prix);
+  if (next.promo) query.set("promo", "1");
   if (next.tri !== DEFAULT_SORT) query.set("tri", next.tri);
   if (next.page > 1) query.set("page", String(next.page));
 
@@ -93,5 +96,5 @@ export function toggleValue<T>(list: T[], value: T) {
 }
 
 export function activeFilterCount(params: ListingParams) {
-  return params.marques.length + params.nutriscores.length + (params.prix ? 1 : 0);
+  return params.marques.length + params.nutriscores.length + (params.prix ? 1 : 0) + (params.promo ? 1 : 0);
 }

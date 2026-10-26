@@ -3,6 +3,7 @@ import TopBar from "@/components/general/top-bar";
 import RayonsNav from "@/components/general/rayons-nav";
 import Footer from "@/components/general/footer";
 import { RAYON_LINKS } from "@/lib/rayons";
+import { Toaster } from "@/components/ui/toaster";
 
 // Habillage commun des pages boutique : en-tête, menu des rayons et pied de page
 export default function ShopShell({ children }: { children: React.ReactNode }) {
@@ -15,6 +16,7 @@ export default function ShopShell({ children }: { children: React.ReactNode }) {
       </div>
       <main className="flex-1">{children}</main>
       <Footer rayons={RAYON_LINKS} />
+      <Toaster />
     </div>
   );
 }

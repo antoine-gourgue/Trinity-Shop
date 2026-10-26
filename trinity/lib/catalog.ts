@@ -30,6 +30,7 @@ export interface ProductListing {
   facets: {
     brands: FacetOption[];
     nutriScores: FacetOption[];
+    promoCount: number;
   };
 }
 
@@ -50,21 +51,24 @@ export async function getProductListing(
   const priceFilter: Prisma.ProductWhereInput = priceRange
     ? { price: { gte: priceRange.min, ...(priceRange.max ? { lt: priceRange.max } : {}) } }
     : {};
+  const onPromo: Prisma.ProductWhereInput = { regularPrice: { not: null } };
+  const promoFilter: Prisma.ProductWhereInput = params.promo ? onPromo : {};
 
-  const where: Prisma.ProductWhereInput = { AND: [base, brandFilter, nutriFilter, priceFilter] };
+  const where: Prisma.ProductWhereInput = { AND: [base, brandFilter, nutriFilter, priceFilter, promoFilter] };
 
-  const [total, brandGroups, nutriGroups] = await Promise.all([
+  const [total, brandGroups, nutriGroups, promoCount] = await Promise.all([
     prisma.product.count({ where }),
     prisma.product.groupBy({
       by: ["brandId"],
-      where: { AND: [base, nutriFilter, priceFilter] },
+      where: { AND: [base, nutriFilter, priceFilter, promoFilter] },
       _count: { _all: true },
     }),
     prisma.product.groupBy({
       by: ["nutriScore"],
-      where: { AND: [base, brandFilter, priceFilter] },
+      where: { AND: [base, brandFilter, priceFilter, promoFilter] },
       _count: { _all: true },
     }),
+    prisma.product.count({ where: { AND: [base, brandFilter, nutriFilter, priceFilter, onPromo] } }),
   ]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -105,6 +109,7 @@ export async function getProductListing(
         label: `Nutri-Score ${grade}`,
         count: nutriGroups.find((group) => group.nutriScore === grade)?._count._all ?? 0,
       })),
+      promoCount,
     },
   };
 }

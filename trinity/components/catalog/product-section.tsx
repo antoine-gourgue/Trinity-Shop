@@ -41,6 +41,8 @@ export default function ProductSection({ title, subtitle, href, products }: Prod
               id={product.id}
               name={product.name}
               price={product.price}
+              regularPrice={product.regularPrice}
+              netContent={product.netContent}
               picture={product.picture}
               nutriScore={product.nutriScore ?? undefined}
               brand={product.brand?.name}

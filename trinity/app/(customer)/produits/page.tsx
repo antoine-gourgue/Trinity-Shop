@@ -14,6 +14,7 @@ interface ProduitsPageProps {
 
 function pageTitle(params: ListingParams) {
   if (params.q) return `Résultats pour « ${params.q} »`;
+  if (params.promo && !params.marques.length && !params.nutriscores.length) return "Promotions";
   if (params.categorie) return params.categorie;
   if (params.marques.length === 1 && !params.nutriscores.length) return formatBrand(params.marques[0]);
   if (params.nutriscores.length === 1 && !params.marques.length) return `Nutri-Score ${params.nutriscores[0]}`;

@@ -71,6 +71,8 @@ model Product {
   id               String               @id @default(cuid())
   name             String
   price            Int
+  regularPrice     Int? // prix barré quand le produit est en promotion
+  netContent       String? // contenance OpenFoodFacts, ex. « 540 g »
   description      String
   picture          String
   barCode          BigInt               @unique

@@ -83,7 +83,7 @@ export default function SignIn() {
                 Se connecter
               </Button>
               <p className="text-center text-sm">
-                Vous n'avez pas de compte ?
+                Vous n’avez pas de compte ?
                 <Link className="ml-1 text-primary font-bold" href="/auth">
                   Créer un compte
                 </Link>

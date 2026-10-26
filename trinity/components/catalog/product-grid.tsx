@@ -16,6 +16,8 @@ export default function ProductGrid({ products, className }: ProductGridProps) {
             id={product.id}
             name={product.name}
             price={product.price}
+            regularPrice={product.regularPrice}
+            netContent={product.netContent}
             picture={product.picture}
             nutriScore={product.nutriScore ?? undefined}
             brand={product.brand?.name}

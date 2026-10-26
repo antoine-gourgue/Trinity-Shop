@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
+  BadgePercent,
   ChevronRight,
   Home,
   LayoutGrid,
@@ -85,7 +86,16 @@ export default function HeaderMobile({ rayons }: HeaderMobileProps) {
               Choisissez un rayon pour parcourir ses produits.
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
-          <ul className="grid grid-cols-2 gap-3 overflow-y-auto px-4 pb-6">
+          <div className="overflow-y-auto px-4 pb-6">
+          <Link
+            href="/produits?promo=1"
+            onClick={close}
+            className="mb-3 flex items-center gap-3 rounded-xl bg-promo px-4 py-3 font-extrabold text-white"
+          >
+            <BadgePercent size={22} aria-hidden />
+            Toutes les promos
+          </Link>
+          <ul className="grid grid-cols-2 gap-3">
             {rayons.map((rayon) => (
               <li key={rayon.slug}>
                 <Link
@@ -99,6 +109,7 @@ export default function HeaderMobile({ rayons }: HeaderMobileProps) {
               </li>
             ))}
           </ul>
+          </div>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
