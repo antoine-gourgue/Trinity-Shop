@@ -69,6 +69,7 @@ model User {
   loyaltyPoints       Int                  @default(0)
   loyaltyJoinedAt     DateTime?
   loyaltyTransactions LoyaltyTransaction[]
+  favorites           Favorite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -90,6 +91,8 @@ model Product {
   categories       CategoriesProducts[]
   stock            Stock?
   cartsWithProduct ProductInCart[]
+  promoEndsAt      DateTime? // fin de la promotion : le prix revient alors au prix barré
+  favorites        Favorite[]
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 }
@@ -141,14 +144,16 @@ model Cart {
 }
 
 model ProductInCart {
-  id        String   @id @default(cuid())
-  quantity  Int
-  cart      Cart     @relation(fields: [cartId], references: [id])
-  cartId    String
-  product   Product  @relation(fields: [productId], references: [id])
-  productId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  quantity        Int
+  cart            Cart     @relation(fields: [cartId], references: [id])
+  cartId          String
+  product         Product  @relation(fields: [productId], references: [id])
+  productId       String
+  // Produit équivalent accepté si celui-ci manque à la préparation
+  allowSubstitute Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Address {
@@ -174,6 +179,9 @@ model Order {
   billingAddressId    String?
   shippingAddressId   String?
   validated           Boolean              @default(false)
+  status              OrderStatus          @default(received)
+  stockDeducted       Boolean              @default(false) // stock décompté à la commande (commandes passées après ce suivi)
+  stripeSessionId     String?              @unique // paiement Stripe à l'origine de la commande : une session ne crée qu'une commande
   pickupSlot          DateTime? // début du créneau de retrait au drive (créneaux d'une heure)
   loyaltyDiscount     Int                  @default(0) // remise Carte Trinity, en millièmes d'euro
   loyaltyPointsUsed   Int                  @default(0)
@@ -221,4 +229,33 @@ model LoyaltyTransaction {
   order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
+}
+
+// Suivi d'une commande au drive
+enum OrderStatus {
+  received // reçue
+  preparing // en préparation
+  ready // prête au retrait, ou partie en livraison
+  completed // retirée ou livrée
+  cancelled // annulée
+}
+
+// Produits mis de côté par un client
+model Favorite {
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+  @@index([userId, createdAt])
+}
+
+// Compteur de tentatives par clé (connexion, inscription, mot de passe oublié) sur une fenêtre de temps
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
 }
