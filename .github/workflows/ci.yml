@@ -1,4 +1,4 @@
-# Vérifications avant la mise en production.
+# Vérifications avant la mise en production (lint, types, tests unitaires, build et parcours de bout en bout).
 # Vercel construit chaque commit de main ; avec les « Deployment Checks » du projet Vercel
 # réglés sur les jobs ci-dessous, le déploiement n'est mis en ligne que s'ils réussissent.
 name: CI
@@ -74,6 +74,8 @@ jobs:
       POSTGRES_URL_NON_POOLING: postgresql://postgres:postgres@localhost:5432/trinity
       NEXTAUTH_SECRET: ci-only-secret
       SEED_ADMIN_PASSWORD: ci-only-admin-password
+      # next start hors Vercel : l'hôte localhost est déclaré sûr pour NextAuth
+      AUTH_TRUST_HOST: "true"
       NEXT_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v4
@@ -94,3 +96,15 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Parcours complets dans Chrome (déjà installé sur les machines GitHub) sur la base jetable
+      - name: Tests de bout en bout
+        run: npm run test:e2e
+
+      - name: Traces des tests en échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: trinity/test-results
+          retention-days: 7

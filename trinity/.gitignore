@@ -41,3 +41,8 @@ next-env.d.ts
 
 # sauvegardes locales de données (prix avant mise à jour, etc.)
 /prisma/backups/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/

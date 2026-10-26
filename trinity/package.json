@@ -6,9 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint --dir app --dir components --dir hooks --dir lib --dir services --dir schemas --dir types --dir prisma --dir __tests__ --dir test-utils --file auth.ts --file jest.setup.ts",
+    "lint": "next lint --dir app --dir components --dir hooks --dir lib --dir services --dir schemas --dir types --dir prisma --dir __tests__ --dir test-utils --dir e2e --file auth.ts --file jest.setup.ts",
     "deadcode": "ts-prune -i 'next.config.ts|tailwind.config.ts|app|jest.config.ts'",
     "test": "jest",
+    "test:e2e": "playwright test",
     "test:ci": "jest --config ./jest.config.ts --collectCoverage --coverageDirectory=\"./coverage\" --ci --reporters=default --reporters=jest-junit --watchAll=false"
   },
   "prisma": {
@@ -66,6 +67,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^9.4.0",
+    "@playwright/test": "^1.56.1",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",

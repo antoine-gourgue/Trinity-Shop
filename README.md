@@ -48,19 +48,23 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 - **Catalogue par rayons** avec sous-rayons, pagination et filtres combinables : promotions, bio, tranche de prix, Nutri-Score, marques (avec recherche quand la liste est longue) et gamme (marque U ou marques nationales).
 - **Tri** par prix, par nom ou par prix au kilo ou au litre, calculé à partir de la contenance du produit.
 - **Recherche** tolérante aux accents, avec des suggestions pendant la frappe : rayons correspondants et premiers produits, avec navigation au clavier.
-- **Fiche produit** : photo officielle du fabricant, prix et prix au kilo, promotion, ingrédients avec allergènes mis en évidence, tableau nutritionnel, Nutri-Score, produits similaires.
-- **Panier** conservé sur le compte.
-- **Tunnel de commande** : retrait gratuit au drive ou livraison à domicile (adresse choisie ou ajoutée à la volée), choix du créneau, puis paiement.
+- **Fiche produit** : photo officielle du fabricant, prix et prix au kilo, promotion (avec sa date de fin), ingrédients avec allergènes mis en évidence, tableau nutritionnel, Nutri-Score, produits similaires.
+- **Favoris** : un cœur sur chaque produit, et la liste « Mes favoris » dans l'espace client.
+- **Panier** conservé sur le compte, qui signale les ruptures de stock ; pour chaque article, le client accepte ou non un produit de remplacement.
+- **Tunnel de commande** : retrait gratuit au drive ou livraison à domicile (adresse choisie ou ajoutée à la volée), choix du créneau (8 commandes au plus par heure, créneaux complets grisés), puis paiement par carte via Stripe. Le stock est décompté à la commande.
+- **Suivi de commande** : statut (reçue, en préparation, prête, retirée ou livrée, annulée) et frise d'avancement, e-mail de confirmation avec la facture PDF, et « Racheter cette commande ».
 - **Carte Trinity** (fidélité) : 1 point par euro dépensé, 100 points = un bon de 5 € à utiliser au paiement.
-- **Espace client** : commandes et factures PDF, adresses, téléphone, informations personnelles, mot de passe et carte de fidélité.
+- **Espace client** : commandes et factures PDF, favoris, adresses, téléphone, informations personnelles, mot de passe et carte de fidélité.
+- **Compte** : inscription, connexion, mot de passe oublié par lien envoyé par e-mail (valable une heure), tentatives limitées contre les attaques par force brute.
 - **Scanner de code-barres** : un produit du catalogue ouvre sa fiche, sinon la fiche Open Food Facts s'affiche.
 - **Application installable** (PWA) et pages d'information : FAQ, programme de fidélité, contact, mentions légales, confidentialité, cookies.
+- **Référencement** : sitemap, robots.txt, URL canoniques, Open Graph et données structurées schema.org sur les fiches produit.
 
 ### Back-office (`/admin`, rôle administrateur)
 
 - **Tableau de bord** : chiffre d'affaires, commandes et inscriptions sur la période, avec graphiques.
-- **Commandes** : recherche, filtres (créneau à venir ou passé, livraison) et détail.
-- **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
+- **Commandes** : recherche, filtres par statut et livraison, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (articles remis en stock, points de fidélité rétablis) ou supprime une commande annulée.
+- **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, promotions avec date de fin, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
 - **Stocks** : modification directe, filtre des ruptures.
 - **Clients** : rôles et suppression.
 
@@ -73,8 +77,9 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 | Authentification | [Auth.js / NextAuth v5](https://authjs.dev) (identifiants, sessions JWT), bcrypt |
 | Interface | Tailwind CSS, composants [shadcn/ui](https://ui.shadcn.com) (Radix), lucide-react, recharts |
 | Validation | zod (formulaires, corps des requêtes API, données externes) |
-| Divers | pdf-lib (factures), Resend + React Email (e-mail de bienvenue), next-pwa, react-qr-barcode-scanner |
-| Tests | Jest |
+| Paiement | [Stripe Checkout](https://stripe.com/docs/payments/checkout) (mode test), webhook de confirmation |
+| Divers | pdf-lib (factures), Resend + React Email (e-mails de bienvenue, de commande et de réinitialisation), next-pwa, react-qr-barcode-scanner |
+| Tests | Jest (unitaires), Playwright (parcours de bout en bout) |
 | Hébergement | Vercel, base PostgreSQL [Neon](https://neon.tech) |
 
 ## Structure du dépôt
@@ -103,6 +108,7 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
     ├── data/                  Catalogue et données Open Food Facts (JSON)
     ├── public/products/       Photos produits (une par code-barres)
     ├── __tests__/             Tests Jest
+    ├── e2e/                   Parcours Playwright (base jetable uniquement)
     └── test-utils/            Doublures et outils de test
 ```
 
@@ -161,6 +167,7 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 | `npm run lint` | ESLint sur tout le code, tests et scripts compris |
 | `npx tsc --noEmit` | Vérification des types |
 | `npm test` | Tests Jest |
+| `npm run test:e2e` | Parcours Playwright sur la version construite ; ils créent comptes et commandes, donc refusent de tourner hors de la CI sans `E2E_DISPOSABLE_DATABASE=1` |
 | `npx prisma db push` | Applique le schéma à la base |
 | `npx prisma db seed` | Vide puis remplit la base (catalogue, comptes de démonstration) |
 | `npx prisma studio` | Explorateur de la base |
@@ -209,7 +216,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request et à chaque push sur `main` :
 
 1. **Lint, types, tests** : `npm run lint`, `tsc --noEmit`, puis Jest ;
-2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed. La base de production n'est jamais utilisée.
+2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation et annulation par l'équipe. La base de production n'est jamais utilisée.
 
 ## Déploiement
 
