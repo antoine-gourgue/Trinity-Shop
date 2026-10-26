@@ -80,3 +80,23 @@ export async function getCartDetails(productIds: string[]) {
     suggestions: suggestions.map(({ brand, ...product }) => ({ ...product, brand: brand.name })),
   };
 }
+
+// Quelques promotions à proposer quand le panier est vide
+export async function getPromoSuggestions(limit = 4): Promise<CartSuggestion[]> {
+  const products = await prisma.product.findMany({
+    where: { regularPrice: { not: null } },
+    orderBy: [{ regularPrice: "desc" }, { name: "asc" }],
+    take: limit,
+    select: {
+      id: true,
+      name: true,
+      price: true,
+      regularPrice: true,
+      netContent: true,
+      picture: true,
+      nutriScore: true,
+      brand: { select: { name: true } },
+    },
+  });
+  return products.map(({ brand, ...product }) => ({ ...product, brand: brand.name }));
+}

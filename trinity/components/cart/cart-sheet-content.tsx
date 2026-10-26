@@ -1,16 +1,16 @@
 "use client";
 
-import { useTransition } from "react";
-import Image from "next/image";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowRight, BadgePercent, Minus, Plus, ShoppingBasket, Store, Trash2 } from "lucide-react";
 import { useCart } from "@/app/contexts/CartContext";
 import { useCartSummary } from "@/components/cart/use-cart-summary";
 import Price from "@/components/product/price";
 import ProductImage from "@/components/product/product-image";
+import AddToCartButton from "@/components/product/add-to-cart-button";
+import { CartSuggestion, getPromoSuggestions } from "@/lib/server-actions/cart-details-actions";
 import { discountPercent, formatBrand, formatPrice } from "@/lib/format";
 import { formatUnitPrice } from "@/lib/product-info";
-import { RAYON_LINKS } from "@/lib/rayons";
 
 interface CartSheetContentProps {
   onNavigate?: () => void;
@@ -23,54 +23,7 @@ export default function CartSheetContent({ onNavigate }: CartSheetContentProps) 
   const [isPending, startTransition] = useTransition();
 
   if (cartProducts.length === 0) {
-    return (
-      <div className="flex-1 overflow-y-auto px-5 pb-6">
-        <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-secondary text-primary">
-            <ShoppingBasket size={44} aria-hidden />
-            <span className="absolute -right-1 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-highlight text-sm font-black text-brand-dark">
-              0
-            </span>
-          </div>
-          <p className="mt-2 text-xl font-black">Votre panier est vide</p>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            Remplissez-le en parcourant nos rayons, ou laissez-vous tenter par les promos du moment.
-          </p>
-          <div className="mt-2 flex w-full flex-col gap-2">
-            <Link
-              href="/"
-              onClick={onNavigate}
-              className="flex h-11 flex-1 items-center justify-center rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark"
-            >
-              Commencer mes courses
-            </Link>
-            <Link
-              href="/produits?promo=1"
-              onClick={onNavigate}
-              className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full border border-promo/40 px-5 text-sm font-bold text-promo transition-colors hover:bg-promo/10"
-            >
-              <BadgePercent size={16} aria-hidden /> Voir les promos
-            </Link>
-          </div>
-        </div>
-
-        <p className="mb-3 text-sm font-extrabold uppercase tracking-wide text-brand-dark">Nos rayons</p>
-        <ul className="grid grid-cols-3 gap-2">
-          {RAYON_LINKS.map((rayon) => (
-            <li key={rayon.slug}>
-              <Link
-                href={rayon.href}
-                onClick={onNavigate}
-                className="flex h-full flex-col items-center gap-1.5 rounded-2xl bg-muted/70 p-2.5 text-center transition-colors hover:bg-secondary"
-              >
-                <Image src={rayon.image} alt="" width={32} height={32} className="h-8 w-auto object-contain" />
-                <span className="text-[11px] font-bold leading-tight text-brand-dark">{rayon.shortName}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
+    return <EmptyCart onNavigate={onNavigate} />;
   }
 
   return (
@@ -206,5 +159,80 @@ export default function CartSheetContent({ onNavigate }: CartSheetContentProps) 
         </div>
       </div>
     </>
+  );
+}
+
+// Panier vide : message centré, un seul appel à l'action et quelques promos à ajouter directement
+function EmptyCart({ onNavigate }: CartSheetContentProps) {
+  const [promos, setPromos] = useState<CartSuggestion[]>([]);
+
+  useEffect(() => {
+    getPromoSuggestions(4).then(setPromos);
+  }, []);
+
+  return (
+    <div className="flex flex-1 flex-col overflow-y-auto">
+      <div className="flex flex-1 flex-col items-center justify-center px-8 py-10 text-center">
+        <div className="relative flex h-32 w-32 items-center justify-center">
+          <span className="absolute inset-0 rounded-full bg-secondary/60" aria-hidden />
+          <span className="absolute inset-4 rounded-full bg-secondary" aria-hidden />
+          <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+            <ShoppingBasket size={30} aria-hidden />
+          </span>
+        </div>
+        <p className="mt-6 text-xl font-black">Votre panier est vide</p>
+        <p className="mt-2 max-w-[260px] text-sm text-muted-foreground">
+          Ajoutez des produits pour commencer vos courses, ils apparaîtront ici.
+        </p>
+        <Link
+          href="/"
+          onClick={onNavigate}
+          className="mt-6 flex h-12 w-full max-w-[280px] items-center justify-center gap-2 rounded-full bg-primary px-6 font-bold text-primary-foreground transition-colors hover:bg-brand-dark"
+        >
+          Commencer mes courses <ArrowRight size={18} aria-hidden />
+        </Link>
+      </div>
+
+      {promos.length > 0 && (
+        <section className="border-t bg-muted/50 px-5 pb-6 pt-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="flex items-center gap-2 font-extrabold">
+              <BadgePercent size={18} className="text-promo" aria-hidden />
+              Les promos du moment
+            </p>
+            <Link href="/produits?promo=1" onClick={onNavigate} className="text-sm font-bold text-primary hover:underline">
+              Tout voir
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {promos.map((product) => {
+              const discount = discountPercent(product.price, product.regularPrice);
+              return (
+                <li key={product.id} className="flex items-center gap-3 rounded-2xl bg-white p-2.5 pr-3 shadow-sm">
+                  <Link
+                    href={`/product/${product.id}`}
+                    onClick={onNavigate}
+                    className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-white"
+                  >
+                    <ProductImage src={product.picture} alt={product.name} sizes="56px" className="p-1" />
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{product.name}</p>
+                    <p className="mt-0.5 flex items-baseline gap-2 text-sm">
+                      <span className="font-extrabold text-promo">{formatPrice(product.price)}</span>
+                      {product.regularPrice && (
+                        <span className="text-xs text-muted-foreground line-through">{formatPrice(product.regularPrice)}</span>
+                      )}
+                      {discount && <span className="text-xs font-bold text-promo">-{discount} %</span>}
+                    </p>
+                  </div>
+                  <AddToCartButton productId={product.id} productName={product.name} className="h-9 px-3" />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+    </div>
   );
 }
