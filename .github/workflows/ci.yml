@@ -1,0 +1,95 @@
+# Vérifications avant la mise en production.
+# Vercel construit chaque commit de main ; avec les « Deployment Checks » du projet Vercel
+# réglés sur les jobs ci-dessous, le déploiement n'est mis en ligne que s'ils réussissent.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Un nouveau push annule la vérification en cours sur la même branche
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: trinity
+
+jobs:
+  checks:
+    name: Lint, types, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: trinity/package-lock.json
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Client Prisma
+        run: npx prisma generate
+
+      - name: Lint (dont l'interdiction des any)
+        run: npm run lint
+
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npx jest --ci --coverage=false
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Base jetable : le build et le seed ne touchent jamais la base de production
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: trinity
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_PRISMA_URL: postgresql://postgres:postgres@localhost:5432/trinity
+      POSTGRES_URL_NON_POOLING: postgresql://postgres:postgres@localhost:5432/trinity
+      NEXTAUTH_SECRET: ci-only-secret
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: trinity/package-lock.json
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Schéma et données de test
+        run: |
+          npx prisma db push
+          npx prisma db seed
+
+      - name: Build
+        run: npm run build
