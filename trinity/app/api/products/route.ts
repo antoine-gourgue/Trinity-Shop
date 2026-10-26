@@ -78,15 +78,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let barCodeBigInt: bigint;
-    try {
-      barCodeBigInt = BigInt(barCode);
-    } catch (conversionError) {
+    // Code GTIN : 14 chiffres au plus, ce qui évite aussi un BigInt négatif ou hors limites
+    const barCodeText = String(barCode).trim();
+    if (!/^\d{1,14}$/.test(barCodeText)) {
       return NextResponse.json(
         { error: "Le champ barCode doit être un nombre valide" },
         { status: 400 }
       );
     }
+    const barCodeBigInt = BigInt(barCodeText);
 
     const createdProduct = await prisma.product.create({
       data: {

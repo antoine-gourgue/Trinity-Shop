@@ -191,32 +191,35 @@ describe("API: /api/products", () => {
       );
     });
 
-    it("should return 400 if barCode is invalid", async () => {
-      (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-      const jsonMock = jest.spyOn(NextResponse, "json");
+    it.each(["invalid-barcode", "-123", "12.5", "123456789012345", -123])(
+      "should return 400 if barCode is invalid (%s)",
+      async (barCode) => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "POST" });
-      req.body = JSON.stringify({
-        name: "Invalid BarCode Product",
-        price: 25,
-        description: "Product with invalid barCode",
-        nutriScore: "C",
-        picture: "http://example.com/image.png",
-        barCode: "invalid-barcode",
-        brandId: "brand-1-uuid",
-        categoryId: "category-1-uuid",
-      });
+        const { req } = createMocks({ method: "POST" });
+        req.body = JSON.stringify({
+          name: "Invalid BarCode Product",
+          price: 25,
+          description: "Product with invalid barCode",
+          nutriScore: "C",
+          picture: "http://example.com/image.png",
+          barCode,
+          brandId: "brand-1-uuid",
+          categoryId: "category-1-uuid",
+        });
 
-      req.json = async () => JSON.parse(req.body);
+        req.json = async () => JSON.parse(req.body);
 
-      await createProduct(req as any);
+        await createProduct(req as any);
 
-      expect(prisma.product.create).not.toHaveBeenCalled();
-      expect(jsonMock).toHaveBeenCalledWith(
-        { error: "Le champ barCode doit être un nombre valide" },
-        { status: 400 }
-      );
-    });
+        expect(prisma.product.create).not.toHaveBeenCalled();
+        expect(jsonMock).toHaveBeenCalledWith(
+          { error: "Le champ barCode doit être un nombre valide" },
+          { status: 400 }
+        );
+      }
+    );
 
     it("should return 409 if barCode already exists", async () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
