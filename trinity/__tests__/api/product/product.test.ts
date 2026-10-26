@@ -810,6 +810,25 @@ describe("API: /api/products/[id]", () => {
       );
     });
 
+    it.each(["abc", "12.5", "-123", "123456789012345"])(
+      "should return 400 for the invalid barcode %s",
+      async (barcode) => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        const jsonMock = jest.spyOn(NextResponse, "json");
+
+        const { req } = createMocks({ method: "GET" });
+        const params = Promise.resolve({ barcode });
+
+        await getProductByBarcode(req as any, { params });
+
+        expect(prisma.product.findFirst).not.toHaveBeenCalled();
+        expect(jsonMock).toHaveBeenCalledWith(
+          { error: "Invalid product barcode" },
+          { status: 400 }
+        );
+      }
+    );
+
     it("should return 404 if the product is not found", async () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");

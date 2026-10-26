@@ -15,6 +15,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!barcode) {
         return NextResponse.json({ error: 'Product barcode is required' }, { status: 400 });
     }
+    // Code GTIN : 14 chiffres au plus, ce qui évite aussi un BigInt invalide ou hors limites
+    if (!/^\d{1,14}$/.test(barcode)) {
+        return NextResponse.json({ error: 'Invalid product barcode' }, { status: 400 });
+    }
     try {
         const GetProductByBarcode = await prisma.product.findFirst({
             where: { barCode: BigInt(barcode) },
