@@ -61,7 +61,6 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 ```text
 .
 ├── .github/workflows/ci.yml   CI GitHub Actions
-├── docs/                      Diagramme de classes, conventions de commit
 └── trinity/                   Application Next.js
     ├── app/                   Pages et routes API (App Router)
     │   ├── (customer)/        Accueil, catalogue, rayons
@@ -192,5 +191,6 @@ Variables à définir dans Vercel : `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POO
 
 ## Conventions
 
-- Commits au format [Conventional Commits](https://www.conventionalcommits.org) (`feat(scope): …`, `fix: …`), voir [`docs/commit_standars.md`](docs/commit_standars.md).
+- Commits au format [Conventional Commits](https://www.conventionalcommits.org) : `type(portée facultative): description`, par exemple `feat(checkout): offer home delivery`.
+  Types utilisés : `feat` (fonctionnalité), `fix` (correction), `refactor`, `test`, `docs`, `style`, `chore` (outillage, dépendances) et `ci`. Un `!` après le type signale un changement incompatible.
 - Code et messages de commit en anglais, interface et commentaires en français.
