@@ -2,7 +2,8 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import prisma from "@/lib/prisma";
 import { createUserSchema } from "@/schemas/createUserSchema";
-import EmailTemplate from "@/components/email-template";
+import { WelcomeEmail } from "@/components/emails/welcome-email";
+import { siteUrl } from "@/lib/site-url";
 import { Resend } from "resend";
 import { EmailAlreadyUsed } from "@/services/auth/errors";
 
@@ -16,8 +17,8 @@ async function sendWelcomeEmail(user: { email: string; firstName: string }) {
     const { error } = await resend.emails.send({
       from: "Trinity <no-reply@pioupiou.tech>",
       to: [user.email],
-      subject: "Félicitations, votre nouveau Trinity est actif",
-      react: EmailTemplate({ firstName: user.firstName }),
+      subject: `Bienvenue chez Trinity, ${user.firstName} !`,
+      react: WelcomeEmail({ firstName: user.firstName, siteUrl: siteUrl() }),
     });
     if (error) console.error("Email de bienvenue non envoyé :", error);
   } catch (err) {

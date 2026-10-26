@@ -25,6 +25,7 @@ export async function sendOrderConfirmation(orderId: string) {
         invoice: invoice.data,
         total: invoice.total,
         orderUrl: `${siteUrl()}/user/${invoice.userId}/order/${orderId}`,
+        siteUrl: siteUrl(),
       }),
       attachments: [{ filename: `Facture-Trinity-${number}.pdf`, content: pdf }],
     });

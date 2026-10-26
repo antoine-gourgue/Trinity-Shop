@@ -41,11 +41,10 @@ jest.mock("resend", () => ({
 }));
 
 // Gabarit remplacé : on lit le lien qu'il reçoit
-type EmailProps = { firstName: string; resetUrl: string };
+type EmailProps = { firstName: string; resetUrl: string; siteUrl: string };
 const mockEmailTemplate = jest.fn<null, [EmailProps]>();
-jest.mock("@/components/password-reset-email", () => ({
-    __esModule: true,
-    default: (props: EmailProps) => mockEmailTemplate(props),
+jest.mock("@/components/emails/password-reset-email", () => ({
+    PasswordResetEmail: (props: EmailProps) => mockEmailTemplate(props),
 }));
 
 const db = {

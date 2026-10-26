@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { Resend } from "resend";
 import prisma from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
-import PasswordResetEmail from "@/components/password-reset-email";
+import { PasswordResetEmail } from "@/components/emails/password-reset-email";
 
 // Durée de validité d'un lien de réinitialisation : 1 heure
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
@@ -57,7 +57,7 @@ async function sendPasswordResetEmail(user: ResetRecipient, resetUrl: string) {
       from: "Trinity <no-reply@pioupiou.tech>",
       to: [user.email],
       subject: "Réinitialisez votre mot de passe Trinity",
-      react: PasswordResetEmail({ firstName: user.firstName, resetUrl }),
+      react: PasswordResetEmail({ firstName: user.firstName, resetUrl, siteUrl: siteUrl() }),
     });
     if (error) console.error("E-mail de réinitialisation non envoyé :", error);
   } catch (err) {
