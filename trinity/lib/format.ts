@@ -27,11 +27,13 @@ const BRAND_LABELS: Record<string, string> = {
   "hyper-u": "Hyper U",
 };
 
-// Les marques arrivent d'OpenFoodFacts sous forme de slug (« u-saveurs »)
+// Les marques U arrivent d'OpenFoodFacts sous forme de slug (« u-saveurs ») ;
+// les marques nationales sont déjà écrites proprement (« Carte d'Or »)
 export function formatBrand(brand?: string | null) {
   if (!brand) return "";
   const key = brand.trim().toLowerCase();
   if (BRAND_LABELS[key]) return BRAND_LABELS[key];
+  if (key !== brand.trim()) return brand.trim();
   return key
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
