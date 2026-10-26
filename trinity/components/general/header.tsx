@@ -101,6 +101,11 @@ export default function Header({ rayons }: HeaderProps) {
                 <SheetTitle className="flex items-center gap-2 text-lg font-extrabold">
                   <ShoppingBasket size={22} className="text-primary" />
                   Mon panier
+                  {totalItems > 0 && (
+                    <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-bold text-brand-dark">
+                      {totalItems} article{totalItems > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </SheetTitle>
                 <SheetDescription className="sr-only">
                   Les produits que vous avez ajoutés à votre panier.
