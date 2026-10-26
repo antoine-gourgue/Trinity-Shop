@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { getProductListing } from "@/lib/catalog";
-import { parseListingParams } from "@/lib/catalog-options";
+import { DEFAULT_SORT, listingHref, parseListingParams } from "@/lib/catalog-options";
 import { getRayon, rayonCategoryNames, rayonHref } from "@/lib/rayons";
 import ListingHeader from "@/components/catalog/listing-header";
 import ProductListing from "@/components/catalog/product-listing";
@@ -12,10 +12,32 @@ interface RayonPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export async function generateMetadata({ params }: RayonPageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: RayonPageProps): Promise<Metadata> {
   const rayon = getRayon((await params).slug);
   if (!rayon) return {};
-  return { title: `${rayon.name} — Trinity Shop`, description: rayon.description };
+
+  const listingParams = parseListingParams(await searchParams);
+  const activeSub = rayon.subcategories.find((s) => s.slug === listingParams.cat);
+  // Les variantes triées d'une même liste pointent vers la version au tri par défaut
+  const canonical = listingHref(`/rayon/${rayon.slug}`, listingParams, {
+    q: undefined,
+    cat: activeSub?.slug,
+    tri: DEFAULT_SORT,
+    page: listingParams.page,
+  });
+
+  if (activeSub) {
+    return {
+      title: `${activeSub.label} — ${rayon.shortName} — Trinity Shop`,
+      description: `${activeSub.label} du rayon ${rayon.name} : faites vos courses en ligne sur Trinity Shop, en retrait au drive ou en livraison à domicile.`,
+      alternates: { canonical },
+    };
+  }
+  return {
+    title: `${rayon.name} — Trinity Shop`,
+    description: `${rayon.description} Faites vos courses en ligne sur Trinity Shop, en retrait au drive ou en livraison à domicile.`,
+    alternates: { canonical },
+  };
 }
 
 export default async function RayonPage({ params, searchParams }: RayonPageProps) {

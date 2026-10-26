@@ -9,6 +9,7 @@ import { getOpenFoodFacts } from "@/lib/server-actions/products-actions";
 import { findRayonForCategories, rayonCategoryNames, rayonHref } from "@/lib/rayons";
 import { discountPercent, formatBrand, formatPrice, isBioBrand } from "@/lib/format";
 import { formatAllergens, formatUnitPrice, ingredientParts, nutritionRows } from "@/lib/product-info";
+import { productDescription, productJsonLd, productPath, serializeJsonLd } from "@/lib/product-seo";
 import PriceBlock from "@/components/product/price-block";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
@@ -37,7 +38,22 @@ const getProduct = cache((id: string) =>
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const product = await getProduct((await params).productId);
   if (!product) return {};
-  return { title: `${product.name} — Trinity Shop` };
+
+  const title = `${product.name} — Trinity Shop`;
+  const description = productDescription(product);
+  const url = productPath(product.id);
+  // Sans photo, on garde l'image de partage du site (openGraph remplace entièrement celui du layout)
+  const images = product.picture ? [{ url: product.picture, alt: product.name }] : [{ url: "/og.png", alt: "Trinity Shop" }];
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    // Produit retiré du catalogue : la fiche reste accessible depuis les commandes mais n'est pas indexée
+    ...(product.hidden ? { robots: { index: false, follow: true } } : {}),
+    openGraph: { type: "website", siteName: "Trinity Shop", locale: "fr_FR", url, title, description, images },
+    twitter: { card: "summary", title, description, images },
+  };
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
@@ -83,6 +99,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd(product, { description })) }}
+      />
       <nav aria-label="Fil d'Ariane">
         <ol className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
           <li>

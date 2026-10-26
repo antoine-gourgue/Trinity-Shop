@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -7,6 +8,9 @@ import prisma from "@/lib/prisma";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import RayonTiles from "@/components/catalog/rayon-tiles";
 import ProductSection from "@/components/catalog/product-section";
+
+// Titre et description viennent du layout racine ; l'URL canonique écarte les paramètres ajoutés (?utm_…)
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const SECTION_SIZE = 10;
 

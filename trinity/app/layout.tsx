@@ -3,6 +3,7 @@ import { Mulish } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/app/contexts/CartContext";
 import { SessionProvider } from "next-auth/react";
+import { siteUrl } from "@/lib/site-url";
 
 const mulish = Mulish({
   subsets: ["latin"],
@@ -11,7 +12,8 @@ const mulish = Mulish({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://trinity-shop-rho.vercel.app"),
+  // Base des URL relatives (Open Graph, canoniques) : voir lib/site-url
+  metadataBase: new URL(siteUrl()),
   title: "Trinity Shop — Supermarché en ligne",
   description:
     "Supermarché en ligne complet : catalogue avec Nutri-Score, panier, commandes et factures PDF, back-office et PWA. Next.js, Prisma, PostgreSQL.",
@@ -21,7 +23,7 @@ export const metadata: Metadata = {
     title: "Trinity Shop — Supermarché en ligne",
     description:
       "Supermarché en ligne complet : catalogue avec Nutri-Score, panier, factures PDF, back-office et PWA.",
-    url: "https://trinity-shop-rho.vercel.app/",
+    url: "/",
     locale: "fr_FR",
     images: [
       {

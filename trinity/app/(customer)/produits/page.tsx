@@ -3,7 +3,13 @@ import { Prisma } from "@prisma/client";
 import { SearchX } from "lucide-react";
 import { getProductListing } from "@/lib/catalog";
 import { searchProductIds } from "@/lib/search";
-import { ListingParams, activeFilterCount, parseListingParams } from "@/lib/catalog-options";
+import {
+  DEFAULT_SORT,
+  ListingParams,
+  activeFilterCount,
+  listingHref,
+  parseListingParams,
+} from "@/lib/catalog-options";
 import { formatBrand } from "@/lib/format";
 import ListingHeader from "@/components/catalog/listing-header";
 import ProductListing from "@/components/catalog/product-listing";
@@ -13,17 +19,37 @@ interface ProduitsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
+const CATALOG_TITLE = "Tous nos produits";
+
 function pageTitle(params: ListingParams) {
   if (params.q) return `Résultats pour « ${params.q} »`;
   if (params.promo && !params.marques.length && !params.nutriscores.length) return "Promotions";
   if (params.categorie) return params.categorie;
   if (params.marques.length === 1 && !params.nutriscores.length) return formatBrand(params.marques[0]);
   if (params.nutriscores.length === 1 && !params.marques.length) return `Nutri-Score ${params.nutriscores[0]}`;
-  return "Tous nos produits";
+  return CATALOG_TITLE;
+}
+
+function pageDescription(params: ListingParams, title: string) {
+  if (params.q) return `Résultats de la recherche « ${params.q} » dans le catalogue Trinity Shop.`;
+  if (title === CATALOG_TITLE) {
+    return "Tout le catalogue Trinity Shop : fruits et légumes, crèmerie, épicerie, boissons… avec le Nutri-Score de chaque produit, en retrait au drive ou en livraison à domicile.";
+  }
+  return `${title} : faites vos courses en ligne sur Trinity Shop, en retrait au drive ou en livraison à domicile.`;
 }
 
 export async function generateMetadata({ searchParams }: ProduitsPageProps): Promise<Metadata> {
-  return { title: `${pageTitle(parseListingParams(await searchParams))} — Trinity Shop` };
+  const params = parseListingParams(await searchParams);
+  const title = pageTitle(params);
+  const metadata: Metadata = { title: `${title} — Trinity Shop`, description: pageDescription(params, title) };
+
+  // Les résultats de recherche ne sont pas indexés ; les liens vers les produits restent suivis
+  if (params.q) return { ...metadata, robots: { index: false, follow: true } };
+  // Les variantes triées d'une même liste pointent vers la version au tri par défaut
+  return {
+    ...metadata,
+    alternates: { canonical: listingHref("/produits", params, { cat: undefined, tri: DEFAULT_SORT, page: params.page }) },
+  };
 }
 
 // Recherche texte, pages marque (?marque=u-bio) et catalogue complet
