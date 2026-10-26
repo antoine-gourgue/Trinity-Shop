@@ -143,7 +143,7 @@ function AccountMenu() {
         </span>
         <span className="hidden flex-col leading-tight lg:flex">
           <span className="text-[11px] font-semibold text-muted-foreground">
-            {session ? `Bonjour ${session.user.firstName}` : "Identifiez-vous"}
+            {session ? (session.user.firstName ? `Bonjour ${session.user.firstName}` : "Bonjour") : "Identifiez-vous"}
           </span>
           <span className="text-sm font-extrabold">Mon compte</span>
         </span>
@@ -153,9 +153,11 @@ function AccountMenu() {
         {session ? (
           <>
             <DropdownMenuLabel className="px-3 py-2">
-              <span className="block text-sm font-extrabold">
-                {session.user.firstName} {session.user.lastName}
-              </span>
+              {session.user.firstName && (
+                <span className="block text-sm font-extrabold">
+                  {session.user.firstName} {session.user.lastName}
+                </span>
+              )}
               <span className="block truncate text-xs font-normal text-muted-foreground">
                 {session.user.email}
               </span>

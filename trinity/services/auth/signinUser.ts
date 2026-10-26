@@ -21,14 +21,15 @@ const signinUser = async ({
     },
   });
 
+  // null => NextAuth renvoie « identifiants invalides », sans préciser lequel est faux
   if (!user) {
-    throw new Error("User not found");
+    return null;
   }
 
   const isPasswordMatch = await bcrypt.compare(password, user.password);
 
   if (!isPasswordMatch) {
-    throw new Error("Invalid credentials");
+    return null;
   }
 
   return user;

@@ -4,6 +4,7 @@
   import signinUser from "./services/auth/signinUser";
   import { signinUserSchema } from "./schemas/signinUserSchema";
   import { createUserSchema } from "./schemas/createUserSchema";
+  import { InvalidSignupData } from "./services/auth/errors";
   import prisma from "./lib/prisma";
 
   export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -21,7 +22,7 @@
             const parsedUser = signinUserSchema.safeParse(credentials);
 
             if (!parsedUser.success) {
-              throw new Error("Invalid credentials.");
+              return null;
             }
 
             return signinUser(parsedUser.data);
@@ -30,7 +31,7 @@
           const parsedUser = createUserSchema.safeParse(credentials);
 
           if (!parsedUser.success) {
-            throw new Error("Invalid credentials.");
+            throw new InvalidSignupData();
           }
 
           return createUserRepository(parsedUser.data);
@@ -51,6 +52,8 @@
 
           token.id = user.id;
           token.email = user.email;
+          token.firstName = user.firstName;
+          token.lastName = user.lastName;
           token.role = user.role;
           token.cartId = userData?.carts[0]?.id || null;
           token.billingAddress = userData?.addresses[0]?.id || null;
@@ -63,6 +66,8 @@
           ...session.user,
           id: token.id,
           email: token.email,
+          firstName: token.firstName,
+          lastName: token.lastName,
           role: token.role,
           cartId: token.cartId,
           billingAddress: token.billingAddress,

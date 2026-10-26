@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { z } from "zod";
 import Link from "next/link";
-import Image from "next/image";
 import { onSignInCredential } from "../../../services/auth/submit";
 import { signinUserSchema } from "@/schemas/signinUserSchema";
 
@@ -27,6 +28,14 @@ export default function SignIn() {
     },
   });
 
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const handleSubmit = async (values: z.infer<typeof signinUserSchema>) => {
+    setServerError(null);
+    const result = await onSignInCredential(values);
+    if (result?.error) setServerError(result.error);
+  };
+
   return (
       <div className="p-6 flex justify-center items-center w-full">
         <div className="w-full max-w-sm flex flex-col gap-10">
@@ -36,18 +45,8 @@ export default function SignIn() {
               Faites vos courses en ligne et récupérez-les au drive.
             </h2>
           </div>
-          <div className="flex flex-col gap-4">
-            <Button variant="outline" size="lg" disabled className="flex items-center gap-2">
-              <Image alt="google" src="/assets/google.png" width={24} height={24} />
-              Connexion avec Google
-            </Button>
-            <Button variant="outline" size="lg" disabled className="flex items-center gap-2">
-              <Image alt="github" src="/assets/github.svg" width={24} height={24} />
-              Connexion avec GitHub
-            </Button>
-          </div>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSignInCredential)} className="flex flex-col gap-4">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4">
               <FormField
                   control={form.control}
                   name="email"
@@ -74,7 +73,13 @@ export default function SignIn() {
                       </FormItem>
                   )}
               />
-              <Button className="rounded-full font-bold" type="submit" size="lg">
+              {serverError && (
+                <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
+                  {serverError}
+                </p>
+              )}
+              <Button className="rounded-full font-bold" type="submit" size="lg" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="animate-spin" />}
                 Se connecter
               </Button>
               <p className="text-center text-sm">

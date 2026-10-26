@@ -148,7 +148,7 @@ export default function HeaderMobile({ rayons }: HeaderMobileProps) {
         <ResponsiveDialogContent>
           <ResponsiveDialogHeader className="text-left">
             <ResponsiveDialogTitle className="text-lg font-extrabold">
-              {session ? `Bonjour ${session.user.firstName}` : "Mon compte"}
+              {session?.user.firstName ? `Bonjour ${session.user.firstName}` : "Mon compte"}
             </ResponsiveDialogTitle>
             <ResponsiveDialogDescription>
               {session ? session.user.email : "Connectez-vous pour faire vos courses."}

@@ -2,17 +2,40 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import prisma from "@/lib/prisma";
 import { createUserSchema } from "@/schemas/createUserSchema";
-import  EmailTemplate  from '@/components/email-template';
-import { Resend } from 'resend';
+import EmailTemplate from "@/components/email-template";
+import { Resend } from "resend";
+import { EmailAlreadyUsed } from "@/services/auth/errors";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// E-mail de bienvenue « au mieux » : un échec d'envoi ne doit jamais bloquer l'inscription
+async function sendWelcomeEmail(user: { email: string; firstName: string }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  try {
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: "Trinity <no-reply@pioupiou.tech>",
+      to: [user.email],
+      subject: "Félicitations, votre nouveau Trinity est actif",
+      react: EmailTemplate({ firstName: user.firstName }),
+    });
+    if (error) console.error("Email de bienvenue non envoyé :", error);
+  } catch (err) {
+    console.error("Email de bienvenue non envoyé :", err);
+  }
+}
 
 const createUserRepository = async ({
-                                      firstName,
-                                      lastName,
-                                      password,
-                                      email,
-                                    }: z.infer<typeof createUserSchema>) => {
+  firstName,
+  lastName,
+  password,
+  email,
+}: z.infer<typeof createUserSchema>) => {
+  const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (existingUser) {
+    throw new EmailAlreadyUsed();
+  }
+
   const passwordHash = bcrypt.hashSync(password, 10);
 
   const user = await prisma.user.create({
@@ -21,32 +44,12 @@ const createUserRepository = async ({
       firstName,
       lastName,
       password: passwordHash,
-      // cart: {},
     },
   });
 
-  if (!user) {
-    throw new Error("Could not create user.");
-  }
+  await sendWelcomeEmail(user);
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'Trinity <no-reply@pioupiou.tech>',
-      to: [user.email],
-      subject: 'Félicitations, votre nouveau Trinity est actif',
-      react: EmailTemplate({ firstName: user.firstName }),
-    });
-
-    if (error) {
-      console.error("Email sending error:", error);
-      throw new Error("Could not send email.");
-    }
-
-    return user;
-  } catch (err) {
-    console.error("Unexpected error:", err);
-    throw new Error("Could not send email.");
-  }
+  return user;
 };
 
 export default createUserRepository;
