@@ -46,12 +46,17 @@ export default function ProductStickyBar({
       setTop(Math.max(0, headerBottom));
       setVisible(!!trigger && trigger.getBoundingClientRect().bottom < headerBottom);
 
-      // Section courante : la dernière dont le haut a dépassé la barre
-      const threshold = headerBottom + 140;
+      // Section courante : celle dont le haut est passé sous la barre le plus récemment
+      // (la plus basse parmi celles déjà atteintes), quel que soit l'ordre des liens
+      const threshold = Math.max(headerBottom + 140, 240);
       let current: string | null = null;
+      let currentTop = -Infinity;
       for (const section of sections) {
-        const element = document.getElementById(section.id);
-        if (element && element.getBoundingClientRect().top <= threshold) current = section.id;
+        const top = document.getElementById(section.id)?.getBoundingClientRect().top;
+        if (top !== undefined && top <= threshold && top > currentTop) {
+          current = section.id;
+          currentTop = top;
+        }
       }
       setActiveSection(current);
     };

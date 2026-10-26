@@ -157,7 +157,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </div>
 
-        <aside id="achat" className="rounded-3xl border bg-white p-6 lg:sticky lg:top-[140px]">
+        <aside id="achat" className="rounded-3xl border bg-white p-6">
           {discount && product.regularPrice && (
             <p className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-md bg-promo px-2 py-0.5 text-sm font-black text-white">-{discount} %</span>
@@ -201,7 +201,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </aside>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid gap-6">
         <InfoCard id="description" title="Description">
           <p>{description ?? "Aucune description disponible pour ce produit."}</p>
           {conservation && (
@@ -212,9 +212,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
           )}
         </InfoCard>
 
-        <InfoCard id="nutrition" title="Valeurs nutritionnelles" className="lg:row-span-2">
+        <InfoCard id="composition" title="Ingrédients et allergènes">
+          <p>{ingredients ?? "Liste des ingrédients non renseignée."}</p>
+          {allergens.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="font-extrabold">Allergènes :</span>
+              {allergens.map((allergen) => (
+                <span key={allergen} className="rounded-full bg-promo/10 px-3 py-1 text-xs font-bold text-promo">
+                  {allergen}
+                </span>
+              ))}
+            </div>
+          )}
+        </InfoCard>
+        <InfoCard id="nutrition" title="Valeurs nutritionnelles">
           {nutrition.length > 0 ? (
-            <table className="w-full text-sm">
+            <table className="w-full max-w-2xl text-sm">
               <caption className="sr-only">Valeurs nutritionnelles pour 100 g</caption>
               <thead>
                 <tr className="border-b-2 border-foreground/80 text-left">
@@ -239,19 +252,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <p className="mt-4 text-xs text-muted-foreground">
             Informations issues d’OpenFoodFacts, données collaboratives sous licence ODbL.
           </p>
-        </InfoCard>
-        <InfoCard id="composition" title="Ingrédients et allergènes">
-          <p>{ingredients ?? "Liste des ingrédients non renseignée."}</p>
-          {allergens.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="font-extrabold">Allergènes :</span>
-              {allergens.map((allergen) => (
-                <span key={allergen} className="rounded-full bg-promo/10 px-3 py-1 text-xs font-bold text-promo">
-                  {allergen}
-                </span>
-              ))}
-            </div>
-          )}
         </InfoCard>
 
       </div>
