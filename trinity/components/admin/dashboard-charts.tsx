@@ -5,6 +5,11 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "
 
 const euro = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
+// Nombre de commandes du jour survolé (recharts type le point de données en any)
+function ordersOf(point: unknown) {
+  return typeof point === "object" && point !== null && "orders" in point && typeof point.orders === "number" ? point.orders : 0;
+}
+
 const revenueConfig = {
   total: { label: "Chiffre d'affaires", color: "hsl(var(--primary))" },
 } satisfies ChartConfig;
@@ -26,11 +31,14 @@ export function RevenueChart({ data }: { data: { label: string; total: number; o
           cursor={false}
           content={
             <ChartTooltipContent
-              formatter={(value, _name, item) => (
-                <span className="font-bold">
-                  {euro.format(Number(value))} · {item.payload.orders} commande{item.payload.orders > 1 ? "s" : ""}
-                </span>
-              )}
+              formatter={(value, _name, item) => {
+                const orders = ordersOf(item.payload);
+                return (
+                  <span className="font-bold">
+                    {euro.format(Number(value))} · {orders} commande{orders > 1 ? "s" : ""}
+                  </span>
+                );
+              }}
             />
           }
         />

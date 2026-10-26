@@ -31,7 +31,6 @@ interface BaseProps {
 
 interface RootResponsiveDialogProps extends BaseProps {
   open?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onOpenChange?: (open: boolean) => void;
   //only for drawer
   onClose?: () => void;

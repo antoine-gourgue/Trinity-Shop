@@ -82,8 +82,8 @@ export default function EditPasswordModal({ userId }: EditPasswordModalProps) {
             await updateUserPassword(userId, currentPassword, newPassword);
             closeModal();
             router.refresh();
-        } catch (err: any) {
-            setError(err.message || "Une erreur est survenue.");
+        } catch (err) {
+            setError(err instanceof Error && err.message ? err.message : "Une erreur est survenue.");
         }
     }
 
