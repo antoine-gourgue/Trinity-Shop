@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { fetchOpenFoodFactsProduct, type OpenFoodFactsProduct } from "@/lib/open-food-facts";
 
 export async function getProductById(productId: string) {
   try {
@@ -17,22 +18,21 @@ export async function getProductById(productId: string) {
     if (!product) throw new Error("Produit non trouvé");
     return { product, error: null };
   } catch (error) {
-    return { product: null, error: (error as Error).message };
+    return { product: null, error: error instanceof Error ? error.message : "Produit non trouvé" };
   }
 }
 
-export async function getOpenFoodFacts(barCode: string) {
+export async function getOpenFoodFacts(
+  barCode: string
+): Promise<{ openFoodData: OpenFoodFactsProduct | null; error: string | null }> {
   try {
-    // Données produit stables : mises en cache 24 h pour ménager l'API OpenFoodFacts
-    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barCode}.json`, {
+    // Données produit stables : mises en cache 24 h pour ménager l'API Open Food Facts
+    const openFoodData = await fetchOpenFoodFactsProduct(barCode, {
       next: { revalidate: 86400 },
       signal: AbortSignal.timeout(5000),
     });
-
-    if (!res.ok) throw new Error("Erreur lors de la récupération des données OpenFoodFacts");
-    const data = await res.json();
-    return { openFoodData: data?.product || null, error: null };
+    return { openFoodData, error: null };
   } catch (error) {
-    return { openFoodData: null, error: (error as Error).message };
+    return { openFoodData: null, error: error instanceof Error ? error.message : "Open Food Facts indisponible" };
   }
 }
