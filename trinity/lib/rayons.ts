@@ -6,6 +6,7 @@ export interface SubCategory {
   slug: string;
   label: string;
   category: string;
+  icon: string;
 }
 
 export interface Rayon {
@@ -28,8 +29,9 @@ export function slugify(value: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-function sub(label: string, category: string = label): SubCategory {
-  return { slug: slugify(label), label, category };
+// L'icône est un nom d'icône du catalogue (voir components/catalog/subcategory-icon)
+function sub(label: string, icon: string, category: string = label): SubCategory {
+  return { slug: slugify(label), label, category, icon };
 }
 
 export const RAYONS: Rayon[] = [
@@ -40,12 +42,12 @@ export const RAYONS: Rayon[] = [
     description: "Légumes, fruits, salades et compotes pour cuisiner de saison.",
     image: "/categories/fruits_legumes.png",
     subcategories: [
-      sub("Légumes", "Légumes et dérivés"),
-      sub("Fruits", "Fruits et produits dérivés"),
-      sub("Salades", "Salades vertes"),
-      sub("Compotes"),
-      sub("Fruits à coque", "Fruits à coques"),
-      sub("Légumineuses"),
+      sub("Légumes", "Carrot", "Légumes et dérivés"),
+      sub("Fruits", "Apple", "Fruits et produits dérivés"),
+      sub("Salades", "LeafyGreen", "Salades vertes"),
+      sub("Compotes", "Cherry"),
+      sub("Fruits à coque", "Nut", "Fruits à coques"),
+      sub("Légumineuses", "Bean"),
     ],
     extraCategories: ["Aliments à base de fruits et de légumes"],
   },
@@ -56,12 +58,12 @@ export const RAYONS: Rayon[] = [
     description: "Volailles, porc, bœuf, poissons et produits de la mer.",
     image: "/categories/viande_poissons.png",
     subcategories: [
-      sub("Volailles"),
-      sub("Porc"),
-      sub("Bœuf"),
-      sub("Poissons"),
-      sub("Produits de la mer"),
-      sub("Poissons fumés"),
+      sub("Volailles", "Drumstick"),
+      sub("Porc", "Ham"),
+      sub("Bœuf", "Beef"),
+      sub("Poissons", "Fish"),
+      sub("Produits de la mer", "Shell"),
+      sub("Poissons fumés", "Fish"),
     ],
     extraCategories: ["Viandes"],
   },
@@ -72,13 +74,13 @@ export const RAYONS: Rayon[] = [
     description: "Jambons, terrines, plats cuisinés et salades prêtes à déguster.",
     image: "/categories/charcuterie.webp",
     subcategories: [
-      sub("Jambons"),
-      sub("Saucissons"),
-      sub("Terrines"),
-      sub("Plats cuisinés", "Plats préparés à réchauffer au micro-ondes"),
-      sub("Salades composées"),
-      sub("Sandwichs"),
-      sub("Pizzas et quiches", "Pizzas tartes salées et quiches"),
+      sub("Jambons", "Ham"),
+      sub("Saucissons", "Beef"),
+      sub("Terrines", "UtensilsCrossed"),
+      sub("Plats cuisinés", "CookingPot", "Plats préparés à réchauffer au micro-ondes"),
+      sub("Salades composées", "Salad"),
+      sub("Sandwichs", "Sandwich"),
+      sub("Pizzas et quiches", "Pizza", "Pizzas tartes salées et quiches"),
     ],
     extraCategories: [
       "Charcuteries",
@@ -95,14 +97,14 @@ export const RAYONS: Rayon[] = [
     description: "Fromages, yaourts, desserts, beurres, crèmes et œufs.",
     image: "/categories/produit_frais.png",
     subcategories: [
-      sub("Fromages"),
-      sub("Yaourts"),
-      sub("Desserts lactés"),
-      sub("Laits"),
-      sub("Beurres"),
-      sub("Crèmes"),
-      sub("Fromages blancs"),
-      sub("Œufs"),
+      sub("Fromages", "Cheese"),
+      sub("Yaourts", "Cylinder"),
+      sub("Desserts lactés", "Dessert"),
+      sub("Laits", "Milk"),
+      sub("Beurres", "Cuboid"),
+      sub("Crèmes", "Milk"),
+      sub("Fromages blancs", "Cylinder"),
+      sub("Œufs", "Egg"),
     ],
     extraCategories: ["Produits laitiers", "Desserts végétaliens"],
   },
@@ -113,12 +115,12 @@ export const RAYONS: Rayon[] = [
     description: "Plats cuisinés, légumes, glaces et desserts glacés.",
     image: "/categories/surgeles_etoile.png",
     subcategories: [
-      sub("Plats cuisinés", "Plats préparés surgelés"),
-      sub("Glaces et sorbets"),
-      sub("Desserts glacés"),
-      sub("Légumes surgelés"),
-      sub("Viandes surgelées"),
-      sub("Poissons surgelés"),
+      sub("Plats cuisinés", "CookingPot", "Plats préparés surgelés"),
+      sub("Glaces et sorbets", "IceCreamCone"),
+      sub("Desserts glacés", "Popsicle"),
+      sub("Légumes surgelés", "Carrot"),
+      sub("Viandes surgelées", "Beef"),
+      sub("Poissons surgelés", "Fish"),
     ],
     extraCategories: ["Surgelés"],
   },
@@ -129,15 +131,15 @@ export const RAYONS: Rayon[] = [
     description: "Pâtes, riz, conserves, sauces et tout pour l'apéritif.",
     image: "/categories/epicerie_salee.png",
     subcategories: [
-      sub("Pâtes", "Pâtes alimentaires"),
-      sub("Riz"),
-      sub("Conserves"),
-      sub("Sauces"),
-      sub("Soupes"),
-      sub("Apéritif"),
-      sub("Chips", "Chips et frites"),
-      sub("Plats en conserve", "Plats préparés en conserve"),
-      sub("Condiments"),
+      sub("Pâtes", "Wheat", "Pâtes alimentaires"),
+      sub("Riz", "Wheat"),
+      sub("Conserves", "Cylinder"),
+      sub("Sauces", "Droplets"),
+      sub("Soupes", "Soup"),
+      sub("Apéritif", "Martini"),
+      sub("Chips", "Popcorn", "Chips et frites"),
+      sub("Plats en conserve", "CookingPot", "Plats préparés en conserve"),
+      sub("Condiments", "Droplet"),
     ],
     extraCategories: [
       "Snacks salés",
@@ -156,13 +158,13 @@ export const RAYONS: Rayon[] = [
     description: "Biscuits, chocolats, céréales, confitures et confiseries.",
     image: "/categories/epicerie_sucree.png",
     subcategories: [
-      sub("Biscuits"),
-      sub("Chocolats"),
-      sub("Confiseries"),
-      sub("Céréales", "Céréales pour petit-déjeuner"),
-      sub("Confitures"),
-      sub("Pâtes à tartiner", "Produits à tartiner sucrés"),
-      sub("Barres"),
+      sub("Biscuits", "Cookie"),
+      sub("Chocolats", "Candy"),
+      sub("Confiseries", "Lollipop"),
+      sub("Céréales", "Wheat", "Céréales pour petit-déjeuner"),
+      sub("Confitures", "Cherry"),
+      sub("Pâtes à tartiner", "Cylinder", "Produits à tartiner sucrés"),
+      sub("Barres", "Cuboid"),
     ],
     extraCategories: ["Snacks sucrés", "Petit-déjeuners", "Sucres", "Aides culinaires"],
   },
@@ -173,11 +175,11 @@ export const RAYONS: Rayon[] = [
     description: "Jus de fruits, eaux, sodas, thés glacés et boissons chaudes.",
     image: "/categories/boissons.svg",
     subcategories: [
-      sub("Jus de fruits"),
-      sub("Eaux"),
-      sub("Sodas", "Boissons gazeuses"),
-      sub("Thés glacés"),
-      sub("Boissons chaudes"),
+      sub("Jus de fruits", "Citrus"),
+      sub("Eaux", "GlassWater"),
+      sub("Sodas", "CupSoda", "Boissons gazeuses"),
+      sub("Thés glacés", "CupSoda"),
+      sub("Boissons chaudes", "Coffee"),
     ],
     extraCategories: ["Boissons"],
   },
@@ -188,12 +190,12 @@ export const RAYONS: Rayon[] = [
     description: "Pains, viennoiseries, brioches, gâteaux et tartes.",
     image: "/categories/pains_viennoiseries_patisseries.png",
     subcategories: [
-      sub("Pains"),
-      sub("Viennoiseries"),
-      sub("Brioches"),
-      sub("Pâtisseries"),
-      sub("Gâteaux"),
-      sub("Tartes"),
+      sub("Pains", "Wheat"),
+      sub("Viennoiseries", "Croissant"),
+      sub("Brioches", "Croissant"),
+      sub("Pâtisseries", "Dessert"),
+      sub("Gâteaux", "Cake"),
+      sub("Tartes", "CakeSlice"),
     ],
     extraCategories: ["Crêpes et galettes"],
   },
@@ -226,7 +228,7 @@ export function findRayonForCategories(categoryNames: string[]) {
 
 export interface RayonLink extends Rayon {
   href: string;
-  links: { id: string; name: string; href: string }[];
+  links: { id: string; name: string; href: string; icon: string }[];
 }
 
 export const RAYON_LINKS: RayonLink[] = RAYONS.map((rayon) => ({
@@ -236,5 +238,6 @@ export const RAYON_LINKS: RayonLink[] = RAYONS.map((rayon) => ({
     id: s.slug,
     name: s.label,
     href: rayonHref(rayon, s.slug),
+    icon: s.icon,
   })),
 }));

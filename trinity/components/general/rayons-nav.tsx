@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { RayonLink } from "@/lib/rayons";
+import SubcategoryIcon from "@/components/catalog/subcategory-icon";
 
 interface RayonsNavProps {
   rayons: RayonLink[];
@@ -39,8 +40,9 @@ export default function RayonsNav({ rayons }: RayonsNavProps) {
                     <li key={link.id}>
                       <Link
                         href={link.href}
-                        className="block rounded-md px-2 py-2 text-sm font-semibold text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
+                        className="flex items-center gap-2.5 rounded-md px-2 py-2 text-sm font-semibold text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
                       >
+                        <SubcategoryIcon name={link.icon} size={18} className="shrink-0 text-primary" />
                         {link.name}
                       </Link>
                     </li>

@@ -54,6 +54,7 @@ export default async function RayonPage({ params, searchParams }: RayonPageProps
         title={activeSub?.label ?? rayon.name}
         description={activeSub ? undefined : rayon.description}
         image={rayon.image}
+        icon={activeSub?.icon}
         breadcrumb={[
           { label: "Accueil", href: "/" },
           activeSub ? { label: rayon.name, href: rayonHref(rayon) } : { label: rayon.name },

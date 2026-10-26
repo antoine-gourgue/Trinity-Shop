@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import SubcategoryIcon from "@/components/catalog/subcategory-icon";
 
 export interface Crumb {
   label: string;
@@ -19,12 +20,13 @@ interface ListingHeaderProps {
   title: string;
   description?: string;
   image?: string;
+  icon?: string;
   breadcrumb: Crumb[];
   chips?: HeaderChip[];
 }
 
 // Bandeau de tête des listes : fil d'Ariane, titre et sous-rayons en pastilles
-export default function ListingHeader({ title, description, image, breadcrumb, chips }: ListingHeaderProps) {
+export default function ListingHeader({ title, description, image, icon, breadcrumb, chips }: ListingHeaderProps) {
   return (
     <header className="overflow-hidden rounded-2xl bg-brand-dark text-white">
       <div className="px-5 pb-5 pt-4 md:px-8 md:pb-6">
@@ -48,10 +50,16 @@ export default function ListingHeader({ title, description, image, breadcrumb, c
         </nav>
 
         <div className="mt-4 flex items-center gap-4">
-          {image && (
-            <span className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white sm:flex">
-              <Image src={image} alt="" width={44} height={44} className="h-11 w-auto object-contain" />
+          {icon ? (
+            <span className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white text-primary sm:flex">
+              <SubcategoryIcon name={icon} size={32} strokeWidth={1.75} />
             </span>
+          ) : (
+            image && (
+              <span className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white sm:flex">
+                <Image src={image} alt="" width={44} height={44} className="h-11 w-auto object-contain" />
+              </span>
+            )
           )}
           <div>
             <h1 className="text-2xl font-black leading-tight md:text-3xl">{title}</h1>
