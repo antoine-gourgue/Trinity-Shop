@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { ChevronRight, CreditCard, PackageCheck, Store } from "lucide-react";
+import { ChevronDown, ChevronRight, CreditCard, PackageCheck, Store } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { getOpenFoodFacts } from "@/lib/server-actions/products-actions";
 import { findRayonForCategories, rayonCategoryNames, rayonHref } from "@/lib/rayons";
@@ -12,7 +12,9 @@ import PriceBlock from "@/components/product/price-block";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
 import AddToCartButton from "@/components/product/add-to-cart-button";
-import ProductSection from "@/components/catalog/product-section";
+import ProductCarousel from "@/components/catalog/product-carousel";
+import ProductCard from "@/components/product/productCard";
+import NutritionTable from "@/components/product/nutrition-table";
 import ProductStickyBar from "@/components/product/product-sticky-bar";
 
 interface ProductPageProps {
@@ -68,12 +70,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const ingredients: string | undefined = off?.ingredients_text_fr || off?.ingredients_text || undefined;
   const description: string | undefined = off?.generic_name_fr || off?.generic_name || undefined;
   const conservation: string | undefined = off?.conservation_conditions_fr || off?.conservation_conditions || undefined;
+  const manufacturingPlaces: string | undefined = off?.manufacturing_places || undefined;
   const brandLabel = formatBrand(product.brand?.name);
 
   const facts = [
     quantity && { label: "Contenance", value: quantity },
-    off?.origins && { label: "Origine", value: off.origins as string },
-    off?.manufacturing_places && { label: "Lieu de fabrication", value: off.manufacturing_places as string },
     { label: "Code-barres", value: product.barCode.toString() },
   ].filter(Boolean) as { label: string; value: string }[];
 
@@ -201,67 +202,119 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </aside>
       </div>
 
-      <div className="mt-6 grid gap-6">
-        <InfoCard id="description" title="Description">
-          <p>{description ?? "Aucune description disponible pour ce produit."}</p>
-          {conservation && (
-            <>
-              <h3 className="mt-4 font-extrabold">Conservation</h3>
-              <p className="mt-1">{conservation}</p>
-            </>
-          )}
-        </InfoCard>
+      <div className="mt-10 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="min-w-0 space-y-8">
+          <InfoSection id="description" title="Description">
+            <p>{description ?? "Aucune description disponible pour ce produit."}</p>
+            {brandLabel && (
+              <p className="mt-3">
+                <span className="font-bold">Marque :</span> {brandLabel}
+              </p>
+            )}
+          </InfoSection>
 
-        <InfoCard id="composition" title="Ingrédients et allergènes">
-          <p>{ingredients ?? "Liste des ingrédients non renseignée."}</p>
-          {allergens.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="font-extrabold">Allergènes :</span>
-              {allergens.map((allergen) => (
-                <span key={allergen} className="rounded-full bg-promo/10 px-3 py-1 text-xs font-bold text-promo">
-                  {allergen}
-                </span>
-              ))}
-            </div>
-          )}
-        </InfoCard>
-        <InfoCard id="nutrition" title="Valeurs nutritionnelles">
-          {nutrition.length > 0 ? (
-            <table className="w-full max-w-2xl text-sm">
-              <caption className="sr-only">Valeurs nutritionnelles pour 100 g</caption>
-              <thead>
-                <tr className="border-b-2 border-foreground/80 text-left">
-                  <th scope="col" className="py-2 font-extrabold">Pour 100 g</th>
-                  <th scope="col" className="py-2 text-right font-extrabold">Valeur</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {nutrition.map((row) => (
-                  <tr key={`${row.label}-${row.value}`}>
-                    <th scope="row" className={`py-2 text-left font-semibold ${row.indent ? "pl-4 font-normal text-muted-foreground" : ""}`}>
-                      {row.label}
-                    </th>
-                    <td className="py-2 text-right tabular-nums">{row.value}</td>
-                  </tr>
+          <InfoSection id="composition" title="Composition et origine">
+            <h3 className="text-lg font-black">Ingrédients</h3>
+            <p className="mt-2">
+              {ingredients ? `Ingrédients : ${ingredients}` : "Liste des ingrédients non renseignée."}
+            </p>
+            {allergens.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="font-bold">Allergènes :</span>
+                {allergens.map((allergen) => (
+                  <span key={allergen} className="rounded-full bg-promo/10 px-3 py-1 text-xs font-bold text-promo">
+                    {allergen}
+                  </span>
                 ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>Valeurs nutritionnelles non renseignées.</p>
+              </div>
+            )}
+
+            {off?.origins && (
+              <>
+                <h3 className="mt-8 text-lg font-black">Origine</h3>
+                <p className="mt-2">{off.origins}</p>
+              </>
+            )}
+
+            <h3 className="mt-8 text-lg font-black">Informations nutritionnelles</h3>
+            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <NutriScore grade={product.nutriScore} className="h-14" />
+              <p className="min-w-[200px] flex-1">
+                Le Nutri-Score est un logo qui informe sur la qualité nutritionnelle d’un produit.
+              </p>
+              <a
+                href="https://www.santepubliquefrance.fr/determinants-de-sante/nutrition-et-activite-physique/articles/nutri-score"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-primary underline underline-offset-4 hover:text-brand-dark"
+              >
+                En savoir plus
+              </a>
+            </div>
+
+            <h3 id="nutrition" className="mt-8 scroll-mt-[230px] text-lg font-black">
+              Valeurs nutritionnelles
+            </h3>
+            <div className="mt-4">
+              {nutrition.length > 0 ? <NutritionTable rows={nutrition} /> : <p>Valeurs nutritionnelles non renseignées.</p>}
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">
+              Informations issues d’OpenFoodFacts, données collaboratives sous licence ODbL.
+            </p>
+          </InfoSection>
+
+          {(conservation || manufacturingPlaces) && (
+            <InfoSection id="conseils" title="Conseils">
+              {conservation && (
+                <>
+                  <h3 className="text-lg font-black">Conservation</h3>
+                  <p className="mt-2">{conservation}</p>
+                </>
+              )}
+              {manufacturingPlaces && (
+                <>
+                  <h3 className={`text-lg font-black ${conservation ? "mt-8" : ""}`}>Lieu de fabrication</h3>
+                  <p className="mt-2">{manufacturingPlaces}</p>
+                </>
+              )}
+            </InfoSection>
           )}
-          <p className="mt-4 text-xs text-muted-foreground">
-            Informations issues d’OpenFoodFacts, données collaboratives sous licence ODbL.
-          </p>
-        </InfoCard>
+        </div>
 
+        {similar.length > 0 && (
+          <aside id="similaires" className="mt-4 scroll-mt-[230px] lg:mt-12">
+            <div className="relative rounded-3xl bg-brand-dark px-4 pb-6 pt-12 md:px-6">
+              <p className="absolute -top-4 left-5 -rotate-2 rounded-lg bg-highlight px-4 py-2 font-black text-brand-dark shadow-md">
+                Vous aimerez aussi :
+              </p>
+              <ProductCarousel label="Vous aimerez aussi">
+                {similar.map((item) => (
+                  <li key={item.id} className="w-[85%] shrink-0 snap-start sm:w-[45%] lg:w-[85%]">
+                    <ProductCard
+                      id={item.id}
+                      name={item.name}
+                      price={item.price}
+                      regularPrice={item.regularPrice}
+                      netContent={item.netContent}
+                      picture={item.picture}
+                      nutriScore={item.nutriScore ?? undefined}
+                      brand={item.brand?.name}
+                    />
+                  </li>
+                ))}
+              </ProductCarousel>
+              {match && (
+                <Link
+                  href={rayonHref(match.rayon, match.subCategory?.slug)}
+                  className="mt-5 inline-flex items-center gap-1 text-sm font-bold text-white hover:underline"
+                >
+                  Tout le rayon {match.subCategory?.label ?? match.rayon.name} <ChevronRight size={16} aria-hidden />
+                </Link>
+              )}
+            </div>
+          </aside>
+        )}
       </div>
-
-      <ProductSection
-        id="similaires"
-        title={match?.subCategory ? `Dans le rayon ${match.subCategory.label}` : "Vous aimerez aussi"}
-        href={match ? rayonHref(match.rayon, match.subCategory?.slug) : undefined}
-        products={similar}
-      />
 
       <ProductStickyBar
         productId={product.id}
@@ -274,33 +327,25 @@ export default async function ProductPage({ params }: ProductPageProps) {
         triggerId="achat"
         sections={[
           { id: "description", label: "Description" },
-          { id: "composition", label: "Ingrédients & allergènes" },
-          { id: "nutrition", label: "Valeurs nutritionnelles" },
-          ...(similar.length > 0 ? [{ id: "similaires", label: "Dans le même rayon" }] : []),
+          { id: "composition", label: "Composition & origine" },
+          ...(conservation || manufacturingPlaces ? [{ id: "conseils", label: "Conseils" }] : []),
+          ...(similar.length > 0 ? [{ id: "similaires", label: "Vous aimerez aussi" }] : []),
         ]}
       />
     </div>
   );
 }
 
-function InfoCard({
-  id,
-  title,
-  className,
-  children,
-}: {
-  id: string;
-  title: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
+function InfoSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section
-      id={id}
-      className={`scroll-mt-[230px] rounded-3xl border bg-white p-6 text-sm leading-relaxed md:p-8 ${className ?? ""}`}
-    >
-      <h2 className="mb-3 text-lg font-black">{title}</h2>
-      {children}
+    <section id={id} className="scroll-mt-[230px]">
+      <details open className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-1 text-2xl font-black [&::-webkit-details-marker]:hidden">
+          {title}
+          <ChevronDown size={24} className="shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="mt-4 rounded-3xl bg-white p-6 text-[15px] leading-relaxed shadow-sm md:p-10">{children}</div>
+      </details>
     </section>
   );
 }

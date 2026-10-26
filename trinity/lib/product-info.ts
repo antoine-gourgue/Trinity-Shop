@@ -53,25 +53,36 @@ export function formatAllergens(tags?: string[] | null) {
 
 const numberFormatter = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
 
-const NUTRIENTS: { key: string; label: string; unit: string; indent?: boolean }[] = [
-  { key: "energy-kj_100g", label: "Énergie", unit: "kJ" },
-  { key: "energy-kcal_100g", label: "Énergie", unit: "kcal" },
-  { key: "fat_100g", label: "Matières grasses", unit: "g" },
-  { key: "saturated-fat_100g", label: "dont acides gras saturés", unit: "g", indent: true },
-  { key: "carbohydrates_100g", label: "Glucides", unit: "g" },
-  { key: "sugars_100g", label: "dont sucres", unit: "g", indent: true },
-  { key: "fiber_100g", label: "Fibres alimentaires", unit: "g" },
-  { key: "proteins_100g", label: "Protéines", unit: "g" },
-  { key: "salt_100g", label: "Sel", unit: "g" },
+const NUTRIENTS: { key: string; label: string }[] = [
+  { key: "fat_100g", label: "Matières grasses" },
+  { key: "saturated-fat_100g", label: "Dont acides gras saturés" },
+  { key: "carbohydrates_100g", label: "Glucides" },
+  { key: "sugars_100g", label: "Dont sucres" },
+  { key: "fiber_100g", label: "Fibres alimentaires" },
+  { key: "proteins_100g", label: "Protéines" },
+  { key: "salt_100g", label: "Sel" },
 ];
 
+function nutrientValue(nutriments: Record<string, unknown>, key: string) {
+  const raw = nutriments[key];
+  const value = typeof raw === "number" ? raw : Number.parseFloat(String(raw ?? ""));
+  return Number.isFinite(value) ? value : null;
+}
+
+// Tableau nutritionnel pour 100 g : énergie sur une ligne (kJ | kcal), puis les nutriments
 export function nutritionRows(nutriments?: Record<string, unknown> | null) {
   if (!nutriments) return [];
-  return NUTRIENTS.flatMap(({ key, label, unit, indent }) => {
-    const raw = nutriments[key] ?? (key === "energy-kj_100g" ? nutriments["energy_100g"] : undefined);
-    const value = typeof raw === "number" ? raw : Number.parseFloat(String(raw ?? ""));
-    return Number.isFinite(value)
-      ? [{ label, value: `${numberFormatter.format(value)} ${unit}`, indent: !!indent }]
-      : [];
+
+  const kj = nutrientValue(nutriments, "energy-kj_100g") ?? nutrientValue(nutriments, "energy_100g");
+  const kcal = nutrientValue(nutriments, "energy-kcal_100g");
+  const energy = [kj !== null && `${numberFormatter.format(kj)} kJ`, kcal !== null && `${numberFormatter.format(kcal)} kcal`]
+    .filter(Boolean)
+    .join(" | ");
+
+  const rows = NUTRIENTS.flatMap(({ key, label }) => {
+    const value = nutrientValue(nutriments, key);
+    return value === null ? [] : [{ label, value: `${numberFormatter.format(value)} g` }];
   });
+
+  return energy ? [{ label: "Valeurs énergétiques", value: energy }, ...rows] : rows;
 }
