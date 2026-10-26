@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { formatBrand } from "@/lib/format";
+import { parseQuantity } from "@/lib/product-info";
 import {
   ListingParams,
   NUTRI_GRADES,
@@ -12,11 +13,38 @@ import {
 // Produits proposés à la vente : les produits masqués restent en base pour les commandes passées
 export const VISIBLE_PRODUCT: Prisma.ProductWhereInput = { hidden: false };
 
+// Marques du magasin, enregistrées sous forme de slug OpenFoodFacts (« u », « u-bio »…)
+const STORE_BRAND: Prisma.ProductWhereInput = {
+  brand: {
+    OR: [
+      { name: "u" },
+      { name: { startsWith: "u-" } },
+      { name: { in: ["hyper-u", "bien-vu", "mat-lou"] } },
+    ],
+  },
+};
+
+const GAMME_FILTERS: Record<string, Prisma.ProductWhereInput> = {
+  u: STORE_BRAND,
+  nationales: { NOT: STORE_BRAND },
+};
+
+// Bio : marque, nom ou catégorie qui le revendique (« U Bio », « 6 œufs BIO », « Fromages-bio »)
+const ORGANIC: Prisma.ProductWhereInput = {
+  OR: [
+    { brand: { name: { contains: "bio", mode: "insensitive" } } },
+    { name: { contains: "bio", mode: "insensitive" } },
+    { categories: { some: { categoryName: { contains: "bio", mode: "insensitive" } } } },
+  ],
+};
+
 const ORDER_BY: Record<SortValue, Prisma.ProductOrderByWithRelationInput[]> = {
   pertinence: [{ name: "asc" }, { id: "asc" }],
   nom: [{ name: "asc" }, { id: "asc" }],
   "prix-croissant": [{ price: "asc" }, { id: "asc" }],
   "prix-decroissant": [{ price: "desc" }, { id: "asc" }],
+  // Trié en mémoire d'après la contenance (voir unitPricePage)
+  "prix-kilo": [{ price: "asc" }, { id: "asc" }],
   nutriscore: [{ nutriScore: { sort: "asc", nulls: "last" } }, { name: "asc" }, { id: "asc" }],
 };
 
@@ -35,6 +63,8 @@ export interface ProductListing {
     brands: FacetOption[];
     nutriScores: FacetOption[];
     promoCount: number;
+    bioCount: number;
+    gammes: { u: number; nationales: number };
   };
 }
 
@@ -60,22 +90,24 @@ export async function getProductListing(
     : {};
   const onPromo: Prisma.ProductWhereInput = { regularPrice: { not: null } };
   const promoFilter: Prisma.ProductWhereInput = params.promo ? onPromo : {};
+  const bioFilter: Prisma.ProductWhereInput = params.bio ? ORGANIC : {};
+  const gammeFilter: Prisma.ProductWhereInput = params.gamme ? GAMME_FILTERS[params.gamme] : {};
 
-  const where: Prisma.ProductWhereInput = { AND: [base, brandFilter, nutriFilter, priceFilter, promoFilter] };
+  // Chaque facette est comptée avec tous les filtres sauf le sien
+  const filters = { brandFilter, nutriFilter, priceFilter, promoFilter, bioFilter, gammeFilter };
+  const except = (...skip: (keyof typeof filters)[]): Prisma.ProductWhereInput => ({
+    AND: [base, ...Object.entries(filters).filter(([key]) => !skip.includes(key as keyof typeof filters)).map(([, f]) => f)],
+  });
+  const where = except();
 
-  const [total, brandGroups, nutriGroups, promoCount] = await Promise.all([
+  const [total, brandGroups, nutriGroups, promoCount, bioCount, storeCount, nationalCount] = await Promise.all([
     prisma.product.count({ where }),
-    prisma.product.groupBy({
-      by: ["brandId"],
-      where: { AND: [base, nutriFilter, priceFilter, promoFilter] },
-      _count: { _all: true },
-    }),
-    prisma.product.groupBy({
-      by: ["nutriScore"],
-      where: { AND: [base, brandFilter, priceFilter, promoFilter] },
-      _count: { _all: true },
-    }),
-    prisma.product.count({ where: { AND: [base, brandFilter, nutriFilter, priceFilter, onPromo] } }),
+    prisma.product.groupBy({ by: ["brandId"], where: except("brandFilter"), _count: { _all: true } }),
+    prisma.product.groupBy({ by: ["nutriScore"], where: except("nutriFilter"), _count: { _all: true } }),
+    prisma.product.count({ where: { AND: [except("promoFilter"), onPromo] } }),
+    prisma.product.count({ where: { AND: [except("bioFilter"), ORGANIC] } }),
+    prisma.product.count({ where: { AND: [except("gammeFilter"), GAMME_FILTERS.u] } }),
+    prisma.product.count({ where: { AND: [except("gammeFilter"), GAMME_FILTERS.nationales] } }),
   ]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -84,7 +116,9 @@ export async function getProductListing(
   const [products, brands] = await Promise.all([
     params.tri === "pertinence" && ranking
       ? rankedPage(where, ranking, page)
-      : prisma.product.findMany({
+      : params.tri === "prix-kilo"
+        ? unitPricePage(where, page)
+        : prisma.product.findMany({
           where,
           orderBy: ORDER_BY[params.tri],
           skip: (page - 1) * PAGE_SIZE,
@@ -119,6 +153,8 @@ export async function getProductListing(
         count: nutriGroups.find((group) => group.nutriScore === grade)?._count._all ?? 0,
       })),
       promoCount,
+      bioCount,
+      gammes: { u: storeCount, nationales: nationalCount },
     },
   };
 }
@@ -136,4 +172,20 @@ async function rankedPage(where: Prisma.ProductWhereInput, ranking: string[], pa
     .map((product) => product.id);
   const products = await prisma.product.findMany({ where: { id: { in: pageIds } }, include: { brand: true } });
   return products.sort(byRank);
+}
+
+// Tri au prix au kilo (ou au litre) : calculé depuis la contenance, produits sans contenance en dernier
+async function unitPricePage(where: Prisma.ProductWhereInput, page: number) {
+  const matching = await prisma.product.findMany({ where, select: { id: true, price: true, netContent: true, name: true } });
+  const unitPrice = (product: { price: number; netContent: string | null }) => {
+    const quantity = parseQuantity(product.netContent);
+    return quantity ? product.price / quantity.amount : Infinity;
+  };
+  const sorted = matching
+    .map((product) => ({ ...product, unit: unitPrice(product) }))
+    .sort((a, b) => a.unit - b.unit || a.name.localeCompare(b.name, "fr"));
+  const pageIds = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((product) => product.id);
+  const position = new Map(pageIds.map((id, index) => [id, index]));
+  const products = await prisma.product.findMany({ where: { id: { in: pageIds } }, include: { brand: true } });
+  return products.sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0));
 }

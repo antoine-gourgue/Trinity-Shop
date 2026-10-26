@@ -7,6 +7,7 @@ export const SORT_OPTIONS = [
   { value: "nom", label: "Nom (A → Z)" },
   { value: "prix-croissant", label: "Prix croissant" },
   { value: "prix-decroissant", label: "Prix décroissant" },
+  { value: "prix-kilo", label: "Prix au kilo / litre" },
   { value: "nutriscore", label: "Meilleur Nutri-Score" },
 ] as const;
 
@@ -31,6 +32,13 @@ export const PRICE_RANGES = [
 ] as const;
 
 export const NUTRI_GRADES = ["A", "B", "C", "D", "E"] as const;
+
+// Gamme de marques : marques du magasin (U, U Bio…) ou marques nationales
+export const GAMMES = [
+  { value: "u", label: "Marques U" },
+  { value: "nationales", label: "Marques nationales" },
+] as const;
+export type Gamme = (typeof GAMMES)[number]["value"];
 export type NutriGrade = (typeof NUTRI_GRADES)[number];
 
 export interface ListingParams {
@@ -41,6 +49,8 @@ export interface ListingParams {
   nutriscores: NutriGrade[];
   prix?: string;
   promo: boolean;
+  bio: boolean;
+  gamme?: Gamme;
   tri: SortValue;
   page: number;
 }
@@ -62,6 +72,7 @@ export function parseListingParams(raw: RawParams): ListingParams {
   const tri = sortOptions(q).find((option) => option.value === asString(raw.tri))?.value ?? defaultSort(q);
   const page = Number.parseInt(asString(raw.page) ?? "1", 10);
   const prix = asString(raw.prix);
+  const gamme = asString(raw.gamme);
 
   return {
     q,
@@ -73,6 +84,8 @@ export function parseListingParams(raw: RawParams): ListingParams {
       .filter((grade): grade is NutriGrade => NUTRI_GRADES.includes(grade as NutriGrade)),
     prix: PRICE_RANGES.some((range) => range.value === prix) ? prix : undefined,
     promo: asString(raw.promo) === "1",
+    bio: asString(raw.bio) === "1",
+    gamme: GAMMES.find((option) => option.value === gamme)?.value,
     tri,
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
@@ -95,6 +108,8 @@ export function listingHref(
   next.nutriscores.forEach((grade) => query.append("nutriscore", grade));
   if (next.prix) query.set("prix", next.prix);
   if (next.promo) query.set("promo", "1");
+  if (next.bio) query.set("bio", "1");
+  if (next.gamme) query.set("gamme", next.gamme);
   if (next.tri !== defaultSort(next.q)) query.set("tri", next.tri);
   if (next.page > 1) query.set("page", String(next.page));
 
@@ -107,5 +122,12 @@ export function toggleValue<T>(list: T[], value: T) {
 }
 
 export function activeFilterCount(params: ListingParams) {
-  return params.marques.length + params.nutriscores.length + (params.prix ? 1 : 0) + (params.promo ? 1 : 0);
+  return (
+    params.marques.length +
+    params.nutriscores.length +
+    (params.prix ? 1 : 0) +
+    (params.promo ? 1 : 0) +
+    (params.bio ? 1 : 0) +
+    (params.gamme ? 1 : 0)
+  );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PackageSearch, X } from "lucide-react";
 import type { ProductListing as Listing } from "@/lib/catalog";
 import {
+  GAMMES,
   ListingParams,
   PAGE_SIZE,
   PRICE_RANGES,
@@ -31,6 +32,15 @@ export default function ProductListing({ basePath, params, listing, emptyState }
 
   const activeChips = [
     ...(params.promo ? [{ label: "En promotion", href: listingHref(basePath, params, { promo: false }) }] : []),
+    ...(params.bio ? [{ label: "Bio", href: listingHref(basePath, params, { bio: false }) }] : []),
+    ...(params.gamme
+      ? [
+          {
+            label: GAMMES.find((gamme) => gamme.value === params.gamme)?.label ?? params.gamme,
+            href: listingHref(basePath, params, { gamme: undefined }),
+          },
+        ]
+      : []),
     ...params.marques.map((marque) => ({
       label: formatBrand(marque),
       href: listingHref(basePath, params, { marques: params.marques.filter((m) => m !== marque) }),
@@ -48,7 +58,14 @@ export default function ProductListing({ basePath, params, listing, emptyState }
         ]
       : []),
   ];
-  const clearHref = listingHref(basePath, params, { marques: [], nutriscores: [], prix: undefined, promo: false });
+  const clearHref = listingHref(basePath, params, {
+    marques: [],
+    nutriscores: [],
+    prix: undefined,
+    promo: false,
+    bio: false,
+    gamme: undefined,
+  });
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">

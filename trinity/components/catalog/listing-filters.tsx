@@ -1,14 +1,9 @@
-import Link from "next/link";
-import { Check } from "lucide-react";
-import type { FacetOption } from "@/lib/catalog";
-import {
-  ListingParams,
-  NutriGrade,
-  PRICE_RANGES,
-  listingHref,
-  toggleValue,
-} from "@/lib/catalog-options";
+import { ChevronDown } from "lucide-react";
+import type { ProductListing } from "@/lib/catalog";
+import { GAMMES, ListingParams, NutriGrade, PRICE_RANGES, listingHref, toggleValue } from "@/lib/catalog-options";
 import { cn } from "@/lib/utils";
+import { FilterOption } from "@/components/catalog/filter-option";
+import BrandFacet from "@/components/catalog/brand-facet";
 
 const NUTRI_COLORS: Record<string, string> = {
   A: "bg-[#038141]",
@@ -21,14 +16,16 @@ const NUTRI_COLORS: Record<string, string> = {
 interface ListingFiltersProps {
   basePath: string;
   params: ListingParams;
-  facets: { brands: FacetOption[]; nutriScores: FacetOption[]; promoCount: number };
+  facets: ProductListing["facets"];
 }
 
 // Filtres sous forme de liens : fonctionnent sans JavaScript et restent partageables
 export default function ListingFilters({ basePath, params, facets }: ListingFiltersProps) {
+  const activeNutri = params.nutriscores.length > 0;
+
   return (
     <div className="divide-y rounded-2xl border bg-white">
-      <FilterGroup title="Offres">
+      <FilterGroup title="Offres et labels" active={params.promo || params.bio}>
         <FilterOption
           href={listingHref(basePath, params, { promo: !params.promo })}
           active={params.promo}
@@ -38,9 +35,18 @@ export default function ListingFilters({ basePath, params, facets }: ListingFilt
           <span className="rounded-md bg-promo px-1.5 py-0.5 text-[11px] font-black text-white">%</span>
           En promotion
         </FilterOption>
+        <FilterOption
+          href={listingHref(basePath, params, { bio: !params.bio })}
+          active={params.bio}
+          count={facets.bioCount}
+          disabled={!params.bio && facets.bioCount === 0}
+        >
+          <span className="rounded-md bg-bio px-1.5 py-0.5 text-[11px] font-black text-white">BIO</span>
+          Bio
+        </FilterOption>
       </FilterGroup>
 
-      <FilterGroup title="Prix">
+      <FilterGroup title="Prix" active={!!params.prix}>
         {PRICE_RANGES.map((range) => {
           const active = params.prix === range.value;
           return (
@@ -56,7 +62,7 @@ export default function ListingFilters({ basePath, params, facets }: ListingFilt
         })}
       </FilterGroup>
 
-      <FilterGroup title="Nutri-Score">
+      <FilterGroup title="Nutri-Score" active={activeNutri}>
         {facets.nutriScores.map((facet) => {
           const grade = facet.value as NutriGrade;
           const active = params.nutriscores.includes(grade);
@@ -83,87 +89,60 @@ export default function ListingFilters({ basePath, params, facets }: ListingFilt
       </FilterGroup>
 
       {facets.brands.length > 0 && (
-        <FilterGroup title="Marques">
-          {facets.brands.map((facet) => {
-            const active = params.marques.includes(facet.value);
-            return (
-              <FilterOption
-                key={facet.value}
-                href={listingHref(basePath, params, { marques: toggleValue(params.marques, facet.value) })}
-                active={active}
-                count={facet.count}
-              >
-                {facet.label}
-              </FilterOption>
-            );
-          })}
+        <FilterGroup title="Marques" active={!!params.gamme || params.marques.length > 0} list={false}>
+          <ul className="mb-2 space-y-0.5 border-b pb-2">
+            {GAMMES.map((gamme) => {
+              const active = params.gamme === gamme.value;
+              const count = facets.gammes[gamme.value];
+              return (
+                <FilterOption
+                  key={gamme.value}
+                  href={listingHref(basePath, params, { gamme: active ? undefined : gamme.value })}
+                  active={active}
+                  count={count}
+                  disabled={!active && count === 0}
+                  shape="radio"
+                >
+                  {gamme.label}
+                </FilterOption>
+              );
+            })}
+          </ul>
+          <BrandFacet
+            options={facets.brands.map((facet) => ({
+              ...facet,
+              active: params.marques.includes(facet.value),
+              href: listingHref(basePath, params, { marques: toggleValue(params.marques, facet.value) }),
+            }))}
+          />
         </FilterGroup>
       )}
     </div>
   );
 }
 
-function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="p-4">
-      <h2 className="mb-2 text-sm font-extrabold uppercase tracking-wide text-brand-dark">{title}</h2>
-      <ul className="space-y-0.5">{children}</ul>
-    </section>
-  );
-}
-
-function FilterOption({
-  href,
+// Groupe repliable ; ouvert par défaut, avec un repère quand un de ses filtres est actif
+function FilterGroup({
+  title,
   active,
-  count,
-  disabled,
-  shape = "checkbox",
+  list = true,
   children,
 }: {
-  href: string;
+  title: string;
   active: boolean;
-  count?: number;
-  disabled?: boolean;
-  shape?: "checkbox" | "radio";
+  list?: boolean;
   children: React.ReactNode;
 }) {
-  const content = (
-    <>
-      <span
-        aria-hidden
-        className={cn(
-          "flex h-5 w-5 shrink-0 items-center justify-center border-2 transition-colors",
-          shape === "radio" ? "rounded-full" : "rounded-md",
-          active ? "border-primary bg-primary text-white" : "border-input bg-white"
-        )}
-      >
-        {active && <Check size={13} strokeWidth={3} />}
-      </span>
-      <span className="flex flex-1 items-center gap-2">{children}</span>
-      {count !== undefined && <span className="text-xs text-muted-foreground">{count}</span>}
-    </>
-  );
-
-  const className = "flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm font-semibold";
-
-  if (disabled) {
-    return (
-      <li>
-        <span className={cn(className, "cursor-not-allowed opacity-40")}>{content}</span>
-      </li>
-    );
-  }
-
   return (
-    <li>
-      <Link
-        href={href}
-        scroll={false}
-        aria-current={active ? "true" : undefined}
-        className={cn(className, "transition-colors hover:bg-muted", active && "text-primary")}
-      >
-        {content}
-      </Link>
-    </li>
+    <details open className="group p-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+        <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-dark">
+          {title}
+          {active && <span className="h-2 w-2 rounded-full bg-primary" aria-label="Filtre actif" />}
+        </h2>
+        <ChevronDown size={18} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
+      <div className="mt-2">{list ? <ul className="space-y-0.5">{children}</ul> : children}</div>
+    </details>
   );
 }
