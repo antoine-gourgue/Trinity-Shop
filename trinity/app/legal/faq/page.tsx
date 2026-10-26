@@ -1,92 +1,163 @@
-'use client';
-
-import React, { useState } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, HelpCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
+import { DELIVERY_FEE, FREE_DELIVERY_FROM } from "@/lib/delivery";
+import { POINTS_PER_VOUCHER, VOUCHER_VALUE } from "@/lib/loyalty";
+import { formatPrice } from "@/lib/format";
 
-const faqs = [
-    {
-        question: "Quels sont vos horaires d'ouverture ?",
-        answer: "Nous sommes ouverts du lundi au vendredi de 9h à 18h."
-    },
-    {
-        question: "Livrez-vous à l'international ?",
-        answer: "Oui, nous livrons dans plusieurs pays en Europe et à l'international."
-    },
-    {
+export const metadata: Metadata = { title: "Questions fréquentes — Trinity Shop" };
+
+// Réponses alignées sur le fonctionnement réel du site (créneaux, livraison, paiement, fidélité)
+const SECTIONS: { title: string; questions: { question: string; answer: React.ReactNode }[] }[] = [
+  {
+    title: "Retrait et livraison",
+    questions: [
+      {
+        question: "Comment récupérer mes courses ?",
+        answer: (
+          <>
+            Au moment de commander, vous choisissez entre le <strong>retrait au drive</strong> Trinity U Rennes Epitech,
+            gratuit, et la <strong>livraison à domicile</strong>. Vos courses sont préparées par nos équipes pour le
+            créneau que vous avez choisi.
+          </>
+        ),
+      },
+      {
+        question: "Combien coûte la livraison à domicile ?",
+        answer: (
+          <>
+            La livraison coûte {formatPrice(DELIVERY_FEE)} et elle est <strong>offerte dès {formatPrice(FREE_DELIVERY_FROM)}</strong>{" "}
+            d’articles. Le retrait au drive est toujours gratuit.
+          </>
+        ),
+      },
+      {
+        question: "Livrez-vous à l’international ?",
+        answer:
+          "Non. La livraison à domicile est proposée en France, à l’adresse de votre choix enregistrée dans votre espace client. Nous ne livrons pas à l’étranger.",
+      },
+      {
+        question: "Quels sont les créneaux disponibles ?",
+        answer:
+          "Des créneaux d’une heure de 9h à 13h et de 14h à 20h, du lundi au samedi, à partir du lendemain et jusqu’à six jours à l’avance. Les mêmes créneaux servent au retrait et à la livraison.",
+      },
+      {
+        question: "Où ajouter une adresse de livraison ?",
+        answer: (
+          <>
+            Directement à l’étape « Retrait ou livraison » de votre commande, ou à tout moment dans{" "}
+            <Link href="/user/addresses" className="font-bold text-primary hover:underline">
+              Mes adresses
+            </Link>
+            .
+          </>
+        ),
+      },
+    ],
+  },
+  {
+    title: "Commande et paiement",
+    questions: [
+      {
         question: "Quels sont les moyens de paiement acceptés ?",
-        answer: "Nous acceptons les cartes bancaires, PayPal et les virements bancaires."
-    },
-    {
-        question: "Puis-je annuler ma commande après validation ?",
-        answer: "Oui, tant que la commande n'a pas été expédiée. Contactez-nous rapidement."
-    },
-    {
+        answer:
+          "La carte bancaire (CB, Visa, Mastercard). Trinity Shop est un projet de démonstration : le paiement est simulé, aucune donnée bancaire n’est demandée et aucun débit n’est effectué.",
+      },
+      {
         question: "Comment suivre ma commande ?",
-        answer: "Un lien de suivi est envoyé par email après l'expédition de votre commande."
-    }
+        answer: (
+          <>
+            Toutes vos commandes sont dans{" "}
+            <Link href="/user" className="font-bold text-primary hover:underline">
+              votre espace client
+            </Link>
+            , avec leur créneau, leur détail et leur facture PDF à télécharger.
+          </>
+        ),
+      },
+      {
+        question: "Puis-je annuler ma commande ?",
+        answer: (
+          <>
+            Oui, tant que le créneau n’est pas passé :{" "}
+            <Link href="/legal/contact" className="font-bold text-primary hover:underline">
+              contactez-nous
+            </Link>{" "}
+            en indiquant votre numéro de commande. Les points Carte Trinity liés à la commande sont alors ajustés.
+          </>
+        ),
+      },
+    ],
+  },
+  {
+    title: "Carte Trinity et produits",
+    questions: [
+      {
+        question: "Comment fonctionne la Carte Trinity ?",
+        answer: (
+          <>
+            Gratuite et dématérialisée, elle vous fait gagner 1 point par euro dépensé en articles. Chaque tranche de{" "}
+            {POINTS_PER_VOUCHER} points vous donne un bon de {formatPrice(VOUCHER_VALUE)} à utiliser au paiement.{" "}
+            <Link href="/legal/loyalty-program" className="font-bold text-primary hover:underline">
+              Voir le programme
+            </Link>
+          </>
+        ),
+      },
+      {
+        question: "D’où viennent les informations sur les produits ?",
+        answer:
+          "Les ingrédients, allergènes, valeurs nutritionnelles et le Nutri-Score proviennent d’Open Food Facts, une base de données collaborative et ouverte. Les photos sont celles fournies par les fabricants.",
+      },
+    ],
+  },
 ];
 
 export default function FAQPage() {
-    const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  return (
+    <div className="mx-auto w-full max-w-4xl px-4 py-8">
+      <nav aria-label="Fil d'Ariane" className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
+        <Link href="/" className="hover:text-primary hover:underline">
+          Accueil
+        </Link>
+        <ChevronRight size={14} aria-hidden />
+        <span className="font-semibold text-foreground">Questions fréquentes</span>
+      </nav>
 
-    const toggleAccordion = (index: number) => {
-        setActiveIndex(activeIndex === index ? null : index);
-    };
+      <section className="rounded-3xl bg-brand-dark p-6 text-white md:p-10">
+        <span className="inline-block -rotate-2 rounded-lg bg-highlight px-3 py-1 text-sm font-black text-brand-dark">Aide</span>
+        <h1 className="mt-4 flex items-center gap-3 text-3xl font-black md:text-4xl">
+          <HelpCircle size={32} className="shrink-0 text-highlight" aria-hidden />
+          Questions fréquentes
+        </h1>
+        <p className="mt-3 max-w-xl text-white/75">
+          Retrait au drive, livraison, paiement, Carte Trinity : l’essentiel pour faire vos courses en ligne.
+        </p>
+      </section>
 
-    return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-            <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
-                <Link href="/" className="hover:underline text-gray-700 font-medium">Accueil</Link>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
-                <span className="text-teal-600 font-medium">FAQ</span>
-            </nav>
+      {SECTIONS.map((section) => (
+        <section key={section.title} className="mt-10">
+          <h2 className="mb-4 text-2xl font-black">{section.title}</h2>
+          <div className="space-y-3">
+            {section.questions.map((item) => (
+              <details key={item.question} className="group overflow-hidden rounded-2xl border bg-white">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-bold [&::-webkit-details-marker]:hidden">
+                  {item.question}
+                  <ChevronDown size={20} className="shrink-0 text-primary transition-transform group-open:rotate-180" aria-hidden />
+                </summary>
+                <p className="border-t px-5 py-4 leading-relaxed text-muted-foreground">{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      ))}
 
-            <div className="bg-gray-50 rounded-lg border p-6">
-                <div className="inline-block bg-yellow-400 px-3 py-1 rounded-sm shadow-md transform -rotate-3 mb-4">
-                    <span className="font-bold text-black">Information</span>
-                </div>
-
-                <h1 className="text-3xl font-bold text-teal-700 mb-4 flex items-center gap-2">
-                    <HelpCircle size={28} className="text-teal-600" /> FAQ
-                </h1>
-                <p className="text-gray-600">
-                    Retrouvez ici les réponses aux questions les plus fréquemment posées.
-                </p>
-
-                <div className="mt-6 space-y-4">
-                    {faqs.map((faq, index) => (
-                        <div key={index} className="border border-gray-300 rounded-lg overflow-hidden">
-                            <button
-                                className={`w-full flex justify-between items-center p-4 text-left ${activeIndex === index ? 'bg-teal-100' : 'bg-white'}`}
-                                onClick={() => toggleAccordion(index)}
-                            >
-                                <span className="font-semibold text-gray-800">{faq.question}</span>
-                                <svg
-                                    className={`w-5 h-5 transform transition-transform ${activeIndex === index ? 'rotate-180' : ''}`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            {activeIndex === index && (
-                                <div className="p-4 text-gray-700 border-t border-gray-300">
-                                    <p>{faq.answer}</p>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-
-                <div className="mt-8 text-center">
-                    <p className="text-sm text-gray-500">
-                        Dernière mise à jour : <strong>{new Date().toLocaleDateString('fr-FR')}</strong>
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
+      <p className="mt-10 text-center text-sm text-muted-foreground">
+        Une autre question ?{" "}
+        <Link href="/legal/contact" className="font-bold text-primary hover:underline">
+          Contactez-nous
+        </Link>
+      </p>
+    </div>
+  );
 }
