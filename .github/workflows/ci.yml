@@ -73,6 +73,7 @@ jobs:
       POSTGRES_PRISMA_URL: postgresql://postgres:postgres@localhost:5432/trinity
       POSTGRES_URL_NON_POOLING: postgresql://postgres:postgres@localhost:5432/trinity
       NEXTAUTH_SECRET: ci-only-secret
+      SEED_ADMIN_PASSWORD: ci-only-admin-password
       NEXT_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v4

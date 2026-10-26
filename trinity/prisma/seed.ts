@@ -1,6 +1,7 @@
 import { PrismaClient, Role, nutriScore, Product } from "@prisma/client";
 import { faker } from "@faker-js/faker";
 import bcrypt from "bcrypt";
+import { randomBytes } from "node:crypto";
 import productsDataJson from "../data/complete_products.json";
 
 const prisma = new PrismaClient();
@@ -39,6 +40,13 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 async function main() {
+  // Mot de passe du compte administrateur : jamais écrit dans le dépôt, qui est public.
+  // Vérifié avant tout, car le seed commence par vider la base.
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword || adminPassword.length < 12) {
+    throw new Error("Définir SEED_ADMIN_PASSWORD (12 caractères au moins) pour créer le compte administrateur.");
+  }
+
   try {
     console.log("🔄 Suppression des anciennes données...");
     await prisma.productInCart.deleteMany();
@@ -61,7 +69,7 @@ async function main() {
     const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
 
     if (!existingAdmin) {
-      const hashedPassword = await hashPassword("admintrinity");
+      const hashedPassword = await hashPassword(adminPassword);
       const admin = await prisma.user.create({
         data: {
           firstName: "Admin",
@@ -91,7 +99,8 @@ async function main() {
     }
 
     console.log("🚀 Création de 100 utilisateurs...");
-    const hashedPasswords = await hashPassword("password");
+    // Comptes de démonstration : mot de passe aléatoire, personne n'a à s'y connecter
+    const hashedPasswords = await hashPassword(randomBytes(24).toString("base64url"));
     const users = await Promise.all(
         Array.from({ length: 100 }).map(async () => {
           const user = await prisma.user.create({

@@ -116,7 +116,7 @@ npm install
 cp .env.example .env.local   # puis remplir les variables
 ```
 
-Créer les tables et remplir la base avec le catalogue :
+Créer les tables et remplir la base avec le catalogue. **Le seed commence par vider toute la base** : ne le lancez jamais sur la production.
 
 ```bash
 npx prisma db push
@@ -129,7 +129,7 @@ Lancer le serveur de développement sur [http://localhost:3000](http://localhost
 npm run dev
 ```
 
-Le seed crée le catalogue, des comptes clients fictifs et un compte administrateur de développement (voir `prisma/seed.ts`). Ces identifiants sont publics : ne les utilisez jamais sur une base de production.
+Le seed crée le catalogue, 100 comptes clients fictifs (au mot de passe aléatoire) et le compte administrateur `admin@trinity.fr`, dont le mot de passe est celui de `SEED_ADMIN_PASSWORD`.
 
 > Prisma lit `.env`, pas `.env.local`. Pour lancer une commande Prisma avec les variables de `.env.local` : `set -a; source .env.local; set +a; npx prisma db push`.
 
@@ -143,6 +143,7 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 | `POSTGRES_URL_NON_POOLING` | URL directe, utilisée par `prisma db push` et les migrations |
 | `NEXTAUTH_SECRET` | Clé de signature des sessions (`openssl rand -base64 32`) |
 | `RESEND_API_KEY` | Facultatif : e-mail de bienvenue à l'inscription |
+| `SEED_ADMIN_PASSWORD` | Mot de passe du compte administrateur créé par le seed (12 caractères au moins) ; inutile en production |
 
 ## Commandes
 
@@ -157,7 +158,7 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 | `npx tsc --noEmit` | Vérification des types |
 | `npm test` | Tests Jest |
 | `npx prisma db push` | Applique le schéma à la base |
-| `npx prisma db seed` | Remplit la base (catalogue, comptes de démonstration) |
+| `npx prisma db seed` | Vide puis remplit la base (catalogue, comptes de démonstration) |
 | `npx prisma studio` | Explorateur de la base |
 
 ## Données produits
