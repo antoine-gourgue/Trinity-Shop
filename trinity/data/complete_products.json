@@ -424,7 +424,7 @@
     {
         "name": "Brandade de morue parmentière",
         "barCode": "3256225042784",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/504/2784/front_fr.7.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/504/2784/10.400.jpg",
         "categories": [
             "Plats préparés",
             "Plats préparés au poisson",
@@ -2160,7 +2160,7 @@
     {
         "name": "Taboulé à l'orientale",
         "barCode": "3256226384463",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/638/4463/front_fr.23.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/638/4463/14.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Aliments d'origine végétale",
@@ -3888,7 +3888,7 @@
     {
         "name": "Duo de Haricots Verts et Haricots Beurre très fins",
         "barCode": "3256226755058",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/675/5058/front_fr.15.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/675/5058/6.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Aliments d'origine végétale",
@@ -3981,7 +3981,7 @@
     {
         "name": "Olives vertes entières",
         "barCode": "3256220112208",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/011/2208/front_fr.18.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/011/2208/11.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Aliments d'origine végétale",
@@ -4667,7 +4667,7 @@
     {
         "name": "Yaourt à la grecque nature au lait de brebis (10 % MG)",
         "barCode": "3256225432950",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/543/2950/front_fr.6.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/543/2950/front_fr.24.400.jpg",
         "categories": [
             "Produits laitiers",
             "Produits fermentés",
@@ -7158,7 +7158,7 @@
     {
         "name": "Oeufs moyens, frais, de poules élévées en plein air",
         "barCode": "3256220064736",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/006/4736/front_fr.7.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/006/4736/24.400.jpg",
         "categories": [
             "Produits d'élevages",
             "Œufs",
@@ -7432,7 +7432,7 @@
     {
         "name": "5 Chipolatas",
         "barCode": "3256223666661",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/366/6661/front_fr.4.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/366/6661/3.400.jpg",
         "categories": [
             "Viandes",
             "Charcuteries",
@@ -7537,7 +7537,7 @@
     {
         "name": "Fromage double crème au lait pasteurisé 30%MG",
         "barCode": "3256224310174",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/431/0174/front_fr.33.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/431/0174/front_fr.57.400.jpg",
         "categories": [
             "Produits laitiers",
             "Produits fermentés",
@@ -7611,7 +7611,7 @@
     {
         "name": "Haché au cabillaud citron,",
         "barCode": "3256224375272",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/437/5272/front_fr.14.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/437/5272/13.400.jpg",
         "categories": [
             "Plats préparés",
             "Plats préparés au poisson"
@@ -8593,7 +8593,7 @@
     {
         "name": "Truffes Fantaisie",
         "barCode": "3256224759836",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/475/9836/front_fr.3.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/475/9836/front_fr.21.400.jpg",
         "categories": [
             "Snacks",
             "Snacks sucrés",
@@ -9414,7 +9414,7 @@
     {
         "name": "Boisson aux fruits plate orange",
         "barCode": "3256225436279",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/543/6279/front_fr.19.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/543/6279/front_fr.38.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Boissons",
@@ -9548,7 +9548,7 @@
     {
         "name": "Taboulé au poulet",
         "barCode": "3256226384517",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/638/4517/front_fr.20.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/638/4517/15.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Aliments d'origine végétale",
@@ -9928,7 +9928,7 @@
     {
         "name": "Lait 1/2 écrémé",
         "barCode": "3256224234494",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/423/4494/front_fr.16.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/423/4494/11.400.jpg",
         "categories": [
             "Produits laitiers",
             "Laits",
@@ -13301,7 +13301,7 @@
     {
         "name": "Bouquets de mâche",
         "barCode": "3256223800089",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/380/0089/front_fr.6.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/380/0089/4.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Aliments d'origine végétale",
@@ -13434,7 +13434,7 @@
     {
         "name": "2 steaks hachés pur boeuf",
         "barCode": "3256224621522",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/462/1522/front_fr.11.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/462/1522/9.400.jpg",
         "categories": [
             "Viandes",
             "Bœuf",
@@ -13721,7 +13721,7 @@
     {
         "name": "Carottes rapées - jus de citron",
         "barCode": "3256227111235",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/711/1235/front_fr.4.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/711/1235/front_fr.31.400.jpg",
         "categories": [
             "Plats préparés",
             "Légumes préparés",
@@ -13739,7 +13739,7 @@
     {
         "name": "Mogettes cuisinées à l'ancienne saveurs",
         "barCode": "3368951433955",
-        "image_url": "https://static.openfoodfacts.org/images/products/336/895/143/3955/front_fr.31.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/336/895/143/3955/front_fr.53.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Aliments d'origine végétale",
@@ -15057,7 +15057,7 @@
     {
         "name": "Emmental français pasteurisé, 28% de MG",
         "barCode": "3256224332442",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/433/2442/front_fr.55.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/433/2442/front_fr.90.400.jpg",
         "categories": [
             "Produits laitiers",
             "Produits fermentés",
@@ -15083,7 +15083,7 @@
     {
         "name": "100%pur jus Orange sans pulpe",
         "barCode": "3256224355137",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/435/5137/front_fr.14.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/435/5137/front_fr.20.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Boissons",
@@ -17175,7 +17175,7 @@
     {
         "name": "Mélange Gourmand (Frisée, mâche, chicorée rouge) 3/4 portions",
         "barCode": "3256223800102",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/380/0102/front_fr.6.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/380/0102/5.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Aliments d'origine végétale",
@@ -18752,7 +18752,7 @@
     {
         "name": "Saucisses de Toulouse aux lentilles",
         "barCode": "3256225736287",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/573/6287/front_fr.4.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/573/6287/5.400.jpg",
         "categories": [
             "Plats préparés",
             "Produits à la viande",
@@ -19138,7 +19138,7 @@
     {
         "name": "P'tites Pousses, Prêt à assaisonner (2/3 portions)",
         "barCode": "3256223800164",
-        "image_url": "https://static.openfoodfacts.org/images/products/325/622/380/0164/front_fr.7.400.jpg",
+        "image_url": "https://images.openfoodfacts.org/images/products/325/622/380/0164/5.400.jpg",
         "categories": [
             "Aliments et boissons à base de végétaux",
             "Aliments d'origine végétale",
