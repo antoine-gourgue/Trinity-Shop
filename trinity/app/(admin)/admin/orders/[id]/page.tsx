@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, CreditCard, Mail, MapPin, Phone, Store, User } from "lucide-react";
+import { CalendarClock, CreditCard, Mail, MapPin, Phone, Store, Truck, User } from "lucide-react";
 import { getAdminOrder, orderTotal } from "@/lib/admin/queries";
 import { orderNumber } from "@/lib/account";
 import { formatBrand, formatPrice } from "@/lib/format";
+import { orderDeliveryFee } from "@/lib/delivery";
 import { AdminPageHeader, Panel, formatDate } from "@/components/admin/admin-ui";
 import { PickupBadge, ProductThumb, customerName, pickupLabel } from "@/components/admin/admin-bits";
 import { CancelOrderButton, InvoiceButton } from "@/components/admin/order-actions";
@@ -25,6 +26,8 @@ export default async function AdminOrderPage({ params }: Props) {
   const items = order.cart.productsInCart;
   const subtotal = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   const articles = items.reduce((acc, item) => acc + item.quantity, 0);
+  const shipping = order.shippingAddress;
+  const fee = orderDeliveryFee(order, subtotal);
 
   return (
     <div>
@@ -34,7 +37,7 @@ export default async function AdminOrderPage({ params }: Props) {
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
             Passée le {formatDate(order.createdAt, true)}
-            <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} />
+            <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} delivery={!!shipping} />
           </span>
         }
         actions={
@@ -84,6 +87,12 @@ export default async function AdminOrderPage({ params }: Props) {
               <dt className="text-muted-foreground">Préparation</dt>
               <dd className="font-bold text-bio">Offerte</dd>
             </div>
+            {shipping && (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Livraison à domicile</dt>
+                <dd className={fee > 0 ? "font-bold tabular-nums" : "font-bold text-bio"}>{fee > 0 ? formatPrice(fee) : "Offerte"}</dd>
+              </div>
+            )}
             <div className="flex items-end justify-between border-t pt-3">
               <dt className="font-extrabold">Total TTC</dt>
               <dd className="text-xl font-black tabular-nums">{formatPrice(orderTotal(order))}</dd>
@@ -126,16 +135,27 @@ export default async function AdminOrderPage({ params }: Props) {
             </ul>
           </Panel>
 
-          <Panel title="Retrait">
+          <Panel title={shipping ? "Livraison à domicile" : "Retrait au drive"}>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-3">
                 <CalendarClock size={16} className="shrink-0 text-primary" aria-hidden />
                 {order.pickupSlot ? pickupLabel(order.pickupSlot) : <span className="text-muted-foreground">Aucun créneau choisi</span>}
               </li>
-              <li className="flex items-center gap-3">
-                <Store size={16} className="shrink-0 text-primary" aria-hidden />
-                Drive Trinity U Rennes Epitech
-              </li>
+              {shipping ? (
+                <li className="flex gap-3">
+                  <Truck size={16} className="mt-0.5 shrink-0 text-primary" aria-hidden />
+                  <span>
+                    {shipping.street}
+                    <br />
+                    {shipping.zipCode} {shipping.city}, {shipping.country}
+                  </span>
+                </li>
+              ) : (
+                <li className="flex items-center gap-3">
+                  <Store size={16} className="shrink-0 text-primary" aria-hidden />
+                  Drive Trinity U Rennes Epitech
+                </li>
+              )}
             </ul>
           </Panel>
 

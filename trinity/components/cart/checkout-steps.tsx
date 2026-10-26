@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Mon panier", "Retrait au drive", "Paiement", "Confirmation"];
+const STEPS = ["Mon panier", "Retrait ou livraison", "Paiement", "Confirmation"];
 
 // Étapes de la commande ; `current` commence à 0
 export default function CheckoutSteps({ current }: { current: number }) {

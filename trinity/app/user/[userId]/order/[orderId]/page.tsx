@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CircleCheck, MapPin, Store } from "lucide-react";
+import { ArrowLeft, CircleCheck, MapPin, Store, Truck } from "lucide-react";
 import { getOrderById } from "@/lib/server-actions/orders-actions";
 import InvoiceDownloadButton from "@/components/invoice/InvoiceDownloadButton";
 import ProductImage from "@/components/product/product-image";
@@ -10,6 +10,7 @@ import Price from "@/components/product/price";
 import { formatBrand, formatPrice } from "@/lib/format";
 import { orderNumber, requireUser } from "@/lib/account";
 import { formatPickupDate } from "@/lib/checkout";
+import { orderDeliveryFee } from "@/lib/delivery";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
     const articleCount = items.reduce((acc, item) => acc + item.quantity, 0);
     const billing = order.billingAddress;
     const pickupLabel = order.pickupSlot ? formatPickupDate(order.pickupSlot) : null;
+    const shipping = order.shippingAddress;
+    const fee = orderDeliveryFee(order, totalAmount);
 
     return (
         <div className="space-y-6">
@@ -52,7 +55,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                         <p className="text-lg font-black">Merci, votre commande est validée !</p>
                         <p className="text-sm text-white/85">
                             {pickupLabel
-                                ? `Nos équipes préparent vos courses pour le retrait du ${pickupLabel.toLowerCase()}.`
+                                ? `Nos équipes préparent vos courses pour ${shipping ? "la livraison" : "le retrait"} du ${pickupLabel.toLowerCase()}.`
                                 : "Nos équipes préparent vos courses."}{" "}
                             Retrouvez ci-dessous le détail et votre facture.
                         </p>
@@ -131,10 +134,16 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                 <dt className="text-muted-foreground">Préparation de la commande</dt>
                                 <dd className="font-bold text-bio">Offerte</dd>
                             </div>
+                            {shipping && (
+                                <div className="flex justify-between">
+                                    <dt className="text-muted-foreground">Livraison à domicile</dt>
+                                    <dd className={fee > 0 ? "font-bold" : "font-bold text-bio"}>{fee > 0 ? formatPrice(fee) : "Offerte"}</dd>
+                                </div>
+                            )}
                         </dl>
                         <div className="mt-4 flex items-end justify-between border-t pt-4">
                             <span className="font-extrabold">Total</span>
-                            <Price value={totalAmount - order.loyaltyDiscount} size="lg" />
+                            <Price value={totalAmount - order.loyaltyDiscount + fee} size="lg" />
                         </div>
                         {order.loyaltyPointsEarned > 0 && (
                             <p className="mt-3 rounded-xl bg-highlight/25 px-3 py-2 text-center text-sm font-bold text-brand-dark">
@@ -146,9 +155,14 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                         </div>
                     </AccountCard>
 
-                    <AccountCard title="Retrait" icon={<Store size={18} aria-hidden />}>
+                    <AccountCard
+                        title={shipping ? "Livraison à domicile" : "Retrait"}
+                        icon={shipping ? <Truck size={18} aria-hidden /> : <Store size={18} aria-hidden />}
+                    >
                         <p className="text-sm">
-                            <span className="font-bold">Drive Trinity U Rennes Epitech</span>
+                            <span className="font-bold">
+                                {shipping ? `${shipping.street}, ${shipping.zipCode} ${shipping.city}` : "Drive Trinity U Rennes Epitech"}
+                            </span>
                             {pickupLabel && (
                                 <>
                                     <br />

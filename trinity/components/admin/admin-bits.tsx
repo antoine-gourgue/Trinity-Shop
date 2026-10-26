@@ -25,14 +25,22 @@ export function OrderNumber({ id }: { id: string }) {
   return <span className="font-mono text-sm font-bold">#{orderNumber(id)}</span>;
 }
 
-// Statut d'une commande d'après son créneau de retrait au drive
-export function PickupBadge({ pickupSlot, validated }: { pickupSlot: Date | null; validated: boolean }) {
+// Statut d'une commande d'après son créneau de retrait au drive ou de livraison
+export function PickupBadge({
+  pickupSlot,
+  validated,
+  delivery = false,
+}: {
+  pickupSlot: Date | null;
+  validated: boolean;
+  delivery?: boolean;
+}) {
   if (!validated) return <Badge tone="warning">En attente de paiement</Badge>;
   if (!pickupSlot) return <Badge tone="muted">Sans créneau</Badge>;
   return pickupSlot.getTime() >= Date.now() ? (
-    <Badge tone="brand">Retrait à venir</Badge>
+    <Badge tone="brand">{delivery ? "Livraison à venir" : "Retrait à venir"}</Badge>
   ) : (
-    <Badge tone="success">Retirée</Badge>
+    <Badge tone="success">{delivery ? "Livrée" : "Retirée"}</Badge>
   );
 }
 

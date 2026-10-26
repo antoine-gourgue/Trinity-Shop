@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, CalendarClock, Check, Coins, CreditCard, Loader2, Lock, Pencil } from "lucide-react";
+import { ArrowLeft, CalendarClock, Check, Coins, CreditCard, Loader2, Lock, Pencil, Truck } from "lucide-react";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 import CheckoutSummary from "@/components/cart/checkout-summary";
 import { useCartSummary } from "@/components/cart/use-cart-summary";
@@ -13,7 +13,9 @@ import ActivateCardButton from "@/components/account/activate-card-button";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, formatCardNumber, maxVouchers, pointsForAmount } from "@/lib/loyalty";
 import ProductImage from "@/components/product/product-image";
 import { getActiveCartId } from "@/lib/server-actions/cart-actions";
-import { formatSlot, parseSlotParam, saveSlot, slotParam } from "@/lib/checkout";
+import { formatSlot, parseFulfillmentParams, parseSlotParam, saveFulfillment, saveSlot, slotParam } from "@/lib/checkout";
+import { getMyAddresses } from "@/lib/server-actions/checkout-actions";
+import { deliveryFee, formatAddressLine } from "@/lib/delivery";
 import { formatPrice } from "@/lib/format";
 
 const PAYMENT_METHODS = ["CB", "Visa", "Mastercard"];
@@ -22,6 +24,8 @@ function PaiementContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const slot = parseSlotParam(searchParams.get("creneau"));
+    const fulfillment = parseFulfillmentParams(searchParams.get("mode"), searchParams.get("adresse"));
+    const delivery = fulfillment.mode === "delivery";
     const { data: session, status } = useSession();
     const userId = session?.user?.id;
     const billingAddress = session?.user?.billingAddress;
@@ -32,12 +36,23 @@ function PaiementContent() {
     const [cartId, setCartId] = useState<string | null>(null);
     const [paying, setPaying] = useState(false);
     const [paymentError, setPaymentError] = useState<string | null>(null);
+    // Adresse de livraison choisie à l'étape précédente, relue pour l'afficher
+    const [address, setAddress] = useState<Awaited<ReturnType<typeof getMyAddresses>>[number] | null>(null);
 
     const hasSlot = slot !== null;
     useEffect(() => {
         if (status === "unauthenticated") router.replace("/cart");
         else if (status === "authenticated" && !hasSlot) router.replace("/cart/retrait");
     }, [status, hasSlot, router]);
+
+    useEffect(() => {
+        if (!delivery || status !== "authenticated") return;
+        getMyAddresses().then((list) => {
+            const found = list.find((a) => a.id === fulfillment.addressId);
+            if (found) setAddress(found);
+            else router.replace("/cart/retrait");
+        });
+    }, [delivery, fulfillment.addressId, status, router]);
 
     useEffect(() => {
         if (!userId) return;
@@ -48,7 +63,8 @@ function PaiementContent() {
     const availableVouchers = loyalty ? maxVouchers(loyalty.points, totalPrice) : 0;
     const usedVouchers = Math.min(vouchers, availableVouchers);
     const loyaltyDiscount = usedVouchers * VOUCHER_VALUE;
-    const amountToPay = totalPrice - loyaltyDiscount;
+    const fee = delivery ? deliveryFee(totalPrice) : 0;
+    const amountToPay = totalPrice - loyaltyDiscount + fee;
 
     // Paiement simulé : même flux de commande que PayPal, sans transaction réelle
     const handleSimulatedPayment = async () => {
@@ -66,7 +82,15 @@ function PaiementContent() {
             const response = await fetch("/api/orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId, cartId, billingAddressId: billingAddress, pickupSlot: slotParam(slot), loyaltyVouchers: usedVouchers }),
+                body: JSON.stringify({
+                    userId,
+                    cartId,
+                    billingAddressId: billingAddress,
+                    pickupSlot: slotParam(slot),
+                    loyaltyVouchers: usedVouchers,
+                    fulfillment: fulfillment.mode,
+                    shippingAddressId: delivery ? fulfillment.addressId : null,
+                }),
             });
 
             if (!response.ok) {
@@ -77,6 +101,7 @@ function PaiementContent() {
 
             const { data: order } = await response.json();
             saveSlot(null);
+            saveFulfillment(null);
             window.location.href = order?.id
                 ? `/user/${userId}/order/${order.id}?confirmation=1`
                 : `/user/${userId}/order`;
@@ -87,7 +112,7 @@ function PaiementContent() {
         }
     };
 
-    if (status !== "authenticated" || !slot) {
+    if (status !== "authenticated" || !slot || (delivery && !address)) {
         return (
             <div className="flex justify-center py-24 text-muted-foreground">
                 <Loader2 className="animate-spin" aria-label="Chargement" />
@@ -110,7 +135,7 @@ function PaiementContent() {
         <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <Link href="/cart/retrait" className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline">
-                    <ArrowLeft size={16} aria-hidden /> Retour au créneau
+                    <ArrowLeft size={16} aria-hidden /> {delivery ? "Retour à la livraison" : "Retour au créneau"}
                 </Link>
                 <CheckoutSteps current={2} />
             </div>
@@ -121,12 +146,16 @@ function PaiementContent() {
                 <div className="min-w-0 space-y-6">
                     <section className="flex flex-wrap items-center gap-4 rounded-3xl border bg-white p-5 md:p-6">
                         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
-                            <CalendarClock size={22} aria-hidden />
+                            {delivery ? <Truck size={22} aria-hidden /> : <CalendarClock size={22} aria-hidden />}
                         </span>
                         <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Retrait au drive</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                                {delivery ? "Livraison à domicile" : "Retrait au drive"}
+                            </p>
                             <p className="font-extrabold">{formatSlot(slot)}</p>
-                            <p className="text-sm text-muted-foreground">Trinity U Rennes Epitech</p>
+                            <p className="text-sm text-muted-foreground">
+                                {delivery && address ? formatAddressLine(address) : "Trinity U Rennes Epitech"}
+                            </p>
                         </div>
                         <Link
                             href="/cart/retrait"
@@ -251,6 +280,7 @@ function PaiementContent() {
                     savings={savings}
                     slotLabel={formatSlot(slot)}
                     loyaltyDiscount={loyaltyDiscount}
+                    fulfillment={{ mode: fulfillment.mode, fee, address: address ? formatAddressLine(address) : null }}
                     pointsToEarn={loyalty ? pointsForAmount(amountToPay) : null}
                 >
                     <button

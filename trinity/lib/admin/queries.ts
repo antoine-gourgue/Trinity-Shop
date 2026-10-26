@@ -1,6 +1,7 @@
 import { Prisma, Role } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { RAYONS, findRayonForCategories, getRayon, rayonCategoryNames } from "@/lib/rayons";
+import { orderDeliveryFee } from "@/lib/delivery";
 
 // Données du back-office : chaque liste est filtrée et paginée côté serveur
 
@@ -37,13 +38,15 @@ function paginate(total: number, page: number) {
   return { total, pageCount, page: current, skip: (current - 1) * ADMIN_PAGE_SIZE, take: ADMIN_PAGE_SIZE };
 }
 
-// Total d'une commande, comme sur la facture : articles au prix catalogue moins les bons fidélité
+// Total d'une commande, comme sur la facture : articles au prix catalogue, moins les bons
+// fidélité, plus les frais de livraison à domicile
 export function orderTotal(order: {
   loyaltyDiscount: number;
+  shippingAddressId: string | null;
   cart: { productsInCart: { quantity: number; product: { price: number } }[] };
 }) {
   const items = order.cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
-  return Math.max(0, items - order.loyaltyDiscount);
+  return Math.max(0, items - order.loyaltyDiscount) + orderDeliveryFee(order, items);
 }
 
 export function articleCount(order: { cart: { productsInCart: { quantity: number }[] } }) {
@@ -56,6 +59,7 @@ const ORDER_SUMMARY = {
   pickupSlot: true,
   validated: true,
   loyaltyDiscount: true,
+  shippingAddressId: true,
   user: { select: { id: true, firstName: true, lastName: true, email: true } },
   cart: { select: { productsInCart: { select: { quantity: true, product: { select: { price: true } } } } } },
 } satisfies Prisma.OrderSelect;
@@ -176,9 +180,10 @@ export async function getDashboard() {
 
 export const ORDER_FILTERS = [
   { value: "tous", label: "Toutes" },
-  { value: "a-venir", label: "Retrait à venir" },
-  { value: "passees", label: "Retrait passé" },
+  { value: "a-venir", label: "Créneau à venir" },
+  { value: "passees", label: "Créneau passé" },
   { value: "sans-creneau", label: "Sans créneau" },
+  { value: "livraison", label: "Livraison à domicile" },
 ] as const;
 
 export async function getAdminOrders(params: AdminListParams) {
@@ -187,6 +192,7 @@ export async function getAdminOrders(params: AdminListParams) {
     "a-venir": { pickupSlot: { gte: now } },
     passees: { pickupSlot: { lt: now } },
     "sans-creneau": { pickupSlot: null },
+    livraison: { shippingAddressId: { not: null } },
   };
   const q = params.q;
   const where: Prisma.OrderWhereInput = {
@@ -226,6 +232,7 @@ export function getAdminOrder(id: string) {
     include: {
       user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, loyaltyNumber: true } },
       billingAddress: true,
+      shippingAddress: true,
       cart: {
         include: {
           productsInCart: {

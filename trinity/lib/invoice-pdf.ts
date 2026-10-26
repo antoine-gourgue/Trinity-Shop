@@ -10,6 +10,8 @@ export interface InvoiceData {
   orderNumber: string;
   createdAt: Date;
   pickupLabel: string | null;
+  // Livraison à domicile (null pour un retrait au drive)
+  delivery: { address: string[]; fee: number } | null;
   loyalty: { discount: number; pointsUsed: number; pointsEarned: number; cardNumber: string | null };
   customer: { name: string; email: string; address: string[] };
   items: {
@@ -26,6 +28,8 @@ const A4 = { width: 595.28, height: 841.89 };
 const MARGIN = 40;
 const FOOTER_TOP = 70;
 const VAT_RATE = 0.055;
+// Taux normal, appliqué aux frais de livraison
+const SERVICE_VAT_RATE = 0.2;
 
 const COLORS = {
   brandDark: rgb(0, 0.333, 0.384),
@@ -130,7 +134,11 @@ export async function buildInvoicePdf(data: InvoiceData) {
   const orderLines = [
     `Commande n° ${data.orderNumber}`,
     `Passée le ${data.createdAt.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`,
-    ...(data.pickupLabel ? ["Retrait au drive :", data.pickupLabel] : ["Retrait au drive"]),
+    ...(data.delivery
+      ? ["Livraison à domicile :", ...(data.pickupLabel ? [data.pickupLabel] : []), ...data.delivery.address]
+      : data.pickupLabel
+        ? ["Retrait au drive :", data.pickupLabel]
+        : ["Retrait au drive"]),
     "Paiement : carte bancaire (démo)",
   ];
   const blocks = [
@@ -166,7 +174,9 @@ export async function buildInvoicePdf(data: InvoiceData) {
     return y - 26;
   };
 
-  let y = drawTableHeader(page, blockTop - 120);
+  // Le tableau commence sous le bloc le plus long
+  const longestBlock = Math.max(...blocks.map((block) => block.lines.length));
+  let y = drawTableHeader(page, blockTop - Math.max(120, 36 + longestBlock * 14));
   const rowHeight = 34;
   let subtotal = 0;
   let savings = 0;
@@ -214,8 +224,9 @@ export async function buildInvoicePdf(data: InvoiceData) {
     y = A4.height - MARGIN - 10;
   }
 
-  const total = subtotal - savings - data.loyalty.discount;
-  const vat = total - total / (1 + VAT_RATE);
+  const fee = data.delivery?.fee ?? 0;
+  const total = subtotal - savings - data.loyalty.discount + fee;
+  const vat = total - fee - (total - fee) / (1 + VAT_RATE) + (fee - fee / (1 + SERVICE_VAT_RATE));
   const boxX = right - 230;
   let lineY = y - 10;
   const totalLine = (label: string, value: string, color = COLORS.text) => {
@@ -229,12 +240,14 @@ export async function buildInvoicePdf(data: InvoiceData) {
     totalLine(`Bons Carte Trinity (${data.loyalty.pointsUsed} pts)`, `- ${euros(data.loyalty.discount)}`, COLORS.promo);
   }
   totalLine("Préparation de la commande", "Offerte", COLORS.primary);
+  if (data.delivery) totalLine("Livraison à domicile", fee > 0 ? euros(fee) : "Offerte", fee > 0 ? COLORS.text : COLORS.primary);
 
   lineY -= 16;
   page.drawRectangle({ x: boxX - 10, y: lineY - 12, width: right - boxX + 10, height: 32, color: COLORS.brandDark });
   write(page, "TOTAL TTC", boxX, lineY, { size: 11, font: bold, color: COLORS.white });
   write(page, euros(total), right - 8, lineY - 1, { size: 15, font: bold, color: COLORS.highlight, align: "right" });
-  write(page, `dont TVA ${String(VAT_RATE * 100).replace(".", ",")} % : ${euros(vat)}`, right, lineY - 30, {
+  const vatLabel = fee > 0 ? "dont TVA (5,5 % et 20 %)" : `dont TVA ${String(VAT_RATE * 100).replace(".", ",")} %`;
+  write(page, `${vatLabel} : ${euros(vat)}`, right, lineY - 30, {
     size: 8,
     color: COLORS.muted,
     align: "right",
@@ -255,7 +268,7 @@ export async function buildInvoicePdf(data: InvoiceData) {
   write(page, "Merci pour votre commande !", MARGIN, y - 10, { size: 13, font: bold, color: COLORS.brandDark });
   const thanks = [
     "Vos courses sont préparées par nos équipes et vous",
-    "attendent au drive au créneau choisi.",
+    data.delivery ? "seront livrées au créneau choisi." : "attendent au drive au créneau choisi.",
     "Retrouvez vos commandes dans votre espace client.",
   ];
   thanks.forEach((line, index) => write(page, line, MARGIN, y - 28 - index * 13, { size: 9, color: COLORS.muted }));

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Eye, ShoppingBag } from "lucide-react";
+import { Eye, ShoppingBag, Store, Truck } from "lucide-react";
 import { ORDER_FILTERS, articleCount, getAdminOrders, orderTotal, parseAdminParams } from "@/lib/admin/queries";
 import { orderNumber } from "@/lib/account";
 import { formatPrice } from "@/lib/format";
@@ -38,7 +38,7 @@ export default async function AdminOrdersPage({
                 <tr>
                   <Th>Commande</Th>
                   <Th>Client</Th>
-                  <Th>Retrait au drive</Th>
+                  <Th>Réception</Th>
                   <Th className="text-right">Articles</Th>
                   <Th className="text-right">Total</Th>
                   <Th>Statut</Th>
@@ -58,11 +58,17 @@ export default async function AdminOrdersPage({
                       <span className="block font-semibold">{customerName(order.user)}</span>
                       <span className="block text-xs text-muted-foreground">{order.user.email}</span>
                     </Td>
-                    <Td className="whitespace-nowrap">{pickupLabel(order.pickupSlot)}</Td>
+                    <Td className="whitespace-nowrap">
+                      <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                        {order.shippingAddressId ? <Truck size={14} aria-hidden /> : <Store size={14} aria-hidden />}
+                        {order.shippingAddressId ? "Livraison" : "Drive"}
+                      </span>
+                      <span className="block">{pickupLabel(order.pickupSlot)}</span>
+                    </Td>
                     <Td className="text-right tabular-nums">{articleCount(order)}</Td>
                     <Td className="text-right font-black tabular-nums">{formatPrice(orderTotal(order))}</Td>
                     <Td>
-                      <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} />
+                      <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} delivery={!!order.shippingAddressId} />
                     </Td>
                     <Td>
                       <div className="flex justify-end gap-2">

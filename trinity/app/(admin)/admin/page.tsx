@@ -104,10 +104,10 @@ export default async function AdminDashboardPage() {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
                         <OrderNumber id={order.id} />
-                        <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} />
+                        <PickupBadge pickupSlot={order.pickupSlot} validated={order.validated} delivery={!!order.shippingAddressId} />
                       </span>
                       <span className="mt-0.5 block truncate text-sm text-muted-foreground">
-                        {customerName(order.user)} ·{" "}
+                        {customerName(order.user)} · {order.shippingAddressId ? "livraison" : "drive"} ·{" "}
                         {order.pickupSlot ? pickupLabel(order.pickupSlot) : `passée le ${formatDate(order.createdAt)}`}
                       </span>
                     </span>

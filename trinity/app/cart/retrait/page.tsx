@@ -1,34 +1,111 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, ArrowRight, CalendarDays, Check, Loader2, Store } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Check, Loader2, MapPin, Store, Truck } from "lucide-react";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 import CheckoutSummary from "@/components/cart/checkout-summary";
 import { useCartSummary } from "@/components/cart/use-cart-summary";
 import { useLoyalty } from "@/components/cart/use-loyalty";
+import AddAddressModal from "@/app/user/modal/AddAddressModal";
 import { pointsForAmount } from "@/lib/loyalty";
-import { PickupSlot, formatSlot, loadSlot, pickupDays, pickupHours, saveSlot, slotParam } from "@/lib/checkout";
+import { getMyAddresses } from "@/lib/server-actions/checkout-actions";
+import { DELIVERY_FEE, FREE_DELIVERY_FROM, deliveryFee, formatAddressLine, type Fulfillment } from "@/lib/delivery";
+import {
+    PickupSlot,
+    formatSlot,
+    fulfillmentParams,
+    loadFulfillment,
+    loadSlot,
+    pickupDays,
+    pickupHours,
+    saveFulfillment,
+    saveSlot,
+    slotParam,
+} from "@/lib/checkout";
+import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+type Address = Awaited<ReturnType<typeof getMyAddresses>>[number];
+
+function ModeCard({
+    selected,
+    onSelect,
+    icon: Icon,
+    title,
+    text,
+    price,
+}: {
+    selected: boolean;
+    onSelect: () => void;
+    icon: typeof Store;
+    title: string;
+    text: string;
+    price: string;
+}) {
+    return (
+        <button
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={onSelect}
+            className={cn(
+                "flex w-full items-center gap-4 rounded-2xl border-2 p-4 text-left transition-colors",
+                selected ? "border-primary bg-secondary/60" : "border-border bg-white hover:border-primary/50"
+            )}
+        >
+            <span
+                className={cn(
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
+                    selected ? "bg-primary text-primary-foreground" : "bg-secondary text-primary"
+                )}
+            >
+                <Icon size={22} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="block font-extrabold">{title}</span>
+                <span className="block text-sm text-muted-foreground">{text}</span>
+            </span>
+            <span className="shrink-0 text-right">
+                <span className={cn("block text-sm font-black", price === "Gratuit" && "text-bio")}>{price}</span>
+                <span
+                    className={cn(
+                        "ml-auto mt-1 flex h-6 w-6 items-center justify-center rounded-full border-2",
+                        selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                    )}
+                >
+                    {selected && <Check size={14} aria-hidden />}
+                </span>
+            </span>
+        </button>
+    );
+}
 
 export default function RetraitPage() {
     const router = useRouter();
-    const { status } = useSession();
+    const { data: session, status } = useSession();
+    const userId = session?.user?.id;
     const { cartProducts, totalItems, totalPrice, savings } = useCartSummary();
     const { loyalty } = useLoyalty();
 
-    // Jours calculés côté navigateur (fuseau horaire du client), puis créneau déjà choisi repris
+    // Jours calculés côté navigateur (fuseau horaire du client), puis choix déjà faits repris
     const [days, setDays] = useState<ReturnType<typeof pickupDays>>([]);
     const hours = pickupHours();
     const [selectedDay, setSelectedDay] = useState("");
     const [slot, setSlot] = useState<PickupSlot | null>(null);
+    const [mode, setMode] = useState<Fulfillment>("pickup");
+    const [addressId, setAddressId] = useState<string | null>(null);
+    const [addresses, setAddresses] = useState<Address[] | null>(null);
 
     useEffect(() => {
         const available = pickupDays();
         const saved = loadSlot();
+        const fulfillment = loadFulfillment();
         setDays(available);
+        setMode(fulfillment.mode);
+        setAddressId(fulfillment.addressId);
         if (saved && available.some((day) => day.date === saved.date)) {
             setSlot(saved);
             setSelectedDay(saved.date);
@@ -40,6 +117,21 @@ export default function RetraitPage() {
     useEffect(() => {
         if (status === "unauthenticated") router.replace("/cart");
     }, [status, router]);
+
+    const loadAddresses = useCallback(async () => {
+        const list = await getMyAddresses();
+        setAddresses(list);
+        // Adresse retenue : celle déjà choisie si elle existe encore, sinon la première (livraison d'abord)
+        setAddressId((current) => (current && list.some((a) => a.id === current) ? current : list[0]?.id ?? null));
+    }, []);
+
+    useEffect(() => {
+        if (status === "authenticated") loadAddresses();
+    }, [status, loadAddresses]);
+
+    useEffect(() => {
+        if (days.length) saveFulfillment({ mode, addressId });
+    }, [mode, addressId, days.length]);
 
     const chooseSlot = (start: number) => {
         const next = { date: selectedDay, start };
@@ -66,7 +158,11 @@ export default function RetraitPage() {
         );
     }
 
+    const delivery = mode === "delivery";
+    const fee = delivery ? deliveryFee(totalPrice) : 0;
+    const selectedAddress = addresses?.find((a) => a.id === addressId) ?? null;
     const selectedDayLabel = days.find((day) => day.date === selectedDay)?.label;
+    const ready = !!slot && (!delivery || !!selectedAddress);
 
     return (
         <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
@@ -77,35 +173,96 @@ export default function RetraitPage() {
                 <CheckoutSteps current={1} />
             </div>
 
-            <h1 className="mt-4 text-3xl font-black">Retrait de mes courses</h1>
+            <h1 className="mt-4 text-3xl font-black">Retrait ou livraison</h1>
 
             <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
                 <div className="min-w-0 space-y-6">
                     <section className="rounded-3xl border bg-white p-5 md:p-6">
-                        <h2 className="text-lg font-black">Mode de retrait</h2>
-                        <div className="mt-4 flex items-center gap-4 rounded-2xl border-2 border-primary bg-secondary/60 p-4">
-                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                                <Store size={22} aria-hidden />
-                            </span>
-                            <div className="flex-1">
-                                <p className="font-extrabold">Drive Trinity U Rennes Epitech</p>
-                                <p className="text-sm text-muted-foreground">
-                                    Vos courses sont préparées par nos équipes, vous les récupérez sur place.
-                                </p>
-                            </div>
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                                <Check size={14} aria-hidden />
-                            </span>
+                        <h2 className="text-lg font-black">Comment souhaitez-vous recevoir vos courses ?</h2>
+                        <div role="radiogroup" aria-label="Mode de réception" className="mt-4 grid gap-3">
+                            <ModeCard
+                                selected={!delivery}
+                                onSelect={() => setMode("pickup")}
+                                icon={Store}
+                                title="Retrait au drive"
+                                text="Drive Trinity U Rennes Epitech : vos courses préparées, vous les récupérez sur place."
+                                price="Gratuit"
+                            />
+                            <ModeCard
+                                selected={delivery}
+                                onSelect={() => setMode("delivery")}
+                                icon={Truck}
+                                title="Livraison à domicile"
+                                text={`Livrées chez vous sur le créneau choisi. Offerte dès ${formatPrice(FREE_DELIVERY_FROM)} d’articles.`}
+                                price={totalPrice >= FREE_DELIVERY_FROM ? "Gratuit" : formatPrice(DELIVERY_FEE)}
+                            />
                         </div>
                     </section>
+
+                    {delivery && (
+                        <section className="rounded-3xl border bg-white p-5 md:p-6">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <h2 className="flex items-center gap-2 text-lg font-black">
+                                    <MapPin size={20} className="text-primary" aria-hidden />
+                                    Adresse de livraison
+                                </h2>
+                                {userId && <AddAddressModal userId={userId} defaultType="livraison" onCreated={loadAddresses} />}
+                            </div>
+                            {addresses === null ? (
+                                <p className="mt-4 text-sm text-muted-foreground">Chargement de vos adresses…</p>
+                            ) : addresses.length === 0 ? (
+                                <p className="mt-4 rounded-2xl bg-secondary p-4 text-sm">
+                                    Vous n’avez pas encore d’adresse : ajoutez-en une pour être livré.
+                                </p>
+                            ) : (
+                                <ul role="radiogroup" aria-label="Adresse de livraison" className="mt-4 grid gap-2 sm:grid-cols-2">
+                                    {addresses.map((address) => {
+                                        const selected = address.id === addressId;
+                                        return (
+                                            <li key={address.id}>
+                                                <button
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={selected}
+                                                    onClick={() => setAddressId(address.id)}
+                                                    className={cn(
+                                                        "flex h-full w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-colors",
+                                                        selected ? "border-primary bg-secondary/60" : "border-border bg-white hover:border-primary/50"
+                                                    )}
+                                                >
+                                                    <span
+                                                        className={cn(
+                                                            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
+                                                            selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                                                        )}
+                                                    >
+                                                        {selected && <Check size={12} aria-hidden />}
+                                                    </span>
+                                                    <span className="min-w-0 text-sm">
+                                                        <span className="block text-xs font-bold uppercase tracking-wide text-primary">
+                                                            {address.type === "livraison" ? "Livraison" : "Domicile"}
+                                                        </span>
+                                                        <span className="block font-semibold">{address.street}</span>
+                                                        <span className="block text-muted-foreground">
+                                                            {address.zipCode} {address.city}, {address.country}
+                                                        </span>
+                                                    </span>
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </section>
+                    )}
 
                     <section className="rounded-3xl border bg-white p-5 md:p-6">
                         <h2 className="flex items-center gap-2 text-lg font-black">
                             <CalendarDays size={20} className="text-primary" aria-hidden />
-                            Choisissez votre créneau
+                            {delivery ? "Créneau de livraison" : "Créneau de retrait"}
                         </h2>
 
-                        <div role="tablist" aria-label="Jour de retrait" className="-mx-1 mt-3 flex gap-2 overflow-x-auto p-1">
+                        <div role="tablist" aria-label="Jour" className="-mx-1 mt-3 flex gap-2 overflow-x-auto p-1">
                             {days.map((day) => {
                                 const active = day.date === selectedDay;
                                 return (
@@ -151,7 +308,11 @@ export default function RetraitPage() {
                                 );
                             })}
                         </ul>
-                        <p className="mt-4 text-xs text-muted-foreground">Le retrait est gratuit, quel que soit le créneau.</p>
+                        <p className="mt-4 text-xs text-muted-foreground">
+                            {delivery
+                                ? "Notre livreur vous remet vos courses pendant le créneau choisi."
+                                : "Le retrait est gratuit, quel que soit le créneau."}
+                        </p>
                     </section>
                 </div>
 
@@ -161,17 +322,24 @@ export default function RetraitPage() {
                     savings={savings}
                     slotLabel={slot ? formatSlot(slot) : null}
                     pointsToEarn={loyalty ? pointsForAmount(totalPrice) : null}
+                    fulfillment={{ mode, fee, address: selectedAddress ? formatAddressLine(selectedAddress) : null }}
                 >
                     <button
                         type="button"
-                        disabled={!slot}
-                        onClick={() => slot && router.push(`/cart/paiement?creneau=${slotParam(slot)}`)}
+                        disabled={!ready}
+                        onClick={() =>
+                            slot && router.push(`/cart/paiement?creneau=${slotParam(slot)}${fulfillmentParams({ mode, addressId })}`)
+                        }
                         className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-6 font-bold text-primary-foreground transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         Continuer vers le paiement
                         <ArrowRight size={18} aria-hidden />
                     </button>
-                    {!slot && <p className="mt-2 text-center text-xs text-muted-foreground">Choisissez un créneau pour continuer.</p>}
+                    {!ready && (
+                        <p className="mt-2 text-center text-xs text-muted-foreground">
+                            {delivery && !selectedAddress ? "Choisissez une adresse et un créneau pour continuer." : "Choisissez un créneau pour continuer."}
+                        </p>
+                    )}
                 </CheckoutSummary>
             </div>
         </div>

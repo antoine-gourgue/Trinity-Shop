@@ -92,6 +92,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
+        // Livraison à domicile : l'adresse doit appartenir au client (les frais sont calculés à l'affichage)
+        let shippingAddressId: string | null = null;
+        if (body.fulfillment === "delivery") {
+            const address = typeof body.shippingAddressId === "string"
+                ? await prisma.address.findUnique({ where: { id: body.shippingAddressId }, select: { userId: true } })
+                : null;
+            if (address?.userId !== userId) {
+                return NextResponse.json({ error: "Invalid delivery address" }, { status: 400 });
+            }
+            shippingAddressId = body.shippingAddressId;
+        }
+
         // Bons Carte Trinity demandés (100 points = 5 €), vérifiés plus bas dans la transaction
         const requestedVouchers = Number.isInteger(body.loyaltyVouchers) ? Math.max(0, body.loyaltyVouchers) : 0;
 
@@ -157,6 +169,7 @@ export async function POST(request: NextRequest) {
                     userId,
                     cartId,
                     billingAddressId,
+                    shippingAddressId,
                     pickupSlot,
                     loyaltyDiscount,
                     loyaltyPointsUsed,

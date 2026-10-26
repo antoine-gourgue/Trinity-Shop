@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import { buildInvoicePdf } from '@/lib/invoice-pdf'
 import { orderNumber } from '@/lib/account'
 import { formatPickupDate } from '@/lib/checkout'
+import { orderDeliveryFee } from '@/lib/delivery'
 import { requireOrderAccess } from '@/services/auth/guards'
 
 
@@ -14,6 +15,7 @@ export async function generateInvoice(orderId: string): Promise<string> {
         include: {
             user: true,
             billingAddress: true,
+            shippingAddress: true,
             cart: {
                 include: {
                     productsInCart: {
@@ -30,13 +32,18 @@ export async function generateInvoice(orderId: string): Promise<string> {
     }
 
     const address = order.billingAddress;
+    const shipping = order.shippingAddress;
     const number = orderNumber(order.id);
+    const itemsTotal = order.cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 
     return buildInvoicePdf({
         invoiceNumber: `FAC-${number}`,
         orderNumber: number,
         createdAt: order.createdAt,
         pickupLabel: order.pickupSlot ? formatPickupDate(order.pickupSlot) : null,
+        delivery: shipping
+            ? { address: [shipping.street, `${shipping.zipCode} ${shipping.city}`], fee: orderDeliveryFee(order, itemsTotal) }
+            : null,
         loyalty: {
             discount: order.loyaltyDiscount,
             pointsUsed: order.loyaltyPointsUsed,

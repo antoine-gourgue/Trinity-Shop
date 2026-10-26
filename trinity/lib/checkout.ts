@@ -1,5 +1,7 @@
-// Parcours de commande : créneau de retrait au drive, conservé le temps de la commande
-// (sessionStorage) puis rappelé sur la confirmation.
+// Parcours de commande : mode (retrait ou livraison), adresse et créneau, conservés le temps
+// de la commande (sessionStorage) puis transmis à l'étape de paiement dans l'URL.
+
+import type { Fulfillment } from "@/lib/delivery";
 
 export interface PickupSlot {
   date: string; // AAAA-MM-JJ
@@ -7,6 +9,7 @@ export interface PickupSlot {
 }
 
 const STORAGE_KEY = "trinity:pickup-slot";
+const FULFILLMENT_KEY = "trinity:fulfillment";
 const OPENING_HOURS = [9, 10, 11, 12, 14, 15, 16, 17, 18, 19];
 const DAYS_AHEAD = 6;
 
@@ -60,6 +63,40 @@ export function saveSlot(slot: PickupSlot | null) {
   } catch {
     // Stockage indisponible (navigation privée) : le créneau reste en mémoire de la page
   }
+}
+
+export interface FulfillmentChoice {
+  mode: Fulfillment;
+  addressId: string | null;
+}
+
+export function loadFulfillment(): FulfillmentChoice {
+  try {
+    const raw = window.sessionStorage.getItem(FULFILLMENT_KEY);
+    const choice = raw ? (JSON.parse(raw) as FulfillmentChoice) : null;
+    if (choice?.mode === "delivery") return { mode: "delivery", addressId: choice.addressId ?? null };
+  } catch {
+    // Stockage indisponible : retrait au drive par défaut
+  }
+  return { mode: "pickup", addressId: null };
+}
+
+export function saveFulfillment(choice: FulfillmentChoice | null) {
+  try {
+    if (choice) window.sessionStorage.setItem(FULFILLMENT_KEY, JSON.stringify(choice));
+    else window.sessionStorage.removeItem(FULFILLMENT_KEY);
+  } catch {
+    // Stockage indisponible : le choix reste en mémoire de la page
+  }
+}
+
+// Mode transmis dans l'URL de l'étape de paiement : « livraison » ou rien pour le retrait
+export function fulfillmentParams(choice: FulfillmentChoice) {
+  return choice.mode === "delivery" && choice.addressId ? `&mode=livraison&adresse=${encodeURIComponent(choice.addressId)}` : "";
+}
+
+export function parseFulfillmentParams(mode?: string | null, addressId?: string | null): FulfillmentChoice {
+  return mode === "livraison" && addressId ? { mode: "delivery", addressId } : { mode: "pickup", addressId: null };
 }
 
 // Créneau transmis d'une étape à l'autre dans l'URL : « 2026-10-28_18 »

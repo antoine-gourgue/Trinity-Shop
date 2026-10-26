@@ -8,9 +8,11 @@ import { Plus } from "lucide-react";
 type Props = {
     userId: string;
     defaultType: "domicile" | "livraison";
+    // Appelé après la création (ex. pour recharger la liste dans le tunnel de commande)
+    onCreated?: () => void;
 };
 
-export default function AddAddressModal({ userId, defaultType }: Props) {
+export default function AddAddressModal({ userId, defaultType, onCreated }: Props) {
     const [open, setOpen] = useState(false);
 
     const [street, setStreet] = useState("");
@@ -44,6 +46,7 @@ export default function AddAddressModal({ userId, defaultType }: Props) {
             type,
         });
         setOpen(false);
+        onCreated?.();
         router.refresh();
     }
 

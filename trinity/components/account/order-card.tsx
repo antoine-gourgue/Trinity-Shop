@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { CalendarClock, ChevronRight } from "lucide-react";
+import { CalendarClock, ChevronRight, Truck } from "lucide-react";
 import ProductImage from "@/components/product/product-image";
 import OrderStatus from "@/components/account/order-status";
 import { formatPrice } from "@/lib/format";
 import { orderNumber } from "@/lib/account";
 import { formatPickupDate } from "@/lib/checkout";
+import { orderDeliveryFee } from "@/lib/delivery";
 
 interface OrderCardProps {
   href: string;
@@ -14,6 +15,7 @@ interface OrderCardProps {
     validated: boolean;
     pickupSlot?: Date | null;
     loyaltyDiscount?: number;
+    shippingAddressId?: string | null;
     cart: { productsInCart: { quantity: number; product: { id: string; name: string; price: number; picture: string } }[] };
   };
 }
@@ -22,7 +24,9 @@ const MAX_THUMBNAILS = 5;
 
 export default function OrderCard({ href, order }: OrderCardProps) {
   const items = order.cart.productsInCart;
-  const total = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0) - (order.loyaltyDiscount ?? 0);
+  const itemsTotal = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const delivery = !!order.shippingAddressId;
+  const total = itemsTotal - (order.loyaltyDiscount ?? 0) + orderDeliveryFee({ shippingAddressId: order.shippingAddressId ?? null }, itemsTotal);
   const articleCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
@@ -45,8 +49,12 @@ export default function OrderCard({ href, order }: OrderCardProps) {
           </p>
           {order.pickupSlot && (
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <CalendarClock size={15} className="text-primary" aria-hidden />
-              Retrait {formatPickupDate(new Date(order.pickupSlot)).toLowerCase()}
+              {delivery ? (
+                <Truck size={15} className="text-primary" aria-hidden />
+              ) : (
+                <CalendarClock size={15} className="text-primary" aria-hidden />
+              )}
+              {delivery ? "Livraison" : "Retrait"} {formatPickupDate(new Date(order.pickupSlot)).toLowerCase()}
             </p>
           )}
         </div>
