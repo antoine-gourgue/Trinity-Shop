@@ -8,9 +8,10 @@
 // Usage :
 //   ./node_modules/.bin/ts-node --compiler-options '{"module":"CommonJS","moduleResolution":"node"}' prisma/fetch-national-brands.ts
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { RAYONS, slugify } from "../lib/rayons";
+import { catalogSchema, nationalProductsSchema, readJsonFile } from "./data-files";
 
 const root = join(__dirname, "..");
 const productsFile = join(root, "data/complete_products.json");
@@ -342,8 +343,8 @@ function isJpeg(buffer: Buffer) {
 }
 
 async function main() {
-  const catalog: { barCode: string; categories: string[] }[] = JSON.parse(readFileSync(productsFile, "utf8"));
-  const previous: { barCode: string }[] = existsSync(outputFile) ? JSON.parse(readFileSync(outputFile, "utf8")) : [];
+  const catalog = readJsonFile(productsFile, catalogSchema);
+  const previous = existsSync(outputFile) ? readJsonFile(outputFile, nationalProductsSchema) : [];
   const previousCodes = new Set(previous.map((p) => p.barCode));
   const storeCodes = new Set(catalog.map((p) => String(p.barCode)).filter((code) => !previousCodes.has(code)));
   const catalogCategories = new Set(catalog.flatMap((p) => p.categories));

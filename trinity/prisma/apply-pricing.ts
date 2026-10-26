@@ -7,9 +7,10 @@
 //   npx ts-node --compiler-options '{"module":"CommonJS"}' prisma/apply-pricing.ts
 
 import { PrismaClient } from "@prisma/client";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { computePrice } from "./pricing";
+import { catalogSchema, enrichmentSchema, readJsonFile } from "./data-files";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const root = join(__dirname, "..");
@@ -18,8 +19,8 @@ const enrichmentFile = join(root, "data/off-enrichment.json");
 
 async function main() {
   const prisma = new PrismaClient();
-  const enrichment: Record<string, { quantity: string | null }> = JSON.parse(readFileSync(enrichmentFile, "utf8"));
-  const jsonProducts: Record<string, unknown>[] = JSON.parse(readFileSync(productsFile, "utf8"));
+  const enrichment = readJsonFile(enrichmentFile, enrichmentSchema);
+  const jsonProducts = readJsonFile(productsFile, catalogSchema);
 
   const categoryGroups = await prisma.categoriesProducts.groupBy({ by: ["categoryName"], _count: { _all: true } });
   const categoryCounts = new Map(categoryGroups.map((g) => [g.categoryName, g._count._all]));

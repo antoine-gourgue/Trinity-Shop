@@ -9,8 +9,9 @@
 //   ./node_modules/.bin/ts-node --compiler-options '{"module":"CommonJS","moduleResolution":"node","target":"ES2020"}' prisma/replace-photos.ts [--db]
 
 import { PrismaClient } from "@prisma/client";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { catalogSchema, enrichmentSchema, photoReplacementsSchema, readJsonFile } from "./data-files";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const UPDATE_DB = process.argv.includes("--db");
@@ -42,7 +43,7 @@ async function download(url: string) {
 }
 
 async function main() {
-  const replacements: { barCode: string; image_url: string }[] = JSON.parse(readFileSync(replacementsFile, "utf8"));
+  const replacements = readJsonFile(replacementsFile, photoReplacementsSchema);
   console.log(`${replacements.length} photos à remplacer`);
   if (DRY_RUN) return;
 
@@ -66,14 +67,14 @@ async function main() {
 
   // 2. URL de la photo dans les données du seed, puis en base si demandé
   const urls = new Map(done.map((item) => [item.barCode, item.image_url]));
-  const catalog: { barCode: string; image_url?: string }[] = JSON.parse(readFileSync(productsFile, "utf8"));
+  const catalog = readJsonFile(productsFile, catalogSchema);
   for (const product of catalog) {
     const url = urls.get(String(product.barCode));
     if (url) product.image_url = url;
   }
   writeFileSync(productsFile, JSON.stringify(catalog, null, 4) + "\n");
 
-  const enrichment: Record<string, { image?: string | null }> = JSON.parse(readFileSync(enrichmentFile, "utf8"));
+  const enrichment = readJsonFile(enrichmentFile, enrichmentSchema);
   for (const [code, url] of urls) enrichment[code] = { ...enrichment[code], image: url };
   writeFileSync(enrichmentFile, JSON.stringify(enrichment, null, 2) + "\n");
 

@@ -9,9 +9,17 @@
 //   ./node_modules/.bin/ts-node --compiler-options '{"module":"CommonJS","moduleResolution":"node","target":"ES2020"}' prisma/import-national-brands.ts
 
 import { PrismaClient, nutriScore } from "@prisma/client";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { computePrice, seeded } from "./pricing";
+import {
+  type CatalogEntry,
+  catalogSchema,
+  enrichmentSchema,
+  importedProductsSchema,
+  nationalProductsSchema,
+  readJsonFile,
+} from "./data-files";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const root = join(__dirname, "..");
@@ -19,17 +27,6 @@ const inputFile = join(root, "data/national-brands.json");
 const productsFile = join(root, "data/complete_products.json");
 const enrichmentFile = join(root, "data/off-enrichment.json");
 const backupFile = join(root, "prisma/backups/national-brands-imported.json");
-
-interface NationalProduct {
-  name: string;
-  barCode: string;
-  image_url: string;
-  categories: string[];
-  nutriscore: string;
-  brands: string[];
-  quantity: string;
-  description: string;
-}
 
 const GRADES: Record<string, nutriScore> = {
   a: nutriScore.A,
@@ -41,7 +38,7 @@ const GRADES: Record<string, nutriScore> = {
 
 async function main() {
   const prisma = new PrismaClient();
-  const products: NationalProduct[] = JSON.parse(readFileSync(inputFile, "utf8"));
+  const products = readJsonFile(inputFile, nationalProductsSchema);
 
   const [categoryGroups, categories, brands, existing] = await Promise.all([
     prisma.categoriesProducts.groupBy({ by: ["categoryName"], _count: { _all: true } }),
@@ -107,13 +104,13 @@ async function main() {
 
   // Liste des produits créés, pour pouvoir annuler l'import
   mkdirSync(join(root, "prisma/backups"), { recursive: true });
-  const previous = existsSync(backupFile) ? JSON.parse(readFileSync(backupFile, "utf8")) : [];
+  const previous = existsSync(backupFile) ? readJsonFile(backupFile, importedProductsSchema) : [];
   writeFileSync(backupFile, JSON.stringify([...previous, ...imported], null, 2) + "\n");
 
   // Données du seed et contenances, pour une base neuve identique
-  const catalog: { barCode: string }[] = JSON.parse(readFileSync(productsFile, "utf8"));
+  const catalog = readJsonFile(productsFile, catalogSchema);
   const catalogCodes = new Set(catalog.map((p) => String(p.barCode)));
-  const enrichment = JSON.parse(readFileSync(enrichmentFile, "utf8"));
+  const enrichment = readJsonFile(enrichmentFile, enrichmentSchema);
   for (const p of pending) {
     enrichment[p.barCode] = { quantity: p.quantity, image: p.image_url };
     if (catalogCodes.has(p.barCode)) continue;
@@ -128,7 +125,7 @@ async function main() {
       regularPrice: p.regularPrice,
       quantity: p.quantity,
       description: p.description,
-    } as { barCode: string });
+    } satisfies CatalogEntry);
   }
   writeFileSync(productsFile, JSON.stringify(catalog, null, 4) + "\n");
   writeFileSync(enrichmentFile, JSON.stringify(enrichment, null, 2) + "\n");

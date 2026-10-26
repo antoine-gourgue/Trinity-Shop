@@ -8,8 +8,9 @@
 //   ./node_modules/.bin/ts-node --compiler-options '{"module":"CommonJS","moduleResolution":"node","target":"ES2020"}' prisma/hide-products.ts
 
 import { PrismaClient } from "@prisma/client";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { barcodeListSchema, catalogSchema, readJsonFile } from "./data-files";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const root = join(__dirname, "..");
@@ -17,7 +18,7 @@ const hiddenFile = join(root, "data/hidden-products.json");
 const productsFile = join(root, "data/complete_products.json");
 
 async function main() {
-  const codes: string[] = JSON.parse(readFileSync(hiddenFile, "utf8"));
+  const codes = readJsonFile(hiddenFile, barcodeListSchema);
   const prisma = new PrismaClient();
   const where = { barCode: { in: codes.map((code) => BigInt(code)) } };
 
@@ -35,7 +36,7 @@ async function main() {
   await prisma.$disconnect();
 
   const hidden = new Set(codes);
-  const catalog: { barCode: string; hidden?: boolean }[] = JSON.parse(readFileSync(productsFile, "utf8"));
+  const catalog = readJsonFile(productsFile, catalogSchema);
   for (const product of catalog) {
     if (hidden.has(String(product.barCode))) product.hidden = true;
   }
