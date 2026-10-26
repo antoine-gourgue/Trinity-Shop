@@ -2,6 +2,13 @@ import {NextRequest, NextResponse} from "next/server";
 import prisma from "@/lib/prisma";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
+import { z } from "zod";
+import { optionalField, readJsonBody } from "@/lib/api";
+
+// Nouvelle quantité en stock (0 = rupture)
+const stockUpdateSchema = z.object({
+    quantity: optionalField(z.number().int().min(0)),
+});
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const isLoggedIn = await isUserLoggedIn()
@@ -78,9 +85,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
     }
     try {
-        const body = await request.json();
-        const { quantity } = body;
-        if (!quantity) {
+        const { quantity } = (await readJsonBody(request, stockUpdateSchema)) ?? {};
+        if (quantity === undefined) {
             return NextResponse.json(
                 { error: 'Missing required fields: quantity' },
                 { status: 400 }

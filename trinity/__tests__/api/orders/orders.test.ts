@@ -1,10 +1,15 @@
+/**
+ * @jest-environment node
+ */
 import prisma from "@/lib/prisma";
-import {NextRequest, NextResponse} from "next/server";
-import { createMocks } from "node-mocks-http";
+import {NextResponse} from "next/server";
 import { GET, POST } from "@/app/api/orders/route";
-import {IncomingMessage} from "node:http";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { auth } from "@/auth";
+import { buildRequest } from "@/test-utils/requests";
+
+// Fonction passée à prisma.$transaction, rejouée ici sur la doublure Prisma
+type TransactionCallback = (tx: typeof prisma) => Promise<unknown>;
 
 jest.mock("@/lib/prisma", () => ({
     order: {
@@ -21,7 +26,7 @@ jest.mock("@/lib/prisma", () => ({
     address: {
         findUnique: jest.fn(),
     },
-    $transaction: jest.fn((callback: any) => callback({
+    $transaction: jest.fn((callback: (tx: object) => unknown) => callback({
         order: {
             create: jest.fn(),
         },
@@ -74,10 +79,10 @@ describe("GET /api/orders", () => {
 
         (prisma.order.findMany as jest.Mock).mockResolvedValue(mockOrders);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders" });
+        const req = buildRequest("/api/orders");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as any);
+        await GET(req);
 
         expect(prisma.order.findMany).toHaveBeenCalledTimes(1);
         expect(jsonMock).toHaveBeenCalledWith({ data: mockOrders });
@@ -88,10 +93,10 @@ describe("GET /api/orders", () => {
         const mockError = new Error("Database error");
         (prisma.order.findMany as jest.Mock).mockRejectedValue(mockError);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders" });
+        const req = buildRequest("/api/orders");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as any);
+        await GET(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Internal Server Error" },
@@ -102,10 +107,10 @@ describe("GET /api/orders", () => {
     it("should return 401 if user is not logged in", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders" });
+        const req = buildRequest("/api/orders");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as any);
+        await GET(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Unauthorized" },
@@ -144,24 +149,22 @@ describe("POST /api/orders", () => {
         (prisma.order.create as jest.Mock).mockResolvedValue(mockOrder);
         (prisma.cart.update as jest.Mock).mockResolvedValue({ id: "cart456", archived: true });
 
-        (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
+        (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => {
             return await callback(prisma);
         });
 
-        const { req } = createMocks({
+        const req = buildRequest("/api/orders", {
             method: "POST",
-            url: "/api/orders",
-        });
-
-        req.json = async () => ({
-            userId: "user123",
-            cartId: "cart456",
-            billingAddressId: "111111",
+            body: {
+                userId: "user123",
+                cartId: "cart456",
+                billingAddressId: "111111",
+            },
         });
 
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as any);
+        await POST(req);
 
         expect(prisma.cart.findUnique).toHaveBeenCalledWith({
             where: { id: "cart456" },
@@ -192,20 +195,18 @@ describe("POST /api/orders", () => {
 
     it("should return 400 if required fields are missing", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-        const { req } = createMocks({
+        const req = buildRequest("/api/orders", {
             method: "POST",
-            url: "/api/orders",
-        });
-
-        req.json = async () => ({
-            userId: "",
-            cartId: "",
-            billingAddressId: "",
+            body: {
+                userId: "",
+                cartId: "",
+                billingAddressId: "",
+            },
         });
 
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as any);
+        await POST(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "User ID and Cart ID are required" },
@@ -217,20 +218,18 @@ describe("POST /api/orders", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (auth as jest.Mock).mockResolvedValue({ user: { id: "someone-else" } });
 
-        const { req } = createMocks({
+        const req = buildRequest("/api/orders", {
             method: "POST",
-            url: "/api/orders",
-        });
-
-        req.json = async () => ({
-            userId: "user123",
-            cartId: "cart456",
-            billingAddressId: "111111",
+            body: {
+                userId: "user123",
+                cartId: "cart456",
+                billingAddressId: "111111",
+            },
         });
 
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as any);
+        await POST(req);
 
         expect(jsonMock).toHaveBeenCalledWith({ error: "Forbidden" }, { status: 403 });
         expect(prisma.order.create).not.toHaveBeenCalled();
@@ -240,17 +239,19 @@ describe("POST /api/orders", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.address.findUnique as jest.Mock).mockResolvedValue({ userId: "someone-else" });
 
-        const { req } = createMocks({ method: "POST", url: "/api/orders" });
-        req.json = async () => ({
-            userId: "user123",
-            cartId: "cart456",
-            billingAddressId: "111111",
-            fulfillment: "delivery",
-            shippingAddressId: "address-of-someone-else",
+        const req = buildRequest("/api/orders", {
+            method: "POST",
+            body: {
+                userId: "user123",
+                cartId: "cart456",
+                billingAddressId: "111111",
+                fulfillment: "delivery",
+                shippingAddressId: "address-of-someone-else",
+            },
         });
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as any);
+        await POST(req);
 
         expect(jsonMock).toHaveBeenCalledWith({ error: "Invalid delivery address" }, { status: 400 });
         expect(prisma.order.create).not.toHaveBeenCalled();
@@ -261,42 +262,42 @@ describe("POST /api/orders", () => {
         (prisma.address.findUnique as jest.Mock).mockResolvedValue({ userId: "user123" });
         (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [] });
         (prisma.order.create as jest.Mock).mockResolvedValue({ id: "order123" });
-        (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => callback(prisma));
+        (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
 
-        const { req } = createMocks({ method: "POST", url: "/api/orders" });
-        req.json = async () => ({
-            userId: "user123",
-            cartId: "cart456",
-            billingAddressId: "111111",
-            fulfillment: "delivery",
-            shippingAddressId: "home-address",
+        const req = buildRequest("/api/orders", {
+            method: "POST",
+            body: {
+                userId: "user123",
+                cartId: "cart456",
+                billingAddressId: "111111",
+                fulfillment: "delivery",
+                shippingAddressId: "home-address",
+            },
         });
 
-        await POST(req as any);
+        await POST(req);
 
-        expect(prisma.order.create).toHaveBeenCalledWith({
-            data: expect.objectContaining({ shippingAddressId: "home-address" }),
-        });
+        // expect.objectContaining est typé any : on le range dans une variable unknown
+        const expectedData: unknown = expect.objectContaining({ shippingAddressId: "home-address" });
+        expect(prisma.order.create).toHaveBeenCalledWith({ data: expectedData });
     });
 
     it("should return 404 if cart is not found", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.cart.findUnique as jest.Mock).mockResolvedValue(null);
 
-        const { req } = createMocks({
+        const req = buildRequest("/api/orders", {
             method: "POST",
-            url: "/api/orders",
-        });
-
-        req.json = async () => ({
-            userId: "user123",
-            cartId: "cart456",
-            billingAddressId: "111111",
+            body: {
+                userId: "user123",
+                cartId: "cart456",
+                billingAddressId: "111111",
+            },
         });
 
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as any);
+        await POST(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Cart not found" },
@@ -314,20 +315,18 @@ describe("POST /api/orders", () => {
 
         (prisma.cart.findUnique as jest.Mock).mockResolvedValue(mockCart);
 
-        const { req } = createMocks({
+        const req = buildRequest("/api/orders", {
             method: "POST",
-            url: "/api/orders",
-        });
-
-        req.json = async () => ({
-            userId: "user123",
-            cartId: "cart456",
-            billingAddressId: "111111",
+            body: {
+                userId: "user123",
+                cartId: "cart456",
+                billingAddressId: "111111",
+            },
         });
 
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as any);
+        await POST(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "This cart does not belong to the specified user" },
@@ -341,20 +340,18 @@ describe("POST /api/orders", () => {
 
         (prisma.cart.findUnique as jest.Mock).mockRejectedValue(mockError);
 
-        const { req } = createMocks({
+        const req = buildRequest("/api/orders", {
             method: "POST",
-            url: "/api/orders",
-        });
-
-        req.json = async () => ({
-            userId: "user123",
-            cartId: "cart456",
-            billingAddressId: "111111",
+            body: {
+                userId: "user123",
+                cartId: "cart456",
+                billingAddressId: "111111",
+            },
         });
 
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as any);
+        await POST(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Internal Server Error", details: "Database error" },
@@ -366,22 +363,17 @@ describe("POST /api/orders", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.cart.findUnique as jest.Mock).mockRejectedValue("Unknown error");
 
-        const { req, res } = createMocks<IncomingMessage>({
-            method: "POST",
-            url: "/api/orders",
-        });
-
         const body: { userId: string; cartId: string; billingAddressId: string } = {
             userId: "user123",
             cartId: "cart456",
             billingAddressId: "111111",
         };
 
-        req.json = async () => body;
+        const req = buildRequest("/api/orders", { method: "POST", body });
 
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as unknown as NextRequest);
+        await POST(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Internal Server Error", details: "An unknown error occurred" },
@@ -400,20 +392,18 @@ describe("POST /api/orders", () => {
 
         (prisma.cart.findUnique as jest.Mock).mockResolvedValue(mockCart);
 
-        const { req } = createMocks({
+        const req = buildRequest("/api/orders", {
             method: "POST",
-            url: "/api/orders",
-        });
-
-        req.json = async () => ({
-            userId: "user123",
-            cartId: "cart456",
-            billingAddressId: "111111",
+            body: {
+                userId: "user123",
+                cartId: "cart456",
+                billingAddressId: "111111",
+            },
         });
 
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await POST(req as any);
+        await POST(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Unauthorized" },

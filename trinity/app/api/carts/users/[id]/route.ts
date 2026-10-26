@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
 import { canAccessUser } from "@/services/auth/guards";
+import { z } from "zod";
+import { optionalField, readJsonBody } from "@/lib/api";
+
+// Produit ajouté au panier
+const cartItemSchema = z.object({
+    productId: optionalField(z.string().min(1)),
+    quantity: optionalField(z.number().int().positive()),
+});
 
 // Fetch user cart
 export async function GET(request: NextRequest) {
@@ -59,9 +67,9 @@ export async function POST(request: NextRequest) {
 
     try {
         const userId = request.nextUrl.pathname.split('/').pop();
-        const { productId, quantity } = await request.json();
+        const { productId, quantity } = (await readJsonBody(request, cartItemSchema)) ?? {};
 
-        if (!userId || !productId || typeof quantity !== "number" || quantity <= 0) {
+        if (!userId || !productId || quantity === undefined) {
             return NextResponse.json(
                 { error: "Invalid user ID, product ID, or quantity" },
                 { status: 400 }

@@ -6,6 +6,20 @@ import { parseSlotParam, slotToDate } from "@/lib/checkout";
 import { auth } from "@/auth";
 import { orderNumber } from "@/lib/account";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
+import { z } from "zod";
+import { optionalField, readJsonBody } from "@/lib/api";
+
+// Commande envoyée par le tunnel ; un champ du mauvais type compte comme absent
+const orderBodySchema = z.object({
+    userId: optionalField(z.string().min(1)),
+    cartId: optionalField(z.string().min(1)),
+    billingAddressId: optionalField(z.string().min(1)),
+    // Créneau « 2026-10-28_18 » : une valeur qui n'est pas une chaîne est refusée comme un créneau invalide
+    pickupSlot: z.unknown(),
+    fulfillment: optionalField(z.enum(["pickup", "delivery"])),
+    shippingAddressId: optionalField(z.string().min(1)),
+    loyaltyVouchers: optionalField(z.number().int()),
+});
 
 class InvalidVouchersError extends Error {}
 
@@ -68,12 +82,15 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const body = await request.json();
+        const body = await readJsonBody(request, orderBodySchema);
+        if (!body) {
+            return NextResponse.json({ error: "Invalid order" }, { status: 400 });
+        }
         const { userId, cartId } = body;
         let { billingAddressId } = body;
 
         // Créneau de retrait facultatif (« 2026-10-28_18 ») : accepté seulement s'il est à venir
-        const slot = parseSlotParam(body.pickupSlot);
+        const slot = typeof body.pickupSlot === "string" ? parseSlotParam(body.pickupSlot) : null;
         const pickupSlot = slot ? slotToDate(slot) : null;
         if (body.pickupSlot && (!pickupSlot || pickupSlot.getTime() <= Date.now())) {
             return NextResponse.json({ error: "Invalid pickup slot" }, { status: 400 });
@@ -95,17 +112,18 @@ export async function POST(request: NextRequest) {
         // Livraison à domicile : l'adresse doit appartenir au client (les frais sont calculés à l'affichage)
         let shippingAddressId: string | null = null;
         if (body.fulfillment === "delivery") {
-            const address = typeof body.shippingAddressId === "string"
-                ? await prisma.address.findUnique({ where: { id: body.shippingAddressId }, select: { userId: true } })
+            const requested = body.shippingAddressId;
+            const address = requested
+                ? await prisma.address.findUnique({ where: { id: requested }, select: { userId: true } })
                 : null;
-            if (address?.userId !== userId) {
+            if (!requested || address?.userId !== userId) {
                 return NextResponse.json({ error: "Invalid delivery address" }, { status: 400 });
             }
-            shippingAddressId = body.shippingAddressId;
+            shippingAddressId = requested;
         }
 
         // Bons Carte Trinity demandés (100 points = 5 €), vérifiés plus bas dans la transaction
-        const requestedVouchers = Number.isInteger(body.loyaltyVouchers) ? Math.max(0, body.loyaltyVouchers) : 0;
+        const requestedVouchers = Math.max(0, body.loyaltyVouchers ?? 0);
 
         // Adresse de facturation résolue côté serveur : la session peut être
         // antérieure à la création d'une adresse, et un nouveau compte n'en a pas

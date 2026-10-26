@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import {
   GET as getAllProducts,
   POST as createProduct,
@@ -10,8 +13,8 @@ import {
 import { GET as getProductByBarcode } from "@/app/api/products/barcode/[barcode]/route";
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { createMocks } from "node-mocks-http";
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
+import { buildRequest } from "@/test-utils/requests";
 
 jest.mock("@/lib/prisma", () => ({
   product: {
@@ -110,21 +113,21 @@ describe("API: /api/products", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "POST" });
-      req.body = JSON.stringify({
-        name: "New Product",
-        price: 20,
-        description: "A new product",
-        nutriScore: "B",
-        picture: "http://example.com/image.png",
-        barCode: "1234567890123",
-        brandId: "brand-1-uuid",
-        categoryId: "category-1-uuid",
+      const req = buildRequest("/api/products", {
+        method: "POST",
+        body: {
+          name: "New Product",
+          price: 20,
+          description: "A new product",
+          nutriScore: "B",
+          picture: "http://example.com/image.png",
+          barCode: "1234567890123",
+          brandId: "brand-1-uuid",
+          categoryId: "category-1-uuid",
+        },
       });
 
-      req.json = async () => JSON.parse(req.body);
-
-      await createProduct(req as any);
+      await createProduct(req);
 
       expect(prisma.product.create).toHaveBeenCalledWith({
         data: {
@@ -137,7 +140,9 @@ describe("API: /api/products", () => {
           brand: {
             connect: { id: "brand-1-uuid" },
           },
-          categories: "category-1-uuid",
+          categories: {
+            create: { category: { connect: { id: "category-1-uuid" } } },
+          },
         },
         select: {
           id: true,
@@ -168,15 +173,15 @@ describe("API: /api/products", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "POST" });
-      req.body = JSON.stringify({
-        name: "Incomplete Product",
-        price: 20,
+      const req = buildRequest("/api/products", {
+        method: "POST",
+        body: {
+          name: "Incomplete Product",
+          price: 20,
+        },
       });
 
-      req.json = async () => JSON.parse(req.body);
-
-      await createProduct(req as any);
+      await createProduct(req);
 
       expect(prisma.product.create).not.toHaveBeenCalled();
       expect(jsonMock).toHaveBeenCalledWith(
@@ -193,21 +198,21 @@ describe("API: /api/products", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        const { req } = createMocks({ method: "POST" });
-        req.body = JSON.stringify({
-          name: "Invalid BarCode Product",
-          price: 25,
-          description: "Product with invalid barCode",
-          nutriScore: "C",
-          picture: "http://example.com/image.png",
-          barCode,
-          brandId: "brand-1-uuid",
-          categoryId: "category-1-uuid",
+        const req = buildRequest("/api/products", {
+          method: "POST",
+          body: {
+            name: "Invalid BarCode Product",
+            price: 25,
+            description: "Product with invalid barCode",
+            nutriScore: "C",
+            picture: "http://example.com/image.png",
+            barCode,
+            brandId: "brand-1-uuid",
+            categoryId: "category-1-uuid",
+          },
         });
 
-        req.json = async () => JSON.parse(req.body);
-
-        await createProduct(req as any);
+        await createProduct(req);
 
         expect(prisma.product.create).not.toHaveBeenCalled();
         expect(jsonMock).toHaveBeenCalledWith(
@@ -221,26 +226,26 @@ describe("API: /api/products", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "POST" });
-      req.body = JSON.stringify({
-        name: "Existing Product",
-        price: 30,
-        description: "A product that already exists",
-        nutriScore: "A",
-        picture: "http://example.com/image.png",
-        barCode: "1234567890123",
-        brandId: "brand-1-uuid",
-        categoryId: "category-1-uuid",
+      const req = buildRequest("/api/products", {
+        method: "POST",
+        body: {
+          name: "Existing Product",
+          price: 30,
+          description: "A product that already exists",
+          nutriScore: "A",
+          picture: "http://example.com/image.png",
+          barCode: "1234567890123",
+          brandId: "brand-1-uuid",
+          categoryId: "category-1-uuid",
+        },
       });
-
-      req.json = async () => JSON.parse(req.body);
 
       (prisma.product.create as jest.Mock).mockRejectedValue({
         code: "P2002",
         meta: { target: ["barCode"] },
       });
 
-      await createProduct(req as any);
+      await createProduct(req);
 
       expect(prisma.product.create).toHaveBeenCalledWith({
         data: {
@@ -253,7 +258,9 @@ describe("API: /api/products", () => {
           brand: {
             connect: { id: "brand-1-uuid" },
           },
-          categories: "category-1-uuid",
+          categories: {
+            create: { category: { connect: { id: "category-1-uuid" } } },
+          },
         },
         select: {
           id: true,
@@ -284,25 +291,25 @@ describe("API: /api/products", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "POST" });
-      req.body = JSON.stringify({
-        name: "Invalid Relation Product",
-        price: 35,
-        description: "Product with invalid brandId",
-        nutriScore: "B",
-        picture: "http://example.com/image.png",
-        barCode: "9876543210987",
-        brandId: "invalid-brand-uuid",
-        categoryId: "category-1-uuid",
+      const req = buildRequest("/api/products", {
+        method: "POST",
+        body: {
+          name: "Invalid Relation Product",
+          price: 35,
+          description: "Product with invalid brandId",
+          nutriScore: "B",
+          picture: "http://example.com/image.png",
+          barCode: "9876543210987",
+          brandId: "invalid-brand-uuid",
+          categoryId: "category-1-uuid",
+        },
       });
-
-      req.json = async () => JSON.parse(req.body);
 
       (prisma.product.create as jest.Mock).mockRejectedValue({
         code: "P2003",
       });
 
-      await createProduct(req as any);
+      await createProduct(req);
 
       expect(prisma.product.create).toHaveBeenCalledWith({
         data: {
@@ -315,7 +322,9 @@ describe("API: /api/products", () => {
           brand: {
             connect: { id: "invalid-brand-uuid" },
           },
-          categories: "category-1-uuid",
+          categories: {
+            create: { category: { connect: { id: "category-1-uuid" } } },
+          },
         },
         select: {
           id: true,
@@ -346,25 +355,25 @@ describe("API: /api/products", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "POST" });
-      req.body = JSON.stringify({
-        name: "New Product",
-        price: 40,
-        description: "A new product",
-        nutriScore: "C",
-        picture: "http://example.com/image.png",
-        barCode: "1122334455667",
-        brandId: "brand-1-uuid",
-        categoryId: "category-1-uuid",
+      const req = buildRequest("/api/products", {
+        method: "POST",
+        body: {
+          name: "New Product",
+          price: 40,
+          description: "A new product",
+          nutriScore: "C",
+          picture: "http://example.com/image.png",
+          barCode: "1122334455667",
+          brandId: "brand-1-uuid",
+          categoryId: "category-1-uuid",
+        },
       });
-
-      req.json = async () => JSON.parse(req.body);
 
       (prisma.product.create as jest.Mock).mockRejectedValue(
         new Error("Database connection failed")
       );
 
-      await createProduct(req as any);
+      await createProduct(req);
 
       expect(prisma.product.create).toHaveBeenCalledWith({
         data: {
@@ -377,7 +386,9 @@ describe("API: /api/products", () => {
           brand: {
             connect: { id: "brand-1-uuid" },
           },
-          categories: "category-1-uuid",
+          categories: {
+            create: { category: { connect: { id: "category-1-uuid" } } },
+          },
         },
         select: {
           id: true,
@@ -407,10 +418,10 @@ describe("API: /api/products", () => {
     it("should return 401 if user is not logged in", async () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
 
-      const { req } = createMocks({ method: "POST" });
+      const req = buildRequest("/api/products", { method: "POST" });
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      await createProduct(req as any);
+      await createProduct(req);
 
       expect(prisma.product.create).not.toHaveBeenCalled();
       expect(jsonMock).toHaveBeenCalledWith(
@@ -440,10 +451,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/1");
       const params = { id: "1" };
 
-      await getProductById(req as any, { params: Promise.resolve(params) });
+      await getProductById(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.findUnique).toHaveBeenCalledWith({
         where: { id: "1" },
@@ -457,10 +468,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/2");
       const params = { id: "2" };
 
-      await getProductById(req as any, { params: Promise.resolve(params) });
+      await getProductById(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.findUnique).toHaveBeenCalledWith({
         where: { id: "2" },
@@ -479,10 +490,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/1");
       const params = { id: "1" };
 
-      await getProductById(req as any, { params: Promise.resolve(params) });
+      await getProductById(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.findUnique).toHaveBeenCalledWith({
         where: { id: "1" },
@@ -497,11 +508,11 @@ describe("API: /api/products/[id]", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
-      const params = {};
+      const req = buildRequest("/api/products/");
+      const params = { id: "" }; // identifiant absent
 
-      await getProductById(req as any, {
-        params: Promise.resolve(params as any),
+      await getProductById(req, {
+        params: Promise.resolve(params),
       });
 
       expect(prisma.product.findUnique).not.toHaveBeenCalled();
@@ -514,10 +525,10 @@ describe("API: /api/products/[id]", () => {
     it("should return 401 if user is not logged in", async () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/1");
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      await getProductById(req as any, {
+      await getProductById(req, {
         params: Promise.resolve({ id: "1" }),
       });
 
@@ -537,10 +548,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "DELETE" });
+      const req = buildRequest("/api/products/1", { method: "DELETE" });
       const params = { id: "1" };
 
-      await deleteProduct(req as any, { params: Promise.resolve(params) });
+      await deleteProduct(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.delete).toHaveBeenCalledWith({
         where: { id: "1" },
@@ -554,10 +565,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "DELETE" });
+      const req = buildRequest("/api/products/2", { method: "DELETE" });
       const params = { id: "2" };
 
-      await deleteProduct(req as any, { params: Promise.resolve(params) });
+      await deleteProduct(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.delete).toHaveBeenCalledWith({
         where: { id: "2" },
@@ -576,10 +587,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "DELETE" });
+      const req = buildRequest("/api/products/1", { method: "DELETE" });
       const params = { id: "1" };
 
-      await deleteProduct(req as any, { params: Promise.resolve(params) });
+      await deleteProduct(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.delete).toHaveBeenCalledWith({
         where: { id: "1" },
@@ -594,11 +605,11 @@ describe("API: /api/products/[id]", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "DELETE" });
-      const params = {};
+      const req = buildRequest("/api/products/", { method: "DELETE" });
+      const params = { id: "" }; // identifiant absent
 
-      await deleteProduct(req as any, {
-        params: Promise.resolve(params as any),
+      await deleteProduct(req, {
+        params: Promise.resolve(params),
       });
 
       expect(prisma.product.delete).not.toHaveBeenCalled();
@@ -611,10 +622,10 @@ describe("API: /api/products/[id]", () => {
     it("should return 401 if user is not logged in", async () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
 
-      const { req } = createMocks({ method: "DELETE" });
+      const req = buildRequest("/api/products/1", { method: "DELETE" });
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      await deleteProduct(req as any, { params: Promise.resolve({ id: "1" }) });
+      await deleteProduct(req, { params: Promise.resolve({ id: "1" }) });
 
       expect(prisma.product.delete).not.toHaveBeenCalled();
       expect(jsonMock).toHaveBeenCalledWith(
@@ -638,19 +649,19 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "PUT" });
-      req.body = JSON.stringify({
-        name: "Updated Product",
-        price: 30,
-        description: "Updated description",
-        nutriScore: "C",
+      const req = buildRequest("/api/products/1", {
+        method: "PUT",
+        body: {
+          name: "Updated Product",
+          price: 30,
+          description: "Updated description",
+          nutriScore: "C",
+        },
       });
-
-      req.json = async () => JSON.parse(req.body);
 
       const params = { id: "1" };
 
-      await updateProduct(req as any, { params: Promise.resolve(params) });
+      await updateProduct(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.update).toHaveBeenCalledWith({
         where: { id: "1" },
@@ -671,14 +682,14 @@ describe("API: /api/products/[id]", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "PUT" });
-      req.body = JSON.stringify({ name: "Incomplete Product" });
-
-      req.json = async () => JSON.parse(req.body);
+      const req = buildRequest("/api/products/1", {
+        method: "PUT",
+        body: { name: "Incomplete Product" },
+      });
 
       const params = { id: "1" };
 
-      await updateProduct(req as any, { params: Promise.resolve(params) });
+      await updateProduct(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.update).not.toHaveBeenCalled();
       expect(jsonMock).toHaveBeenCalledWith(
@@ -698,19 +709,19 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "PUT" });
-      req.body = JSON.stringify({
-        name: "Updated Product",
-        price: 30,
-        description: "Updated description",
-        nutriScore: "C",
+      const req = buildRequest("/api/products/1", {
+        method: "PUT",
+        body: {
+          name: "Updated Product",
+          price: 30,
+          description: "Updated description",
+          nutriScore: "C",
+        },
       });
-
-      req.json = async () => JSON.parse(req.body);
 
       const params = { id: "1" };
 
-      await updateProduct(req as any, { params: Promise.resolve(params) });
+      await updateProduct(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.update).toHaveBeenCalledTimes(1);
       expect(jsonMock).toHaveBeenCalledWith(
@@ -723,15 +734,15 @@ describe("API: /api/products/[id]", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "PUT" });
-      req.body = JSON.stringify({ name: "Incomplete Product" });
+      const req = buildRequest("/api/products/", {
+        method: "PUT",
+        body: { name: "Incomplete Product" },
+      });
 
-      req.json = async () => JSON.parse(req.body);
+      const params = { id: "" }; // identifiant absent
 
-      const params = { id: undefined as any };
-
-      await updateProduct(req as any, {
-        params: Promise.resolve(params as any),
+      await updateProduct(req, {
+        params: Promise.resolve(params),
       });
 
       expect(prisma.product.update).not.toHaveBeenCalled();
@@ -754,10 +765,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/1");
       const params = { id: "1" };
 
-      await getProductById(req as any, { params: Promise.resolve(params) });
+      await getProductById(req, { params: Promise.resolve(params) });
 
       expect(prisma.product.findUnique).toHaveBeenCalledWith({
         where: { id: "1" },
@@ -776,10 +787,10 @@ describe("API: /api/products/[id]", () => {
     it("should return 401 if user is not logged in", async () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
 
-      const { req } = createMocks({ method: "PUT" });
+      const req = buildRequest("/api/products/1", { method: "PUT" });
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      await updateProduct(req as any, { params: Promise.resolve({ id: "1" }) });
+      await updateProduct(req, { params: Promise.resolve({ id: "1" }) });
 
       expect(prisma.product.update).not.toHaveBeenCalled();
       expect(jsonMock).toHaveBeenCalledWith(
@@ -797,10 +808,10 @@ describe("API: /api/products/[id]", () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
-      const params = Promise.resolve({ barcode: undefined as any });
+      const req = buildRequest("/api/products/barcode/");
+      const params = Promise.resolve({ barcode: "" }); // code-barres absent
 
-      await getProductByBarcode(req as any, { params });
+      await getProductByBarcode(req, { params });
 
       expect(prisma.product.findFirst).not.toHaveBeenCalled();
       expect(jsonMock).toHaveBeenCalledWith(
@@ -815,10 +826,10 @@ describe("API: /api/products/[id]", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        const { req } = createMocks({ method: "GET" });
+        const req = buildRequest(`/api/products/barcode/${barcode}`);
         const params = Promise.resolve({ barcode });
 
-        await getProductByBarcode(req as any, { params });
+        await getProductByBarcode(req, { params });
 
         expect(prisma.product.findFirst).not.toHaveBeenCalled();
         expect(jsonMock).toHaveBeenCalledWith(
@@ -833,10 +844,10 @@ describe("API: /api/products/[id]", () => {
       const jsonMock = jest.spyOn(NextResponse, "json");
       (prisma.product.findFirst as jest.Mock).mockResolvedValue(null);
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/barcode/123456789");
       const params = Promise.resolve({ barcode: "123456789" });
 
-      await getProductByBarcode(req as any, { params });
+      await getProductByBarcode(req, { params });
 
       expect(prisma.product.findFirst).toHaveBeenCalledWith({
         where: { barCode: BigInt(123456789) },
@@ -861,10 +872,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/barcode/987654321");
       const params = Promise.resolve({ barcode: "987654321" });
 
-      await getProductByBarcode(req as any, { params });
+      await getProductByBarcode(req, { params });
 
       const expectedProductData = {
         ...mockProduct,
@@ -891,10 +902,10 @@ describe("API: /api/products/[id]", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/barcode/123456789");
       const params = Promise.resolve({ barcode: "123456789" });
 
-      await getProductByBarcode(req as any, { params });
+      await getProductByBarcode(req, { params });
 
       const expectedProductData = {
         ...mockProduct,
@@ -914,10 +925,10 @@ describe("API: /api/products/[id]", () => {
         new Error("Database Error")
       );
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/barcode/111222333");
       const params = Promise.resolve({ barcode: "111222333" });
 
-      await getProductByBarcode(req as any, { params });
+      await getProductByBarcode(req, { params });
 
       expect(prisma.product.findFirst).toHaveBeenCalledWith({
         where: { barCode: BigInt(111222333) },
@@ -931,11 +942,11 @@ describe("API: /api/products/[id]", () => {
     it("should return 401 if user is not logged in", async () => {
       (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
 
-      const { req } = createMocks({ method: "GET" });
+      const req = buildRequest("/api/products/barcode/123456789");
       const jsonMock = jest.spyOn(NextResponse, "json");
       const params = Promise.resolve({ barcode: "123456789" });
 
-      await getProductByBarcode(req as any, { params });
+      await getProductByBarcode(req, { params });
 
       expect(prisma.product.findFirst).not.toHaveBeenCalled();
       expect(jsonMock).toHaveBeenCalledWith(

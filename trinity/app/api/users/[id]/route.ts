@@ -3,6 +3,16 @@ import prisma from '@/lib/prisma';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { canAccessUser } from "@/services/auth/guards";
 import bcrypt from "bcrypt";
+import { z } from "zod";
+import { optionalField, readJsonBody } from "@/lib/api";
+
+// Modification d'un compte : tous les champs sont requis
+const userUpdateSchema = z.object({
+    firstName: optionalField(z.string().min(1)),
+    lastName: optionalField(z.string().min(1)),
+    email: optionalField(z.string().min(1)),
+    password: optionalField(z.string().min(1)),
+});
 
 // Champs renvoyés par l'API : jamais le mot de passe
 const PUBLIC_USER = {
@@ -91,8 +101,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json(FORBIDDEN, { status: 403 });
     }
     try {
-        const body = await request.json();
-        const { firstName, lastName, email, password } = body;
+        const { firstName, lastName, email, password } = (await readJsonBody(request, userUpdateSchema)) ?? {};
         if (!firstName || !lastName || !email || !password) {
             return NextResponse.json(
                 { error: 'Missing required fields: firstName, lastName, email, or password' },

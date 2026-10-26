@@ -1,8 +1,11 @@
+/**
+ * @jest-environment node
+ */
 import { GET as getUsers, POST as createUser } from '@/app/api/users/route';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-import { createMocks } from 'node-mocks-http';
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
+import { buildRequest } from '@/test-utils/requests';
 
 jest.mock('@/lib/prisma', () => ({
     user: {
@@ -52,9 +55,9 @@ describe('API: /api/users', () => {
             (prisma.user.findMany as jest.Mock).mockResolvedValue(mockUsers);
 
             const jsonMock = jest.spyOn(NextResponse, 'json');
-            const { req } = createMocks({ method: 'GET' });
+            const req = buildRequest('/api/users');
 
-            await getUsers(req as any);
+            await getUsers(req);
 
             expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
             expect(jsonMock).toHaveBeenCalledWith({ data: mockUsers });
@@ -65,12 +68,9 @@ describe('API: /api/users', () => {
 
         it('should return 400 if required fields are missing', async () => {
             const jsonMock = jest.spyOn(NextResponse, 'json');
-            const { req } = createMocks({ method: 'POST' });
-            req.body = JSON.stringify({ firstName: 'Incomplete' });
+            const req = buildRequest('/api/users', { method: 'POST', body: { firstName: 'Incomplete' } });
 
-            req.json = async () => JSON.parse(req.body);
-
-            await createUser(req as any);
+            await createUser(req);
 
             expect(prisma.user.create).not.toHaveBeenCalled();
             expect(jsonMock).toHaveBeenCalledWith(
@@ -85,20 +85,20 @@ describe('API: /api/users', () => {
             (prisma.user.create as jest.Mock).mockRejectedValue(mockError);
 
             const jsonMock = jest.spyOn(NextResponse, 'json');
-            const { req } = createMocks({ method: 'POST' });
-            req.body = JSON.stringify({
-                firstName: 'Jane',
-                lastName: 'Doe',
-                email: 'jane@example.com',
-                password: 'password123',
-                cart: [],
+            const req = buildRequest('/api/users', {
+                method: 'POST',
+                body: {
+                    firstName: 'Jane',
+                    lastName: 'Doe',
+                    email: 'jane@example.com',
+                    password: 'password123',
+                    cart: [],
+                },
             });
-
-            req.json = async () => JSON.parse(req.body);
 
             console.log('Calling createUser function');
             try {
-                await createUser(req as any);
+                await createUser(req);
             } catch (error) {
                 if (error instanceof Error) {
                     console.log('Error caught:', error.message);

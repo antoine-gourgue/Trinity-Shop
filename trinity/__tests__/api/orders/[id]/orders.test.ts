@@ -1,9 +1,15 @@
+/**
+ * @jest-environment node
+ */
 import prisma from "@/lib/prisma";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { GET, DELETE } from "@/app/api/orders/[id]/route";
-import { createMocks } from "node-mocks-http";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { canAccessOrder } from "@/services/auth/guards";
+import { buildRequest } from "@/test-utils/requests";
+
+// Fonction passée à prisma.$transaction, rejouée ici sur la doublure Prisma
+type TransactionCallback = (tx: typeof prisma) => Promise<unknown>;
 
 jest.mock("@/lib/prisma", () => ({
     order: {
@@ -13,7 +19,7 @@ jest.mock("@/lib/prisma", () => ({
     cart: {
         update: jest.fn(),
     },
-    $transaction: jest.fn((callback: any) => callback({
+    $transaction: jest.fn((callback: (tx: object) => unknown) => callback({
         order: { delete: jest.fn() },
         cart: { update: jest.fn() },
     })),
@@ -61,10 +67,10 @@ describe("GET /api/orders/[id]", () => {
 
         (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockOrder);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders/order123" });
+        const req = buildRequest("/api/orders/order123");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest, { params: Promise.resolve({ id: "order123" }) });
+        await GET(req, { params: Promise.resolve({ id: "order123" }) });
 
         expect(prisma.order.findUnique).toHaveBeenCalledWith({
             where: { id: "order123" },
@@ -92,10 +98,10 @@ describe("GET /api/orders/[id]", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.order.findUnique as jest.Mock).mockResolvedValue(null);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders/order123" });
+        const req = buildRequest("/api/orders/order123");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest, { params: Promise.resolve({ id: "order123" }) });
+        await GET(req, { params: Promise.resolve({ id: "order123" }) });
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Product not found" },
@@ -105,10 +111,10 @@ describe("GET /api/orders/[id]", () => {
 
     it("should return 400 if the ID is missing", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-        const { req } = createMocks({ method: "GET", url: "/api/orders/" });
+        const req = buildRequest("/api/orders/");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest, { params: Promise.resolve({ id: "" }) });
+        await GET(req, { params: Promise.resolve({ id: "" }) });
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Product ID is required" },
@@ -121,10 +127,10 @@ describe("GET /api/orders/[id]", () => {
         const mockError = new Error("Database error");
         (prisma.order.findUnique as jest.Mock).mockRejectedValue(mockError);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders/order123" });
+        const req = buildRequest("/api/orders/order123");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest, { params: Promise.resolve({ id: "order123" }) });
+        await GET(req, { params: Promise.resolve({ id: "order123" }) });
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Internal Server Error" },
@@ -135,10 +141,10 @@ describe("GET /api/orders/[id]", () => {
     it("should return 401 if the user is not logged in", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders/order123" });
+        const req = buildRequest("/api/orders/order123");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest, { params: Promise.resolve({ id: "order123" }) });
+        await GET(req, { params: Promise.resolve({ id: "order123" }) });
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Unauthorized" },
@@ -157,15 +163,14 @@ describe("DELETE /api/orders/[id]", () => {
         const mockOrder = { id: "order123", cartId: "cart456" };
 
         (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockOrder);
-        (prisma.$transaction as jest.Mock).mockImplementation(async (callback) => {
+        (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => {
             return await callback(prisma);
         });
 
-        const { req } = createMocks({ method: "DELETE", url: "/api/orders/order123" });
-        req.nextUrl = new URL("http://localhost/api/orders/order123");
+        const req = buildRequest("/api/orders/order123", { method: "DELETE" });
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await DELETE(req as unknown as NextRequest);
+        await DELETE(req);
 
         expect(prisma.order.findUnique).toHaveBeenCalledWith({ where: { id: "order123" } });
 
@@ -185,11 +190,10 @@ describe("DELETE /api/orders/[id]", () => {
     it("should return 403 when the order belongs to someone else", async () => {
         (canAccessOrder as jest.Mock).mockResolvedValueOnce(false);
 
-        const { req } = createMocks({ method: "DELETE", url: "/api/orders/order123" });
-        req.nextUrl = new URL("http://localhost/api/orders/order123");
+        const req = buildRequest("/api/orders/order123", { method: "DELETE" });
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await DELETE(req as unknown as NextRequest);
+        await DELETE(req);
 
         expect(canAccessOrder).toHaveBeenCalledWith("order123");
         expect(jsonMock).toHaveBeenCalledWith({ error: "Forbidden" }, { status: 403 });
@@ -200,11 +204,10 @@ describe("DELETE /api/orders/[id]", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.order.findUnique as jest.Mock).mockResolvedValue(null);
 
-        const { req } = createMocks({ method: "DELETE", url: "/api/orders/order123" });
-        req.nextUrl = new URL("http://localhost/api/orders/order123");
+        const req = buildRequest("/api/orders/order123", { method: "DELETE" });
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await DELETE(req as unknown as NextRequest);
+        await DELETE(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Order not found" },
@@ -214,11 +217,10 @@ describe("DELETE /api/orders/[id]", () => {
 
     it("should return 400 if the order ID is missing", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-        const { req } = createMocks({ method: "DELETE", url: "/api/orders/" });
-        req.nextUrl = new URL("http://localhost/api/orders/");
+        const req = buildRequest("/api/orders/", { method: "DELETE" });
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await DELETE(req as unknown as NextRequest);
+        await DELETE(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Order ID is required" },
@@ -231,11 +233,10 @@ describe("DELETE /api/orders/[id]", () => {
         const mockError = new Error("Database error");
         (prisma.order.findUnique as jest.Mock).mockRejectedValue(mockError);
 
-        const { req } = createMocks({ method: "DELETE", url: "/api/orders/order123" });
-        req.nextUrl = new URL("http://localhost/api/orders/order123");
+        const req = buildRequest("/api/orders/order123", { method: "DELETE" });
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await DELETE(req as unknown as NextRequest);
+        await DELETE(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Internal Server Error", details: "Database error" },
@@ -249,11 +250,10 @@ describe("DELETE /api/orders/[id]", () => {
             throw "Unknown error";
         });
 
-        const { req } = createMocks({ method: "DELETE", url: "/api/orders/order123" });
-        req.nextUrl = new URL("http://localhost/api/orders/order123");
+        const req = buildRequest("/api/orders/order123", { method: "DELETE" });
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await DELETE(req as unknown as NextRequest);
+        await DELETE(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Internal Server Error", details: "An unknown error occurred" },

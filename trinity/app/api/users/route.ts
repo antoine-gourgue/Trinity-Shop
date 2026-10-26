@@ -4,6 +4,16 @@ import createUserRepository from "@/services/auth/createUserRepository";
 import {createUserSchema} from "@/schemas/createUserSchema";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
+import { z } from "zod";
+import { optionalField, readJsonBody } from "@/lib/api";
+
+// Inscription : le détail des règles (e-mail, longueur du mot de passe) est vérifié par createUserSchema
+const signupBodySchema = z.object({
+    firstName: optionalField(z.string().min(1)),
+    lastName: optionalField(z.string().min(1)),
+    email: optionalField(z.string().min(1)),
+    password: optionalField(z.string().min(1)),
+});
 
 export async function GET(request: NextRequest) {
     const isLoggedIn = await isUserLoggedIn()
@@ -29,7 +39,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const { firstName, lastName, email, password } = await request.json();
+        const { firstName, lastName, email, password } = (await readJsonBody(request, signupBodySchema)) ?? {};
         if (!firstName || !lastName || !email || !password) {
             return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
         }

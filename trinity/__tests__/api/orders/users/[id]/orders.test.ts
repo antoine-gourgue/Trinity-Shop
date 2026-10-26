@@ -1,8 +1,11 @@
+/**
+ * @jest-environment node
+ */
 import prisma from "@/lib/prisma";
-import { NextRequest, NextResponse } from "next/server";
-import { createMocks } from "node-mocks-http";
+import { NextResponse } from "next/server";
 import { GET } from "@/app/api/orders/users/[id]/route";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { buildRequest } from "@/test-utils/requests";
 
 jest.mock("@/lib/prisma", () => ({
     order: {
@@ -53,11 +56,10 @@ describe("GET /api/orders/[id]", () => {
 
         (prisma.order.findMany as jest.Mock).mockResolvedValue(mockOrders);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders/user123" });
-        req.nextUrl = new URL("http://localhost/api/orders/user123");
+        const req = buildRequest("/api/orders/users/user123");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest);
+        await GET(req);
 
         expect(prisma.order.findMany).toHaveBeenCalledWith({
             where: { userId: "user123" },
@@ -85,11 +87,10 @@ describe("GET /api/orders/[id]", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.order.findMany as jest.Mock).mockResolvedValue([]);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders/user123" });
-        req.nextUrl = new URL("http://localhost/api/orders/user123");
+        const req = buildRequest("/api/orders/users/user123");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest);
+        await GET(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Orders not found" },
@@ -99,11 +100,10 @@ describe("GET /api/orders/[id]", () => {
 
     it("should return 400 if the user ID is missing", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-        const { req } = createMocks({ method: "GET", url: "/api/orders/" });
-        req.nextUrl = new URL("http://localhost/api/orders/");
+        const req = buildRequest("/api/orders/users/");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest);
+        await GET(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "User ID is required" },
@@ -116,11 +116,10 @@ describe("GET /api/orders/[id]", () => {
         const mockError = new Error("Database error");
         (prisma.order.findMany as jest.Mock).mockRejectedValue(mockError);
 
-        const { req } = createMocks({ method: "GET", url: "/api/orders/user123" });
-        req.nextUrl = new URL("http://localhost/api/orders/user123");
+        const req = buildRequest("/api/orders/users/user123");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest);
+        await GET(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Internal Server Error" },
@@ -130,11 +129,10 @@ describe("GET /api/orders/[id]", () => {
 
     it("should return 401 if the user is not logged in", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
-        const { req } = createMocks({ method: "GET", url: "/api/orders/user123" });
-        req.nextUrl = new URL("http://localhost/api/orders/user123");
+        const req = buildRequest("/api/orders/users/user123");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req as unknown as NextRequest);
+        await GET(req);
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Unauthorized" },

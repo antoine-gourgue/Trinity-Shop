@@ -1,8 +1,24 @@
+import { z } from "zod";
+import { nutriScore as NutriScore } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { NextRequest, NextResponse } from "next/server";
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
+import { optionalField, readJsonBody } from "@/lib/api";
+import { isBarcode } from "@/lib/barcode";
+
+// Produit envoyé par l'administration ; chaque champ manquant ou invalide déclenche le même message
+const productBodySchema = z.object({
+  name: optionalField(z.string().min(1)),
+  price: optionalField(z.number().int().positive()),
+  description: optionalField(z.string().min(1)),
+  nutriScore: optionalField(z.nativeEnum(NutriScore)),
+  picture: optionalField(z.string().min(1)),
+  barCode: optionalField(z.union([z.string(), z.number()])),
+  brandId: optionalField(z.string().min(1)),
+  categoryId: optionalField(z.string().min(1)),
+});
 
 export async function GET() {
   const isLoggedIn = await isUserLoggedIn();
@@ -51,16 +67,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const {
-      name,
-      price,
-      description,
-      nutriScore,
-      picture,
-      barCode,
-      brandId,
-      categoryId,
-    } = await request.json();
+    const body = await readJsonBody(request, productBodySchema);
+    const { name, price, description, nutriScore, picture, barCode, brandId, categoryId } = body ?? {};
 
     if (
       !name ||
@@ -78,9 +86,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Code GTIN : 14 chiffres au plus, ce qui évite aussi un BigInt négatif ou hors limites
+    // Code GTIN : évite aussi un BigInt négatif ou hors limites
     const barCodeText = String(barCode).trim();
-    if (!/^\d{1,14}$/.test(barCodeText)) {
+    if (!isBarcode(barCodeText)) {
       return NextResponse.json(
         { error: "Le champ barCode doit être un nombre valide" },
         { status: 400 }
@@ -96,7 +104,7 @@ export async function POST(request: NextRequest) {
         nutriScore,
         picture,
         barCode: barCodeBigInt,
-        categories: categoryId,
+        categories: { create: { category: { connect: { id: categoryId } } } },
         brand: {
           connect: { id: brandId },
         },

@@ -17,6 +17,10 @@ import { formatSlot, parseFulfillmentParams, parseSlotParam, saveFulfillment, sa
 import { getMyAddresses } from "@/lib/server-actions/checkout-actions";
 import { deliveryFee, formatAddressLine } from "@/lib/delivery";
 import { formatPrice } from "@/lib/format";
+import { z } from "zod";
+
+// Réponse de POST /api/orders : seul l'identifiant de la commande sert à la redirection
+const createdOrderSchema = z.object({ data: z.object({ id: z.string() }) });
 
 const PAYMENT_METHODS = ["CB", "Visa", "Mastercard"];
 
@@ -99,11 +103,11 @@ function PaiementContent() {
                 return;
             }
 
-            const { data: order } = await response.json();
+            const created = createdOrderSchema.safeParse(await response.json());
             saveSlot(null);
             saveFulfillment(null);
-            window.location.href = order?.id
-                ? `/user/${userId}/order/${order.id}?confirmation=1`
+            window.location.href = created.success
+                ? `/user/${userId}/order/${created.data.data.id}?confirmation=1`
                 : `/user/${userId}/order`;
         } catch {
             setPaymentError("Une erreur est survenue pendant le paiement simulé.");
