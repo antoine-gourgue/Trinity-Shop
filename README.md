@@ -142,8 +142,8 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 | `POSTGRES_PRISMA_URL` | URL de connexion avec pool, utilisée par l'application |
 | `POSTGRES_URL_NON_POOLING` | URL directe, utilisée par `prisma db push` et les migrations |
 | `NEXTAUTH_SECRET` | Clé de signature des sessions (`openssl rand -base64 32`) |
-| `RESEND_API_KEY` | Facultatif : e-mail de bienvenue à l'inscription |
-| `APP_URL` | Facultatif : URL publique du site (canoniques, Open Graph, sitemap, robots.txt) ; à défaut, le domaine de production Vercel, sinon `http://localhost:3000` |
+| `RESEND_API_KEY` | Facultatif : e-mails de bienvenue, de confirmation de commande et de réinitialisation du mot de passe (sans clé, le lien de réinitialisation s'affiche dans la console en développement) |
+| `APP_URL` | Facultatif : URL publique du site (liens des e-mails, URL canoniques, Open Graph, sitemap, robots.txt) ; à défaut, le domaine de production Vercel, sinon `http://localhost:3000` |
 | `SEED_ADMIN_PASSWORD` | Mot de passe du compte administrateur créé par le seed (12 caractères au moins) ; inutile en production |
 
 ## Commandes

@@ -12,12 +12,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 import Link from "next/link";
 import { useCredentialsSignIn } from "@/hooks/use-credentials-sign-in";
 import { signinUserSchema } from "@/schemas/signinUserSchema";
+import PasswordResetNotice from "@/components/auth/password-reset-notice";
 
 export default function SignIn() {
   const form = useForm<z.infer<typeof signinUserSchema>>({
@@ -48,6 +49,10 @@ export default function SignIn() {
           </div>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4">
+              {/* Suspense : le bandeau lit l'URL avec useSearchParams */}
+              <Suspense fallback={null}>
+                <PasswordResetNotice />
+              </Suspense>
               <FormField
                   control={form.control}
                   name="email"
@@ -74,6 +79,9 @@ export default function SignIn() {
                       </FormItem>
                   )}
               />
+              <Link className="-mt-2 self-end text-sm text-primary font-bold" href="/auth/mot-de-passe-oublie">
+                Mot de passe oublié ?
+              </Link>
               {serverError && (
                 <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
                   {serverError}
