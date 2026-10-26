@@ -9,22 +9,20 @@ import { AccountCard } from "@/components/account/account-ui";
 import Price from "@/components/product/price";
 import { formatBrand, formatPrice } from "@/lib/format";
 import { orderNumber, requireUser } from "@/lib/account";
-import { formatSlot, parseSlotParam } from "@/lib/checkout";
+import { formatPickupDate } from "@/lib/checkout";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 
 export const dynamic = "force-dynamic";
 
 interface OrderDetailPageProps {
     params: Promise<{ userId: string; orderId: string }>;
-    searchParams: Promise<{ confirmation?: string; creneau?: string }>;
+    searchParams: Promise<{ confirmation?: string }>;
 }
 
 export default async function OrderDetailPage({ params, searchParams }: OrderDetailPageProps) {
     const sessionUser = await requireUser();
     const { orderId } = await params;
-    const query = await searchParams;
-    const justOrdered = query.confirmation === "1";
-    const slot = justOrdered ? parseSlotParam(query.creneau) : null;
+    const justOrdered = (await searchParams).confirmation === "1";
 
     const order = await getOrderById(orderId);
     // Une commande d'un autre compte est traitée comme introuvable
@@ -34,6 +32,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
     const totalAmount = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
     const articleCount = items.reduce((acc, item) => acc + item.quantity, 0);
     const billing = order.billingAddress;
+    const pickupLabel = order.pickupSlot ? formatPickupDate(order.pickupSlot) : null;
 
     return (
         <div className="space-y-6">
@@ -52,8 +51,8 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                     <div>
                         <p className="text-lg font-black">Merci, votre commande est validée !</p>
                         <p className="text-sm text-white/85">
-                            {slot
-                                ? `Nos équipes préparent vos courses pour le retrait du ${formatSlot(slot).toLowerCase()}.`
+                            {pickupLabel
+                                ? `Nos équipes préparent vos courses pour le retrait du ${pickupLabel.toLowerCase()}.`
                                 : "Nos équipes préparent vos courses."}{" "}
                             Retrouvez ci-dessous le détail et votre facture.
                         </p>
@@ -137,10 +136,10 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                     <AccountCard title="Retrait" icon={<Store size={18} aria-hidden />}>
                         <p className="text-sm">
                             <span className="font-bold">Drive Trinity U Rennes Epitech</span>
-                            {slot && (
+                            {pickupLabel && (
                                 <>
                                     <br />
-                                    <span className="text-muted-foreground">{formatSlot(slot)}</span>
+                                    <span className="text-muted-foreground">{pickupLabel}</span>
                                 </>
                             )}
                         </p>

@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from 'next/server';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { parseSlotParam, slotToDate } from "@/lib/checkout";
 
 export async function GET(request: NextRequest) {
     const isLoggedIn = await isUserLoggedIn()
@@ -61,6 +62,13 @@ export async function POST(request: NextRequest) {
         const { userId, cartId } = body;
         let { billingAddressId } = body;
 
+        // Créneau de retrait facultatif (« 2026-10-28_18 ») : accepté seulement s'il est à venir
+        const slot = parseSlotParam(body.pickupSlot);
+        const pickupSlot = slot ? slotToDate(slot) : null;
+        if (body.pickupSlot && (!pickupSlot || pickupSlot.getTime() <= Date.now())) {
+            return NextResponse.json({ error: "Invalid pickup slot" }, { status: 400 });
+        }
+
         if (!userId || !cartId) {
             return NextResponse.json(
                 { error: "User ID and Cart ID are required" },
@@ -115,6 +123,7 @@ export async function POST(request: NextRequest) {
                     userId,
                     cartId,
                     billingAddressId,
+                    pickupSlot,
                     validated: true,
                 },
             });

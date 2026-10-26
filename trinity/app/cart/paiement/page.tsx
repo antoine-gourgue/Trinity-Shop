@@ -55,7 +55,7 @@ function PaiementContent() {
             const response = await fetch("/api/orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId, cartId, billingAddressId: billingAddress }),
+                body: JSON.stringify({ userId, cartId, billingAddressId: billingAddress, pickupSlot: slotParam(slot) }),
             });
 
             if (!response.ok) {
@@ -67,7 +67,7 @@ function PaiementContent() {
             const { data: order } = await response.json();
             saveSlot(null);
             window.location.href = order?.id
-                ? `/user/${userId}/order/${order.id}?confirmation=1&creneau=${slotParam(slot)}`
+                ? `/user/${userId}/order/${order.id}?confirmation=1`
                 : `/user/${userId}/order`;
         } catch {
             setPaymentError("Une erreur est survenue pendant le paiement simulé.");

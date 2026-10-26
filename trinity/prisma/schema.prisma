@@ -166,6 +166,7 @@ model Order {
   billingAddressId  String?
   shippingAddressId String?
   validated         Boolean  @default(false)
+  pickupSlot        DateTime? // début du créneau de retrait au drive (créneaux d'une heure)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

@@ -73,3 +73,21 @@ export function parseSlotParam(value?: string | null): PickupSlot | null {
   const start = Number.parseInt(match[2], 10);
   return OPENING_HOURS.includes(start) ? { date: match[1], start } : null;
 }
+
+const PARIS = "Europe/Paris";
+
+// Début du créneau en date absolue, l'heure étant celle de Paris (le serveur peut tourner en UTC)
+export function slotToDate(slot: PickupSlot) {
+  const guess = new Date(`${slot.date}T${String(slot.start).padStart(2, "0")}:00:00Z`);
+  const parisHour = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: PARIS, hour: "2-digit", hourCycle: "h23" }).format(guess)
+  );
+  return new Date(guess.getTime() - (parisHour - slot.start) * 3600_000);
+}
+
+// « Mardi 27 octobre, 18h – 19h » à partir d'un créneau enregistré
+export function formatPickupDate(start: Date) {
+  const day = start.toLocaleDateString("fr-FR", { timeZone: PARIS, weekday: "long", day: "numeric", month: "long" });
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: PARIS, hour: "2-digit", hourCycle: "h23" }).format(start));
+  return `${day.charAt(0).toUpperCase()}${day.slice(1)}, ${hour}h – ${hour + 1}h`;
+}

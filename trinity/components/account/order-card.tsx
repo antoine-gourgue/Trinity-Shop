@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { CalendarClock, ChevronRight } from "lucide-react";
 import ProductImage from "@/components/product/product-image";
 import OrderStatus from "@/components/account/order-status";
 import { formatPrice } from "@/lib/format";
 import { orderNumber } from "@/lib/account";
+import { formatPickupDate } from "@/lib/checkout";
 
 interface OrderCardProps {
   href: string;
@@ -11,6 +12,7 @@ interface OrderCardProps {
     id: string;
     createdAt: Date;
     validated: boolean;
+    pickupSlot?: Date | null;
     cart: { productsInCart: { quantity: number; product: { id: string; name: string; price: number; picture: string } }[] };
   };
 }
@@ -40,6 +42,12 @@ export default function OrderCard({ href, order }: OrderCardProps) {
               year: "numeric",
             })}
           </p>
+          {order.pickupSlot && (
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <CalendarClock size={15} className="text-primary" aria-hidden />
+              Retrait {formatPickupDate(new Date(order.pickupSlot)).toLowerCase()}
+            </p>
+          )}
         </div>
         <OrderStatus validated={order.validated} />
       </div>
