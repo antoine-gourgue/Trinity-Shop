@@ -15,7 +15,7 @@ const signupBodySchema = z.object({
     password: optionalField(z.string().min(1)),
 });
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     const isLoggedIn = await isUserLoggedIn()
     if (!isLoggedIn) {
         return NextResponse.json(
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
             await createUserRepository(parsedUser.data);
         }
         return NextResponse.json({ data: createdUser }, { status: 201 });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

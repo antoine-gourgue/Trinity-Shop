@@ -79,10 +79,9 @@ describe("GET /api/orders", () => {
 
         (prisma.order.findMany as jest.Mock).mockResolvedValue(mockOrders);
 
-        const req = buildRequest("/api/orders");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req);
+        await GET();
 
         expect(prisma.order.findMany).toHaveBeenCalledTimes(1);
         expect(jsonMock).toHaveBeenCalledWith({ data: mockOrders });
@@ -93,10 +92,9 @@ describe("GET /api/orders", () => {
         const mockError = new Error("Database error");
         (prisma.order.findMany as jest.Mock).mockRejectedValue(mockError);
 
-        const req = buildRequest("/api/orders");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req);
+        await GET();
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Internal Server Error" },
@@ -107,10 +105,9 @@ describe("GET /api/orders", () => {
     it("should return 401 if user is not logged in", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
 
-        const req = buildRequest("/api/orders");
         const jsonMock = jest.spyOn(NextResponse, "json");
 
-        await GET(req);
+        await GET();
 
         expect(jsonMock).toHaveBeenCalledWith(
             { error: "Unauthorized" },

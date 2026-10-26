@@ -11,7 +11,7 @@ const stockBodySchema = z.object({
     productId: optionalField(z.string().min(1)),
 });
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     const isLoggedIn = await isUserLoggedIn()
     if (!isLoggedIn) {
         return NextResponse.json(
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
             },
         });
         return NextResponse.json({ data: createStock }, { status: 201 });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

@@ -57,9 +57,8 @@ describe("API: /api/carts", () => {
             (prisma.cart.findMany as jest.Mock).mockResolvedValue(mockCarts);
 
             const jsonMock = jest.spyOn(NextResponse, "json");
-            const req = buildRequest("/api/carts");
 
-            await getAllCarts(req);
+            await getAllCarts();
 
             expect(prisma.cart.findMany).toHaveBeenCalledTimes(1);
             expect(jsonMock).toHaveBeenCalledWith({ data: mockCarts });
@@ -71,9 +70,8 @@ describe("API: /api/carts", () => {
             (prisma.cart.findMany as jest.Mock).mockRejectedValue(mockError);
 
             const jsonMock = jest.spyOn(NextResponse, "json");
-            const req = buildRequest("/api/carts");
 
-            await getAllCarts(req);
+            await getAllCarts();
 
             expect(jsonMock).toHaveBeenCalledWith({ error: "Internal Server Error" }, { status: 500 });
         });
@@ -81,9 +79,8 @@ describe("API: /api/carts", () => {
         it("should return 401 if user is not logged in", async () => {
             (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
             const jsonMock = jest.spyOn(NextResponse, "json");
-            const req = buildRequest("/api/carts");
 
-            await getAllCarts(req);
+            await getAllCarts();
 
             expect(jsonMock).toHaveBeenCalledWith({ error: "Unauthorized" }, { status: 401 });
         });

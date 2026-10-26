@@ -27,8 +27,8 @@ export default function InformationsCookies() {
                     <ul className="list-disc pl-5">
                         <li><strong>Cookies techniques :</strong> nécessaires au bon fonctionnement du site.</li>
                         <li><strong>Cookies de personnalisation :</strong> pour améliorer votre expérience utilisateur.</li>
-                        <li><strong>Cookies analytiques :</strong> pour mesurer les performances et l'audience du site.</li>
-                        <li><strong>Cookies publicitaires :</strong> pour personnaliser les publicités en fonction de vos centres d'intérêt.</li>
+                        <li><strong>Cookies analytiques :</strong> pour mesurer les performances et l’audience du site.</li>
+                        <li><strong>Cookies publicitaires :</strong> pour personnaliser les publicités en fonction de vos centres d’intérêt.</li>
                     </ul>
                 </div>
             )
@@ -51,7 +51,7 @@ export default function InformationsCookies() {
                             <td className="py-2 px-4 border-b">JSESSIONID</td>
                             <td className="py-2 px-4 border-b">MagasinsU</td>
                             <td className="py-2 px-4 border-b">Session</td>
-                            <td className="py-2 px-4 border-b">Stocke la session de l'utilisateur.</td>
+                            <td className="py-2 px-4 border-b">Stocke la session de l’utilisateur.</td>
                         </tr>
                         <tr>
                             <td className="py-2 px-4 border-b">AEC</td>
@@ -102,7 +102,7 @@ export default function InformationsCookies() {
                 <div className="mb-6">
                     <h1 className="text-3xl font-bold text-teal-700 mb-2">Informations sur les cookies</h1>
                     <p className="text-gray-600">
-                        Cette page vous informe sur l'utilisation des cookies et vous aide à comprendre comment vous pouvez les gérer ou les désactiver.
+                        Cette page vous informe sur l’utilisation des cookies et vous aide à comprendre comment vous pouvez les gérer ou les désactiver.
                     </p>
                 </div>
 

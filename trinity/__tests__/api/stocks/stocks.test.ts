@@ -48,9 +48,8 @@ describe('API: /api/stocks', () => {
             (prisma.stock.findMany as jest.Mock).mockResolvedValue(mockStocks);
 
             const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks');
 
-            await getAllStocks(req);
+            await getAllStocks();
 
             expect(prisma.stock.findMany).toHaveBeenCalledTimes(1);
             expect(jsonMock).toHaveBeenCalledWith({ data: mockStocks });
@@ -62,9 +61,8 @@ describe('API: /api/stocks', () => {
             (prisma.stock.findMany as jest.Mock).mockRejectedValueOnce(mockError);
 
             const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks');
 
-            await getAllStocks(req);
+            await getAllStocks();
 
             expect(prisma.stock.findMany).toHaveBeenCalledTimes(1);
             expect(jsonMock).toHaveBeenCalledWith(
@@ -75,10 +73,9 @@ describe('API: /api/stocks', () => {
 
         it('should return 401 if user is not logged in', async () => {
             (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
-            const req = buildRequest('/api/stocks');
             const jsonMock = jest.spyOn(NextResponse, 'json');
 
-            await getAllStocks(req);
+            await getAllStocks();
 
             expect(prisma.stock.findMany).not.toHaveBeenCalled();
             expect(jsonMock).toHaveBeenCalledWith(

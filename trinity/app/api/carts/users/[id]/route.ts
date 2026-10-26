@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Find the active (non-archived) cart
-        let existingCart = await prisma.cart.findFirst({
+        const existingCart = await prisma.cart.findFirst({
             where: {
                 userId,
                 archived: false,

@@ -44,7 +44,7 @@ export default function MaintenancePage() {
 
                 <div className="mt-6">
                     <Link href="/" className="px-6 py-2 bg-teal-600 text-white rounded-md shadow-md hover:bg-teal-700 transition">
-                        Retour à l'accueil
+                        Retour à l’accueil
                     </Link>
                 </div>
 

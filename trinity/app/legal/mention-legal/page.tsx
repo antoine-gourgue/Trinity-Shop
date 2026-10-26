@@ -30,7 +30,7 @@ export default function MentionsLegales() {
                             <p>Le site <strong>www.trinity.com</strong> est la propriété de <strong>Trinity Corp</strong>, éditeur du site.</p>
                             <p className="mt-2"><strong>Trinity Corp</strong></p>
                             <p>Société Anonyme à capital variable</p>
-                            <p>20 rue de l'Innovation, 75001 Paris</p>
+                            <p>20 rue de l’Innovation, 75001 Paris</p>
                             <p>SIRET : 123 456 789 00010</p>
                             <p>TVA : FR 12 123 456 789</p>
                             <p>Téléphone : 01 23 45 67 89</p>
@@ -53,7 +53,7 @@ export default function MentionsLegales() {
                     <section className="mb-6">
                         <h2 className="text-2xl font-semibold text-teal-600 mb-2">1. Propriété intellectuelle</h2>
                         <p className="text-gray-700 leading-relaxed">
-                            Le site <strong>www.trinity.com</strong> et l'ensemble de son contenu (textes, images, logos, etc.)
+                            Le site <strong>www.trinity.com</strong> et l’ensemble de son contenu (textes, images, logos, etc.)
                             sont protégés par les lois en vigueur sur la propriété intellectuelle et sont la propriété exclusive de <strong>Trinity Corp</strong>.
                         </p>
                     </section>

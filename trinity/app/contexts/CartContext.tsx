@@ -37,7 +37,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const refreshCart = async () => {
         const response = await getCartProducts();
         if (!response.error) {
-            let products = response.products || [];
+            const products = response.products || [];
             if (initialOrder.length === 0) {
                 setInitialOrder(products.map((p) => p.id));
             } else {

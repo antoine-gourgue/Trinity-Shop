@@ -1,11 +1,9 @@
-import { PrismaClient, Role, nutriScore, Product, User } from "@prisma/client";
-import pLimit from "p-limit";
+import { PrismaClient, Role, nutriScore, Product } from "@prisma/client";
 import { faker } from "@faker-js/faker";
 import bcrypt from "bcrypt";
 import productsDataJson from "../data/complete_products.json";
 
 const prisma = new PrismaClient();
-const limit = pLimit(5);
 
 function nutriScoreToEnum(value: string): nutriScore {
   switch (value?.toLowerCase()) {

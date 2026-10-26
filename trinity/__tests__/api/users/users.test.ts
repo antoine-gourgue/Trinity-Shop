@@ -55,9 +55,8 @@ describe('API: /api/users', () => {
             (prisma.user.findMany as jest.Mock).mockResolvedValue(mockUsers);
 
             const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/users');
 
-            await getUsers(req);
+            await getUsers();
 
             expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
             expect(jsonMock).toHaveBeenCalledWith({ data: mockUsers });

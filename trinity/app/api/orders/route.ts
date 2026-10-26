@@ -23,7 +23,7 @@ const orderBodySchema = z.object({
 
 class InvalidVouchersError extends Error {}
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     const isLoggedIn = await isUserLoggedIn()
     if (!isLoggedIn) {
         return NextResponse.json(
