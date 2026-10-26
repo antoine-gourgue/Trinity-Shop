@@ -12,7 +12,8 @@ test("le catalogue, la recherche et une fiche produit s'affichent", async ({ pag
   await suggestions.locator('a[href^="/product/"]').first().click();
 
   await expect(page).toHaveURL(/\/product\//);
-  await expect(page.getByRole("button", { name: "Ajouter au panier" })).toBeVisible();
+  // Le bouton annonce le produit : « Ajouter <nom du produit> au panier »
+  await expect(page.getByRole("button", { name: /^Ajouter .+ au panier$/ })).toBeVisible();
   // Données structurées pour les moteurs de recherche
   await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
 });
