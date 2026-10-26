@@ -66,9 +66,7 @@ describe("API: /api/products", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
-
-      await getAllProducts(req as any);
+      await getAllProducts();
 
       expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
       expect(jsonMock).toHaveBeenCalledWith({ data: mockProducts });
@@ -82,9 +80,7 @@ describe("API: /api/products", () => {
 
       const jsonMock = jest.spyOn(NextResponse, "json");
 
-      const { req } = createMocks({ method: "GET" });
-
-      await getAllProducts(req as any);
+      await getAllProducts();
 
       expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
       expect(jsonMock).toHaveBeenCalledWith(

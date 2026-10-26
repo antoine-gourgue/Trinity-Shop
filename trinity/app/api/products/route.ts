@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const isLoggedIn = await isUserLoggedIn();
   console.log("isLoggedIn check: " + isLoggedIn);
   if (!isLoggedIn) {
@@ -126,17 +126,20 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json({ data: serializedProduct }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erreur lors de la création du produit:", error);
 
-    if (error.code === "P2002" && error.meta?.target?.includes("barCode")) {
+    // Erreurs Prisma connues : contrainte d'unicité (P2002), clé étrangère (P2003)
+    const { code, meta } = (error ?? {}) as { code?: string; meta?: { target?: string | string[] } };
+
+    if (code === "P2002" && meta?.target?.includes("barCode")) {
       return NextResponse.json(
         { error: "Un produit avec ce barCode existe déjà." },
         { status: 409 }
       );
     }
 
-    if (error.code === "P2003") {
+    if (code === "P2003") {
       return NextResponse.json(
         { error: "brandId ou categoryId invalide." },
         { status: 400 }
