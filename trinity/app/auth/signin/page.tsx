@@ -28,22 +28,22 @@ export default function SignIn() {
   });
 
   return (
-      <div className="p-4 flex justify-center items-center min-h-screen w-full">
+      <div className="p-6 flex justify-center items-center w-full">
         <div className="w-full max-w-sm flex flex-col gap-10">
           <div className="text-center">
-            <h1 className="font-medium text-2xl md:text-4xl">Heureux de vous retrouver</h1>
-            <h2 className="text-sm md:text-lg mt-2">
-              Acheter depuis n'importe quel endroit ce que vous souhaitez
+            <h1 className="font-black text-2xl md:text-4xl">Heureux de vous retrouver</h1>
+            <h2 className="text-sm md:text-lg mt-2 text-muted-foreground">
+              Faites vos courses en ligne et récupérez-les au drive.
             </h2>
           </div>
           <div className="flex flex-col gap-4">
             <Button variant="outline" size="lg" disabled className="flex items-center gap-2">
               <Image alt="google" src="/assets/google.png" width={24} height={24} />
-              Connection avec Google
+              Connexion avec Google
             </Button>
             <Button variant="outline" size="lg" disabled className="flex items-center gap-2">
               <Image alt="github" src="/assets/github.svg" width={24} height={24} />
-              Connection avec GitHub
+              Connexion avec GitHub
             </Button>
           </div>
           <Form {...form}>
@@ -74,19 +74,19 @@ export default function SignIn() {
                       </FormItem>
                   )}
               />
-              <Button className='bg-blue-600 hover:bg-blue-800' type="submit" size="lg">
+              <Button className="rounded-full font-bold" type="submit" size="lg">
                 Se connecter
               </Button>
               <p className="text-center text-sm">
                 Vous n'avez pas de compte ?
-                <Link className="ml-1 text-blue-600 font-bold" href="/auth">
+                <Link className="ml-1 text-primary font-bold" href="/auth">
                   Créer un compte
                 </Link>
               </p>
             </form>
           </Form>
           <p className="text-xs text-slate-500 text-center mt-4">
-            &copy; 2025, tous droits réservés
+            © 2026 Trinity Shop, tous droits réservés
           </p>
         </div>
       </div>

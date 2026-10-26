@@ -168,8 +168,10 @@ export async function getProductById(productId: string) {
 
 export async function getOpenFoodFacts(barCode: string) {
   try {
+    // Données produit stables : mises en cache 24 h pour ménager l'API OpenFoodFacts
     const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barCode}.json`, {
-      cache: "no-store",
+      next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) throw new Error("Erreur lors de la récupération des données OpenFoodFacts");

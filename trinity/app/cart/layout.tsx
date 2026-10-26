@@ -1,17 +1,5 @@
-import { SessionProvider } from "next-auth/react";
-import Header from "@/components/general/header";
+import ShopShell from "@/components/general/shop-shell";
 
-export default function UserLayout({
-                                       children,
-                                   }: {
-    children: React.ReactNode;
-}) {
-    return (
-        <SessionProvider>
-            <div className="flex flex-col min-h-screen">
-                <Header />
-                <main className="flex-1 p-4 bg-gray-50">{children}</main>
-            </div>
-        </SessionProvider>
-    );
+export default function UserLayout({ children }: { children: React.ReactNode }) {
+  return <ShopShell>{children}</ShopShell>;
 }

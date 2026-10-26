@@ -1,59 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
-import { Loader2, Lock, Minus, Plus, Trash2 } from "lucide-react";
-import { useCart } from "@/app/contexts/CartContext";
 import { useSession } from "next-auth/react";
+import { ArrowLeft, Loader2, Lock, Minus, Plus, ShoppingBasket, Store, Trash2, UserRound } from "lucide-react";
+import { useCart } from "@/app/contexts/CartContext";
 import { getActiveCartId } from "@/lib/server-actions/cart-actions";
+import { formatPrice } from "@/lib/format";
+import Price from "@/components/product/price";
+import ProductImage from "@/components/product/product-image";
+import { Button } from "@/components/ui/button";
 
 export default function CartPage() {
-    const { cartProducts, removeProduct, updateProductQuantity, refreshCart } = useCart();
-    const { data: session } = useSession();
+    const { cartProducts, removeProduct, handleUpdateProductQuantity, refreshCart } = useCart();
+    const { data: session, status } = useSession();
     const userId = session?.user?.id;
     const billingAddress = session?.user?.billingAddress;
 
     const [cartId, setCartId] = useState<string | null>(null);
-    const [loadingCart, setLoadingCart] = useState<boolean>(true);
-    const [paying, setPaying] = useState<boolean>(false);
+    const [paying, setPaying] = useState(false);
     const [paymentError, setPaymentError] = useState<string | null>(null);
+    const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
-        async function fetchCartId() {
-            const cartResponse = await getActiveCartId();
-            if (cartResponse?.cartId) {
-                setCartId(cartResponse.cartId);
-            } else {
-                setCartId(null);
-            }
-            setLoadingCart(false);
-        }
+        if (!userId) return;
+        getActiveCartId().then((response) => setCartId(response?.cartId ?? null));
+    }, [userId, cartProducts.length]);
 
-        fetchCartId();
-    }, []);
-
-    console.log("cartId:", cartId);
-
-    const handleRemoveProduct = async (productId: string) => {
-        await removeProduct(productId);
-    };
-
-    const handleUpdateProductQuantity = async (productId: string, quantity: number) => {
-        if (quantity < 1) return;
-        await updateProductQuantity(productId, quantity);
-    };
-
-    const handleClearCart = async () => {
-        for (const product of cartProducts) {
-            await removeProduct(product.id);
-        }
-        await refreshCart();
-    };
-
+    const totalItems = cartProducts.reduce((acc, product) => acc + product.quantity, 0);
     const totalPrice = cartProducts.reduce((acc, product) => acc + product.price * product.quantity, 0);
-    const totalPriceEuro = (totalPrice / 1000).toFixed(2);
+
+    const handleClearCart = () => {
+        startTransition(async () => {
+            for (const product of cartProducts) {
+                await removeProduct(product.id);
+            }
+            await refreshCart();
+        });
+    };
 
     // Paiement simulé : même flux de commande que PayPal, sans transaction réelle
     const handleSimulatedPayment = async () => {
@@ -85,7 +69,10 @@ export default function CartPage() {
                 return;
             }
 
-            window.location.href = "/?payment=success";
+            const { data: order } = await response.json();
+            window.location.href = order?.id
+                ? `/user/${userId}/order/${order.id}?confirmation=1`
+                : `/user/${userId}/order`;
         } catch {
             setPaymentError("Une erreur est survenue pendant le paiement simulé.");
         } finally {
@@ -93,151 +80,201 @@ export default function CartPage() {
         }
     };
 
+    if (status === "loading") {
+        return (
+            <div className="flex justify-center py-24 text-muted-foreground">
+                <Loader2 className="animate-spin" aria-label="Chargement du panier" />
+            </div>
+        );
+    }
+
+    if (!session) {
+        return (
+            <EmptyState
+                icon={<UserRound size={36} />}
+                title="Connectez-vous pour retrouver votre panier"
+                text="Votre panier est enregistré sur votre compte : retrouvez-le sur tous vos appareils."
+            >
+                <Button asChild size="lg" className="rounded-full px-6 font-bold">
+                    <Link href="/api/auth/signin">Se connecter</Link>
+                </Button>
+                <Button asChild size="lg" variant="outline" className="rounded-full px-6 font-bold">
+                    <Link href="/auth">Créer un compte</Link>
+                </Button>
+            </EmptyState>
+        );
+    }
+
+    if (cartProducts.length === 0) {
+        return (
+            <EmptyState
+                icon={<ShoppingBasket size={36} />}
+                title="Votre panier est vide"
+                text="Parcourez nos rayons et ajoutez vos produits préférés pour commencer vos courses."
+            >
+                <Button asChild size="lg" className="rounded-full px-6 font-bold">
+                    <Link href="/">Commencer mes courses</Link>
+                </Button>
+            </EmptyState>
+        );
+    }
+
     return (
-        <div className="min-h-screen flex flex-col overflow-hidden bg-gray-50">
-            <div className="flex-1 overflow-auto">
-                <div className="max-w-5xl lg:max-w-4xl xl:max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-                    <motion.div
-                        className="border border-gray-300 shadow-sm rounded-lg p-6 bg-white flex flex-col gap-4"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                    >
-                        <h1 className="text-3xl font-extrabold text-gray-900">
-                            Mon Panier {cartProducts.length > 0 && `(${cartProducts.length})`}
-                        </h1>
-                        {cartProducts.length === 0 && (
-                            <p className="text-gray-500">Votre panier est vide.</p>
-                        )}
-                    </motion.div>
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
+            <Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline">
+                <ArrowLeft size={16} aria-hidden /> Continuer mes courses
+            </Link>
+            <h1 className="mt-3 text-3xl font-black">
+                Mon panier <span className="text-lg font-bold text-muted-foreground">({totalItems} article{totalItems > 1 ? "s" : ""})</span>
+            </h1>
 
-                    {cartProducts.length > 0 && (
-                        <div className="grid grid-cols-1 gap-6">
-                            <motion.div
-                                className="border border-gray-300 shadow-sm rounded-lg p-4 bg-white flex flex-col gap-4"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                            >
-                                <AnimatePresence>
-                                    {cartProducts.map((product) => (
-                                        <motion.div
-                                            key={product.id}
-                                            className="relative border border-gray-200 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center gap-4 shadow-sm bg-white"
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                            transition={{ duration: 0.3 }}
-                                            layout
-                                        >
-                                            <motion.button
-                                                onClick={() => handleRemoveProduct(product.id)}
-                                                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-                                                whileTap={{ scale: 0.9 }}
-                                            >
-                                                <Trash2 size={20} />
-                                            </motion.button>
-                                            <div className="flex-shrink-0 w-28 h-28 md:w-32 md:h-32 rounded-lg overflow-hidden">
-                                                <Image
-                                                    src={product.picture}
-                                                    alt={product.name}
-                                                    width={128}
-                                                    height={128}
-                                                    className="object-contain w-full h-full"
-                                                />
-                                            </div>
-                                            <div className="flex-1 flex flex-col gap-2">
-                                                <h2 className="font-semibold text-base md:text-lg text-gray-800">
-                                                    {product.name}
-                                                </h2>
-                                                <p className="text-2xl font-bold text-gray-900">
-                                                    {(product.price / 1000).toFixed(2)} €
-                                                </p>
-                                                <p className="text-sm text-gray-500">
-                                                    Prix au kg {(product.price / 1000).toFixed(2)} €
-                                                </p>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-3">
-                                                <motion.div
-                                                    className="bg-teal-700 text-white rounded-full px-4 py-2 flex items-center gap-4"
-                                                    whileTap={{ scale: 0.95 }}
-                                                >
-                                                    <motion.button
-                                                        onClick={() => handleUpdateProductQuantity(product.id, product.quantity - 1)}
-                                                        whileTap={{ scale: 0.9 }}
-                                                    >
-                                                        <Minus size={18} />
-                                                    </motion.button>
-                                                    <motion.span className="font-semibold" layout>
-                                                        {product.quantity}
-                                                    </motion.span>
-                                                    <motion.button
-                                                        onClick={() => handleUpdateProductQuantity(product.id, product.quantity + 1)}
-                                                        whileTap={{ scale: 0.9 }}
-                                                    >
-                                                        <Plus size={18} />
-                                                    </motion.button>
-                                                </motion.div>
-                                            </div>
-                                        </motion.div>
-                                    ))}
-                                </AnimatePresence>
-                            </motion.div>
-
-                            <motion.div
-                                className="flex items-center gap-2 mt-4"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.2 }}
-                            >
-                                <Trash2 size={16} className="text-teal-700" />
-                                <button
-                                    onClick={handleClearCart}
-                                    className="text-teal-700 text-sm underline hover:no-underline"
+            <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+                <section aria-label="Articles du panier" className="rounded-3xl border bg-white">
+                    <ul className="divide-y">
+                        {cartProducts.map((product) => (
+                            <li key={product.id} className="flex gap-4 p-4 sm:p-5">
+                                <Link
+                                    href={`/product/${product.id}`}
+                                    className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border bg-white sm:h-24 sm:w-24"
                                 >
-                                    Vider le panier
-                                </button>
-                            </motion.div>
+                                    <ProductImage src={product.picture} alt={product.name} sizes="96px" className="p-1.5" />
+                                </Link>
 
-                            <motion.div
-                                className="border border-gray-300 shadow-sm rounded-lg p-4 bg-white flex flex-col gap-4"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                            >
-                                <div className="flex items-center justify-between text-lg font-bold">
-                                    <span>Total estimé</span>
-                                    <span>{totalPriceEuro} €</span>
-                                </div>
+                                <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                                    <div className="min-w-0 flex-1">
+                                        <Link href={`/product/${product.id}`} className="line-clamp-2 font-bold leading-snug hover:underline">
+                                            {product.name}
+                                        </Link>
+                                        <p className="mt-1 text-sm text-muted-foreground">{formatPrice(product.price)} l’unité</p>
+                                    </div>
 
-                                <div className="flex justify-center">
-                                    <div className="w-full max-w-md flex flex-col gap-2">
+                                    <div className="flex items-center justify-between gap-4 sm:justify-end">
+                                        <div className="flex h-10 items-center rounded-full border border-primary text-primary">
+                                            <button
+                                                type="button"
+                                                disabled={isPending}
+                                                onClick={() => startTransition(() => handleUpdateProductQuantity(product.id, product.quantity - 1))}
+                                                aria-label="Retirer un article"
+                                                className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-secondary"
+                                            >
+                                                <Minus size={16} />
+                                            </button>
+                                            <span className="min-w-[2rem] text-center font-bold tabular-nums">{product.quantity}</span>
+                                            <button
+                                                type="button"
+                                                disabled={isPending}
+                                                onClick={() => startTransition(() => handleUpdateProductQuantity(product.id, product.quantity + 1))}
+                                                aria-label="Ajouter un article"
+                                                className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-secondary"
+                                            >
+                                                <Plus size={16} />
+                                            </button>
+                                        </div>
+
+                                        <span className="w-20 text-right text-lg font-black tabular-nums">
+                                            {formatPrice(product.price * product.quantity)}
+                                        </span>
+
                                         <button
-                                            onClick={handleSimulatedPayment}
-                                            disabled={paying}
-                                            className="w-full flex items-center justify-center gap-2 rounded-full bg-teal-700 hover:bg-teal-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 mt-2 transition"
+                                            type="button"
+                                            disabled={isPending}
+                                            onClick={() => startTransition(() => removeProduct(product.id))}
+                                            aria-label={`Supprimer ${product.name} du panier`}
+                                            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                                         >
-                                            {paying ? (
-                                                <>
-                                                    <Loader2 size={18} className="animate-spin" />
-                                                    Paiement en cours…
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Lock size={16} />
-                                                    Payer {totalPriceEuro} €
-                                                </>
-                                            )}
+                                            <Trash2 size={18} />
                                         </button>
-                                        {paymentError && (
-                                            <p className="text-sm text-red-600 text-center">{paymentError}</p>
-                                        )}
-                                        <p className="text-xs text-gray-400 text-center">
-                                            Paiement de démonstration — aucun débit réel n’est effectué.
-                                        </p>
                                     </div>
                                 </div>
-                            </motion.div>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="flex justify-end border-t px-5 py-3">
+                        <button
+                            type="button"
+                            onClick={handleClearCart}
+                            disabled={isPending}
+                            className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-destructive"
+                        >
+                            <Trash2 size={14} aria-hidden /> Vider le panier
+                        </button>
+                    </div>
+                </section>
+
+                <aside className="rounded-3xl border bg-white p-6 lg:sticky lg:top-[140px]">
+                    <h2 className="text-lg font-black">Récapitulatif</h2>
+
+                    <dl className="mt-4 space-y-2.5 text-sm">
+                        <div className="flex justify-between">
+                            <dt className="text-muted-foreground">Sous-total ({totalItems} article{totalItems > 1 ? "s" : ""})</dt>
+                            <dd className="font-bold">{formatPrice(totalPrice)}</dd>
                         </div>
-                    )}
-                </div>
+                        <div className="flex justify-between">
+                            <dt className="text-muted-foreground">Préparation de la commande</dt>
+                            <dd className="font-bold text-bio">Offerte</dd>
+                        </div>
+                    </dl>
+
+                    <div className="mt-4 flex items-start gap-3 rounded-2xl bg-secondary p-3 text-sm">
+                        <Store size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden />
+                        <p>
+                            <span className="font-bold">Retrait au drive</span>
+                            <br />
+                            <span className="text-muted-foreground">Trinity U Rennes Epitech</span>
+                        </p>
+                    </div>
+
+                    <div className="mt-5 flex items-end justify-between border-t pt-5">
+                        <span className="font-extrabold">Total</span>
+                        <Price value={totalPrice} size="lg" />
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={handleSimulatedPayment}
+                        disabled={paying || !cartId}
+                        className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary font-bold text-primary-foreground transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {paying ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                Paiement en cours…
+                            </>
+                        ) : (
+                            <>
+                                <Lock size={16} />
+                                Payer {formatPrice(totalPrice)}
+                            </>
+                        )}
+                    </button>
+                    {paymentError && <p className="mt-2 text-center text-sm text-destructive">{paymentError}</p>}
+                    <p className="mt-3 text-center text-xs text-muted-foreground">
+                        Paiement de démonstration — aucun débit réel n’est effectué.
+                    </p>
+                </aside>
+            </div>
+        </div>
+    );
+}
+
+function EmptyState({
+    icon,
+    title,
+    text,
+    children,
+}: {
+    icon: React.ReactNode;
+    title: string;
+    text: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-10 md:px-6">
+            <div className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-3xl border bg-white px-6 py-14 text-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-primary">{icon}</div>
+                <h1 className="text-2xl font-black">{title}</h1>
+                <p className="text-muted-foreground">{text}</p>
+                <div className="mt-2 flex flex-wrap justify-center gap-3">{children}</div>
             </div>
         </div>
     );

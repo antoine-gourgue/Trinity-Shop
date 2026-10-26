@@ -1,0 +1,110 @@
+import { Prisma } from "@prisma/client";
+import prisma from "@/lib/prisma";
+import { formatBrand } from "@/lib/format";
+import {
+  ListingParams,
+  NUTRI_GRADES,
+  PAGE_SIZE,
+  PRICE_RANGES,
+  SortValue,
+} from "@/lib/catalog-options";
+
+const ORDER_BY: Record<SortValue, Prisma.ProductOrderByWithRelationInput[]> = {
+  nom: [{ name: "asc" }, { id: "asc" }],
+  "prix-croissant": [{ price: "asc" }, { id: "asc" }],
+  "prix-decroissant": [{ price: "desc" }, { id: "asc" }],
+  nutriscore: [{ nutriScore: { sort: "asc", nulls: "last" } }, { name: "asc" }, { id: "asc" }],
+};
+
+export interface FacetOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface ProductListing {
+  products: Prisma.ProductGetPayload<{ include: { brand: true } }>[];
+  total: number;
+  page: number;
+  pageCount: number;
+  facets: {
+    brands: FacetOption[];
+    nutriScores: FacetOption[];
+  };
+}
+
+// Liste paginée et filtrée à partir d'une sélection de base (rayon, recherche…).
+// Chaque facette est comptée sans son propre filtre pour rester cliquable.
+export async function getProductListing(
+  base: Prisma.ProductWhereInput,
+  params: ListingParams
+): Promise<ProductListing> {
+  const priceRange = PRICE_RANGES.find((range) => range.value === params.prix);
+
+  const brandFilter: Prisma.ProductWhereInput = params.marques.length
+    ? { brand: { name: { in: params.marques } } }
+    : {};
+  const nutriFilter: Prisma.ProductWhereInput = params.nutriscores.length
+    ? { nutriScore: { in: params.nutriscores } }
+    : {};
+  const priceFilter: Prisma.ProductWhereInput = priceRange
+    ? { price: { gte: priceRange.min, ...(priceRange.max ? { lt: priceRange.max } : {}) } }
+    : {};
+
+  const where: Prisma.ProductWhereInput = { AND: [base, brandFilter, nutriFilter, priceFilter] };
+
+  const [total, brandGroups, nutriGroups] = await Promise.all([
+    prisma.product.count({ where }),
+    prisma.product.groupBy({
+      by: ["brandId"],
+      where: { AND: [base, nutriFilter, priceFilter] },
+      _count: { _all: true },
+    }),
+    prisma.product.groupBy({
+      by: ["nutriScore"],
+      where: { AND: [base, brandFilter, priceFilter] },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(params.page, pageCount);
+
+  const [products, brands] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      orderBy: ORDER_BY[params.tri],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { brand: true },
+    }),
+    prisma.brand.findMany({
+      where: { id: { in: brandGroups.map((group) => group.brandId) } },
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  // Plusieurs lignes Brand peuvent porter le même nom : on agrège par nom
+  const brandCounts = new Map<string, number>();
+  for (const group of brandGroups) {
+    const name = brands.find((brand) => brand.id === group.brandId)?.name;
+    if (name) brandCounts.set(name, (brandCounts.get(name) ?? 0) + group._count._all);
+  }
+
+  return {
+    products,
+    total,
+    page,
+    pageCount,
+    facets: {
+      brands: [...brandCounts.entries()]
+        .map(([value, count]) => ({ value, label: formatBrand(value), count }))
+        .sort((a, b) => b.count - a.count),
+      nutriScores: NUTRI_GRADES.map((grade) => ({
+        value: grade,
+        label: `Nutri-Score ${grade}`,
+        count: nutriGroups.find((group) => group.nutriScore === grade)?._count._all ?? 0,
+      })),
+    },
+  };
+}

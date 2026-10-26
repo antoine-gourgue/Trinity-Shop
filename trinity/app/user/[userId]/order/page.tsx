@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getUserOrders } from "@/lib/server-actions/users-actions";
+import { formatPrice } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -167,7 +168,7 @@ export default function UserOrdersPage({ params }: UserOrdersPageProps) {
                     {filteredOrders.map((order) => {
                         const totalAmount = order.cart.productsInCart.reduce(
                             (acc: number, item: ProductInCart) =>
-                                acc + (item.product.price * item.quantity) / 1000,
+                                acc + item.product.price * item.quantity,
                             0
                         );
 
@@ -204,7 +205,7 @@ export default function UserOrdersPage({ params }: UserOrdersPageProps) {
                                         })}
                                         </p>
                                         <p>
-                                            <span className="font-medium text-gray-800">Total :</span> {totalAmount.toFixed(2)} €
+                                            <span className="font-medium text-gray-800">Total :</span> {formatPrice(totalAmount)}
                                         </p>
                                         <p className="font-medium text-gray-800 mt-2">Produits :</p>
                                         <ul className="list-disc pl-5 space-y-1 text-gray-700">

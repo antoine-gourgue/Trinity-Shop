@@ -1,13 +1,9 @@
-"use client";
-
-import { useState, useTransition, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import Image from "next/image";
-import { FaShoppingBag, FaStar } from "react-icons/fa";
-import { Minus, Plus } from "lucide-react";
-import { useCart } from "@/app/contexts/CartContext";
-import LoginModal from "@/components/modal/LoginModal";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Price from "@/components/product/price";
+import ProductImage from "@/components/product/product-image";
+import NutriScore from "@/components/product/nutri-score";
+import AddToCartButton from "@/components/product/add-to-cart-button";
+import { formatBrand, isBioBrand } from "@/lib/format";
 
 interface ProductProps {
     id: string;
@@ -15,145 +11,48 @@ interface ProductProps {
     price: number;
     picture: string;
     nutriScore?: string;
-    rating?: number;
     brand?: string;
 }
 
-export default function ProductCard({ id, name, price, picture, nutriScore, rating, brand }: ProductProps) {
-    const { data: session } = useSession();
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
-    const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-    const [quantity, setQuantity] = useState(0);
-    const { cartProducts, addProductToCart, removeProduct, updateProductQuantity } = useCart();
-    const priceInEuros = (price / 1000).toFixed(2);
-
-    useEffect(() => {
-        const existingProduct = cartProducts.find((p) => p.id === id);
-        if (existingProduct) {
-            setQuantity(existingProduct.quantity);
-        }
-    }, [cartProducts, id]);
-
-    const handleAddToCart = () => {
-        if (!session) {
-            setIsLoginModalOpen(true);
-            return;
-        }
-
-        startTransition(async () => {
-            try {
-                await addProductToCart(id, 1);
-            } catch (error) {
-                console.error("Erreur lors de l'ajout au panier :", error);
-            }
-        });
-    };
-
-    const handleIncreaseQuantity = () => {
-        startTransition(async () => {
-            await updateProductQuantity(id, quantity + 1);
-        });
-    };
-
-    const handleDecreaseQuantity = () => {
-        if (quantity <= 1) {
-            startTransition(async () => {
-                await removeProduct(id);
-            });
-        } else {
-            startTransition(async () => {
-                await updateProductQuantity(id, quantity - 1);
-            });
-        }
-    };
+export default function ProductCard({ id, name, price, picture, nutriScore, brand }: ProductProps) {
+    const href = `/product/${id}`;
 
     return (
-        <>
-            <li className="bg-white shadow-md rounded-lg overflow-hidden p-4 flex flex-col h-full">
-                <div className="flex flex-col flex-grow">
-                    <button
-                        onClick={() => router.push(`/product/${id}`)}
-                        className="flex flex-col flex-grow text-left"
-                    >
-                        <div className="relative w-full h-48 flex justify-center items-center">
-                            <Image
-                                src={picture}
-                                alt={name}
-                                width={180}
-                                height={180}
-                                className="object-contain w-auto h-full"
-                            />
-                        </div>
+        <article className="group relative flex h-full flex-col rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-lg sm:p-4">
+            <Link href={href} className="relative block aspect-square overflow-hidden rounded-lg bg-white">
+                <ProductImage
+                    src={picture}
+                    alt={name}
+                    sizes="(min-width: 1280px) 18vw, (min-width: 1024px) 23vw, (min-width: 640px) 31vw, 46vw"
+                    className="p-2 transition-transform duration-300 group-hover:scale-105"
+                />
+                {isBioBrand(brand) && (
+                    <span className="absolute left-0 top-0 rounded-md bg-bio px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">
+                        Bio
+                    </span>
+                )}
+            </Link>
 
-                        <div className="flex-grow mt-2">
-                            <h2 className="text-sm font-semibold text-gray-800 leading-tight">
-                                <span className="text-gray-600 uppercase text-xs">{brand}</span>
-                                <br />
-                                {name}
-                            </h2>
-
-                            {nutriScore && (
-                                <div className="mt-1">
-                                    <Image
-                                        src={`/assets/nutri-score-${nutriScore?.toUpperCase()}.png`}
-                                        alt={`NutriScore ${nutriScore}`}
-                                        width={57}
-                                        height={30}
-                                    />
-                                </div>
-                            )}
-
-                            {rating !== undefined && (
-                                <div className="flex items-center mt-1">
-                                    {[...Array(5)].map((_, index) => (
-                                        <FaStar
-                                            key={index}
-                                            className={`text-yellow-400 ${index < rating ? "opacity-100" : "opacity-30"}`}
-                                        />
-                                    ))}
-                                    <span className="ml-1 text-sm text-gray-500">({rating})</span>
-                                </div>
-                            )}
-                        </div>
-                    </button>
-
-                    <div className="flex items-center justify-between mt-auto">
-                        <span className="text-xl font-bold text-gray-900">{priceInEuros} €</span>
-
-                        {quantity === 0 ? (
-                            <button
-                                className="bg-teal-600 text-white w-12 h-10 rounded-full flex items-center justify-center hover:bg-teal-700 transition disabled:opacity-50"
-                                onClick={handleAddToCart}
-                                disabled={isPending}
-                            >
-                                <FaShoppingBag size={16} />
-                            </button>
-                        ) : (
-                            <div className="flex items-center bg-teal-600 text-white w-28 h-10 rounded-full justify-between px-2">
-                                <button
-                                    onClick={handleDecreaseQuantity}
-                                    className=" rounded-full p-1"
-                                >
-                                    <Minus size={16} />
-                                </button>
-                                <span className="font-semibold">{quantity}</span>
-                                <button
-                                    onClick={handleIncreaseQuantity}
-                                    className=" rounded-full p-1"
-                                >
-                                    <Plus size={16} />
-                                </button>
-                            </div>
-                        )}
-                    </div>
+            <div className="mt-3 flex flex-1 flex-col">
+                {brand && (
+                    <p className="text-[11px] font-extrabold uppercase tracking-wide text-primary">
+                        {formatBrand(brand)}
+                    </p>
+                )}
+                <h3 className="mt-0.5 line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5">
+                    <Link href={href} className="hover:underline">
+                        {name}
+                    </Link>
+                </h3>
+                <div className="mt-2 h-7">
+                    <NutriScore grade={nutriScore} />
                 </div>
-            </li>
+            </div>
 
-            <LoginModal
-                isOpen={isLoginModalOpen}
-                onClose={() => setIsLoginModalOpen(false)}
-            />
-        </>
+            <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <Price value={price} />
+                <AddToCartButton productId={id} productName={name} />
+            </div>
+        </article>
     );
 }

@@ -1,262 +1,219 @@
-import {
-  Barcode,
-  BookUser,
-  Home,
-  LogOut,
-  Minus,
-  Package,
-  Plus,
-  QrCode,
-  Scan,
-  ScanBarcode,
-  Search,
-  ShoppingBasket,
-  Trash2,
-  User,
-  Users,
-} from "lucide-react";
-import { Button } from "../ui/button";
+"use client";
+
+import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
+import {
+  ChevronRight,
+  Home,
+  LayoutGrid,
+  LogOut,
+  Package,
+  ScanBarcode,
+  ShieldCheck,
+  ShoppingBasket,
+  User,
+  UserPlus,
+} from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
+  ResponsiveDialogDescription,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "../ui/responsiveDialog";
 import ScannerDrawer from "../scanner/scannerDrawer";
-import { signOut, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useCart } from "@/app/contexts/CartContext";
-import Image from "next/image";
-import { Badge } from "../ui/badge";
-import SearchProduct from "../product/searchProduct";
-import { useState } from "react";
+import CartSheetContent from "@/components/cart/cart-sheet-content";
+import { cn } from "@/lib/utils";
+import type { RayonLink } from "@/lib/rayons";
 
-export default function HeaderMobile() {
+interface HeaderMobileProps {
+  rayons: RayonLink[];
+}
+
+const tabClass =
+  "flex flex-col items-center justify-center gap-1 py-1.5 text-[11px] font-bold text-muted-foreground transition-colors";
+
+export default function HeaderMobile({ rayons }: HeaderMobileProps) {
   const { data: session } = useSession();
-  const [openSearch, setOpenSearch] = useState(false);
+  const pathname = usePathname();
   const router = useRouter();
-  const { cartProducts, removeProduct, handleUpdateProductQuantity, updateProductQuantity } =
-    useCart();
+  const { cartProducts } = useCart();
+  const [openPanel, setOpenPanel] = useState<"rayons" | "cart" | "account" | null>(null);
+
+  const totalItems = cartProducts.reduce((acc, item) => acc + item.quantity, 0);
+  const close = () => setOpenPanel(null);
+  const panelProps = (panel: NonNullable<typeof openPanel>) => ({
+    open: openPanel === panel,
+    onOpenChange: (open: boolean) => setOpenPanel(open ? panel : null),
+  });
 
   const handleLogout = async () => {
+    close();
     await signOut({ redirect: false });
     router.push("/");
   };
 
-  const totalItems = cartProducts.reduce((acc, item) => acc + item.quantity, 0);
-  const totalPrice = cartProducts.reduce(
-    (acc, product) => acc + product.price * product.quantity,
-    0
-  );
-  const totalPriceEuro = (totalPrice / 1000).toFixed(2);
+  const accountLinkClass =
+    "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors hover:bg-muted";
 
   return (
-    <header className="bg-white border-t fixed bottom-0 w-full p-2 grid grid-cols-5 gap-2 z-50">
-      <Button
-        variant={"ghost"}
-        className="text-slate-500 flex flex-col items-center gap-1 w-auto h-auto"
-        asChild
-      >
-        <Link href={"/"}>
-          <Home className="w-6 h-6" />
-          Accueil
-        </Link>
-      </Button>
-      <ResponsiveDialog open={openSearch} onOpenChange={setOpenSearch}>
+    <nav
+      aria-label="Navigation principale"
+      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t bg-white px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] pt-1 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] md:hidden"
+    >
+      <Link href="/" className={cn(tabClass, pathname === "/" && "text-primary")}>
+        <Home size={22} />
+        Accueil
+      </Link>
+
+      <ResponsiveDialog {...panelProps("rayons")}>
         <ResponsiveDialogTrigger asChild>
-          <Button
-            variant={"ghost"}
-            className="text-slate-500 flex flex-col items-center gap-1 w-auto h-auto"
-          >
-            <Search className="w-6 h-6" />
-            Chercher
-          </Button>
+          <button type="button" className={cn(tabClass, pathname.startsWith("/rayon") && "text-primary")}>
+            <LayoutGrid size={22} />
+            Rayons
+          </button>
         </ResponsiveDialogTrigger>
-        <ResponsiveDialogContent className="flex flex-col gap-4 p-4">
-          <ResponsiveDialogTitle className="text-center">
-            Recherche
-          </ResponsiveDialogTitle>
-          <SearchProduct setOpenSearch={setOpenSearch} />
+        <ResponsiveDialogContent className="max-h-[85vh]">
+          <ResponsiveDialogHeader className="text-left">
+            <ResponsiveDialogTitle className="text-lg font-extrabold">Nos rayons</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="sr-only">
+              Choisissez un rayon pour parcourir ses produits.
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ul className="grid grid-cols-2 gap-3 overflow-y-auto px-4 pb-6">
+            {rayons.map((rayon) => (
+              <li key={rayon.slug}>
+                <Link
+                  href={rayon.href}
+                  onClick={close}
+                  className="flex h-full flex-col items-center gap-2 rounded-xl bg-secondary p-4 text-center"
+                >
+                  <Image src={rayon.image} alt="" width={48} height={48} className="h-12 w-auto object-contain" />
+                  <span className="text-sm font-bold leading-tight text-brand-dark">{rayon.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      <ResponsiveDialog>
+      <ResponsiveDialog {...panelProps("cart")}>
         <ResponsiveDialogTrigger asChild>
-          <Button className="rounded-full p-3 w-auto h-auto bg-teal-600 relative">
-            <ShoppingBasket width={24} height={24} />
-            {totalItems > 0 && (
-              <Badge className="bg-red-500 text-white absolute top-0 right-0 transform translate-x-3 -translate-y-2">
-                {totalItems}
-              </Badge>
-            )}
-          </Button>
+          <button
+            type="button"
+            aria-label={`Mon panier, ${totalItems} article${totalItems > 1 ? "s" : ""}`}
+            className="relative -mt-6 flex flex-col items-center justify-center gap-1 text-[11px] font-bold text-primary"
+          >
+            <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-white">
+              <ShoppingBasket size={24} />
+              {totalItems > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-highlight px-1 text-[11px] font-extrabold text-brand-dark">
+                  {totalItems}
+                </span>
+              )}
+            </span>
+            Panier
+          </button>
         </ResponsiveDialogTrigger>
-        <ResponsiveDialogContent className="w-full p-4 bg-white shadow-xl rounded-lg">
-          <ResponsiveDialogHeader className="bg-teal-700 text-white p-4 rounded-t-lg shadow-md">
-            <div className="flex items-center gap-2">
-              <ResponsiveDialogTitle className="text-white text-lg font-semibold">
-                Mon Panier
-              </ResponsiveDialogTitle>
-            </div>
+        <ResponsiveDialogContent className="flex max-h-[85vh] flex-col">
+          <ResponsiveDialogHeader className="border-b text-left">
+            <ResponsiveDialogTitle className="text-lg font-extrabold">Mon panier</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="sr-only">
+              Les produits que vous avez ajoutés à votre panier.
+            </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
-
-          <div className="mt-4 space-y-3 max-h-[500px] overflow-y-auto p-2">
-            {cartProducts.length === 0 ? (
-              <p className="text-gray-500 text-center">
-                Votre panier est vide.
-              </p>
-            ) : (
-              <ul className="space-y-4">
-                {cartProducts.map((product) => (
-                  <li
-                    key={product.id}
-                    className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
-                  >
-                    <Image
-                      src={product.picture}
-                      alt={product.name}
-                      width={80}
-                      height={80}
-                      className="rounded-md object-cover"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-800 text-xs">
-                        {product.name}
-                      </h3>
-                      <p className="text-sm font-bold text-gray-900">
-                        {(product.price / 1000).toFixed(2)} €
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Prix au kg {(product.price / 1000).toFixed(2)} €
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2">
-                      <button
-                          onClick={() => updateProductQuantity(product.id, 0)}
-                        className="text-gray-500 hover:text-gray-700 transition"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                      <div className="flex items-center bg-teal-600 text-white rounded-full px-3 py-2">
-                        <button
-                          onClick={() =>
-                            handleUpdateProductQuantity(
-                              product.id,
-                              product.quantity - 1
-                            )
-                          }
-                          className="hover:opacity-80"
-                        >
-                          <Minus size={16} />
-                        </button>
-
-                        <span className="mx-2 text-sm font-semibold">
-                          {product.quantity}
-                        </span>
-
-                        <button
-                          onClick={() =>
-                            handleUpdateProductQuantity(
-                              product.id,
-                              product.quantity + 1
-                            )
-                          }
-                          className="hover:opacity-80"
-                        >
-                          <Plus size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {cartProducts.length > 0 && (
-            <div className="mt-6 border-t pt-4">
-              <div className="flex justify-between items-center text-lg font-bold">
-                <span>Total estimé :</span>
-                <span className="text-gray-900">{totalPriceEuro} €</span>
-              </div>
-              <Link href="/cart">
-                <Button className="w-full bg-teal-600 text-white font-bold mt-3 hover:bg-teal-700 transition">
-                  Valider mon Panier
-                </Button>
-              </Link>
-            </div>
-          )}
+          <CartSheetContent onNavigate={close} />
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
       <ScannerDrawer>
-        <Button
-          variant={"ghost"}
-          className="text-slate-500 flex flex-col items-center gap-1 w-auto h-auto"
-        >
-          <ScanBarcode className="w-6 h-6" />
-          Scann
-        </Button>
+        <button type="button" className={tabClass}>
+          <ScanBarcode size={22} />
+          Scanner
+        </button>
       </ScannerDrawer>
-      <ResponsiveDialog>
+
+      <ResponsiveDialog {...panelProps("account")}>
         <ResponsiveDialogTrigger asChild>
-          <Button
-            variant={"ghost"}
-            className="text-slate-500 flex flex-col items-center gap-1 w-auto h-auto"
-          >
-            <User className="w-6 h-6" />
-            Profil
-          </Button>
+          <button type="button" className={cn(tabClass, pathname.startsWith("/user") && "text-primary")}>
+            <User size={22} />
+            Compte
+          </button>
         </ResponsiveDialogTrigger>
-        <ResponsiveDialogContent className="flex flex-col gap-4 p-4 text-sm text-slate-500">
-          <ResponsiveDialogTitle className="text-center">
-            Mon compte
-          </ResponsiveDialogTitle>
-          {session ? (
-            <>
-              <Link
-                href={`/user?userId=${session.user.id}`}
-                className="flex items-center gap-3"
-              >
-                <BookUser size={24} />
-                Mon Compte
-              </Link>
-              <Link href="/cart" className="flex items-center gap-3">
-                <ShoppingBasket size={24} />
-                Mon Panier
-              </Link>
-              <Link
-                href={`/user/${session?.user?.id}/order`}
-                className="flex items-center gap-3"
-              >
-                <Package size={24} />
-                Mes Commandes
-              </Link>
-              {session?.user?.role === "Admin" && (
-                <Link href="/admin" className="flex items-center gap-3">
-                  <Users size={24} />
-                  Admin
-                </Link>
-              )}
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3"
-              >
-                <LogOut className="text-red-500" size={24} />
-                Déconnexion
-              </button>
-            </>
-          ) : (
-            <Link href="/api/auth/signin" className="flex items-center gap-3">
-              <User className="text-teal-600" size={30} />
-              <span className="text-gray-800 text-sm">Se connecter</span>
-            </Link>
-          )}
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader className="text-left">
+            <ResponsiveDialogTitle className="text-lg font-extrabold">
+              {session ? `Bonjour ${session.user.firstName}` : "Mon compte"}
+            </ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
+              {session ? session.user.email : "Connectez-vous pour faire vos courses."}
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <div className="flex flex-col gap-1 px-4 pb-6">
+            {session ? (
+              <>
+                <AccountLink href={`/user?userId=${session.user.id}`} icon={User} onClick={close}>
+                  Mon compte
+                </AccountLink>
+                <AccountLink href={`/user/${session.user.id}/order`} icon={Package} onClick={close}>
+                  Mes commandes
+                </AccountLink>
+                {session.user.role === "Admin" && (
+                  <AccountLink href="/admin" icon={ShieldCheck} onClick={close}>
+                    Administration
+                  </AccountLink>
+                )}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className={cn(accountLinkClass, "text-destructive")}
+                >
+                  <LogOut size={20} />
+                  Déconnexion
+                </button>
+              </>
+            ) : (
+              <>
+                <AccountLink href="/api/auth/signin" icon={User} onClick={close}>
+                  Se connecter
+                </AccountLink>
+                <AccountLink href="/auth" icon={UserPlus} onClick={close}>
+                  Créer un compte
+                </AccountLink>
+              </>
+            )}
+          </div>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-    </header>
+    </nav>
+  );
+}
+
+function AccountLink({
+  href,
+  icon: Icon,
+  onClick,
+  children,
+}: {
+  href: string;
+  icon: typeof User;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors hover:bg-muted"
+    >
+      <Icon size={20} className="text-primary" />
+      <span className="flex-1">{children}</span>
+      <ChevronRight size={18} className="text-muted-foreground" />
+    </Link>
   );
 }

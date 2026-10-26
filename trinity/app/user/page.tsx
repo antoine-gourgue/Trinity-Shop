@@ -21,10 +21,10 @@ export default async function UserPage(props: any) {
     }
 
     return (
-        <div className="min-h-screen flex flex-col overflow-hidden bg-gray-50">
+        <div className="flex flex-col">
             <div className="flex-1 overflow-auto">
                 <div className="max-w-5xl lg:max-w-4xl xl:max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-                    <div className="border border-gray-300 shadow-sm rounded-lg p-6 bg-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="border rounded-2xl p-6 bg-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div>
                             <h2 className="text-3xl font-extrabold text-gray-900">
                                 {user.firstName} {user.lastName}
@@ -32,99 +32,93 @@ export default async function UserPage(props: any) {
                             <p className="text-lg text-gray-700">{user.email}</p>
                         </div>
 
-                        <Button className="bg-teal-700 hover:bg-teal-800 text-white rounded-full px-6 py-3 text-base" asChild>
+                        <Button className="rounded-full px-6 font-bold" asChild>
                             <Link href={`/user/info?userId=${userId}`}>Voir mes informations</Link>
                         </Button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="border border-gray-300 shadow-sm rounded-lg p-4 bg-white">
+                        <div className="border rounded-2xl p-4 bg-white">
                             <div className="flex items-center mb-4">
-                                <UserSquare className="text-teal-700 mr-2" size={24} />
+                                <UserSquare className="text-primary mr-2" size={24} />
                                 <h3 className="text-lg font-semibold">Mes coordonnées</h3>
                             </div>
 
                             <div className="space-y-2">
                                 <Link
                                     href={`/user/addresses?userId=${userId}`}
-                                    className="flex items-center justify-between border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-100"
+                                    className="flex items-center justify-between border rounded-xl px-4 py-2.5 font-semibold hover:bg-muted"
                                 >
                                     Mes adresses
-                                    <ArrowRight className="text-teal-700" size={18} />
+                                    <ArrowRight className="text-primary" size={18} />
                                 </Link>
 
                                 <Link
                                     href={`/user/phone?userId=${userId}`}
-                                    className="flex items-center justify-between border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-100"
+                                    className="flex items-center justify-between border rounded-xl px-4 py-2.5 font-semibold hover:bg-muted"
                                 >
                                     Mes numéros
-                                    <ArrowRight className="text-teal-700" size={18} />
+                                    <ArrowRight className="text-primary" size={18} />
                                 </Link>
                             </div>
                         </div>
 
                         <Link
                             href={`/user/${userId}/order`}
-                            className="border border-gray-300 shadow-sm rounded-lg p-4 bg-white flex justify-between items-start hover:bg-gray-100"
+                            className="border rounded-2xl p-4 bg-white flex justify-between items-start hover:bg-muted"
                         >
                             <div>
                                 <div className="flex items-center mb-2">
-                                    <ShoppingCart className="text-teal-700 mr-2" size={24} />
+                                    <ShoppingCart className="text-primary mr-2" size={24} />
                                     <h3 className="text-lg font-semibold">Mes commandes</h3>
                                 </div>
-                                <p className="text-gray-600">Retrouvez l'historique de vos commandes</p>
+                                <p className="text-gray-600">Retrouvez l’historique de vos commandes</p>
                             </div>
-                            <ArrowRight className="text-teal-700" size={18} />
+                            <ArrowRight className="text-primary" size={18} />
                         </Link>
                     </div>
+
+                    <section>
+                        <h3 className="mb-3 text-lg font-black">Plus d’options</h3>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div className="space-y-2 rounded-2xl border bg-white p-5">
+                                <h4 className="font-extrabold">Mes communications</h4>
+                                <Link href="/legal/maintenance" className="block text-sm text-primary hover:underline">
+                                    Mes canaux de communication
+                                </Link>
+                                <Link href="/legal/maintenance" className="block text-sm text-primary hover:underline">
+                                    Mes préférences
+                                </Link>
+                            </div>
+                            <div className="space-y-2 rounded-2xl border bg-white p-5">
+                                <h4 className="font-extrabold">Réglementation</h4>
+                                <Link href="/legal/privacy-policy" className="block text-sm text-primary hover:underline">
+                                    Politique des fichiers
+                                </Link>
+                                <Link href="/legal/loyalty-program" className="block text-sm text-primary hover:underline">
+                                    Conditions d’utilisation et de vente
+                                </Link>
+                                <Link href="/legal/mention-legal" className="block text-sm text-primary hover:underline">
+                                    Mentions Légales
+                                </Link>
+                                <Link href="/legal/cookie" className="block text-sm text-primary hover:underline">
+                                    Cookies
+                                </Link>
+                            </div>
+                            <div className="space-y-2 rounded-2xl border bg-white p-5">
+                                <h4 className="font-extrabold">FAQ / Contact</h4>
+                                <Link href="/legal/faq" className="block text-sm text-primary hover:underline">
+                                    FAQ
+                                </Link>
+                                <Link href="/legal/contact" className="block text-sm text-primary hover:underline">
+                                    Contactez-nous
+                                </Link>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
 
-            <footer className="bg-teal-700 text-white py-6">
-                <div className="relative max-w-5xl lg:max-w-4xl xl:max-w-6xl mx-auto px-4 md:px-6">
-                    <div className="absolute left-4 -top-3 bg-yellow-400 text-black px-2 py-1 text-sm font-bold shadow-md rounded-sm">
-                        Plus d'options
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div className="bg-white text-black rounded-md p-4 space-y-2 shadow-sm">
-                            <h4 className="text-lg font-semibold">Mes communications</h4>
-                            <Link href="/legal/maintenance" className="text-teal-700 hover:underline block">
-                                Mes canaux de communication
-                            </Link>
-                            <Link href="/legal/maintenance" className="text-teal-700 hover:underline block">
-                                Mes préférences
-                            </Link>
-                        </div>
-
-                        <div className="bg-white text-black rounded-md p-4 space-y-2 shadow-sm">
-                            <h4 className="text-lg font-semibold">Réglementation</h4>
-                            <Link href="/legal/privacy-policy" className="text-teal-700 hover:underline block">
-                                Politique des fichiers
-                            </Link>
-                            <Link href="/legal/loyalty-program" className="text-teal-700 hover:underline block">
-                                Conditions d'utilisation et de vente
-                            </Link>
-                            <Link href="/legal/mention-legal" className="text-teal-700 hover:underline block">
-                                Mentions Légales
-                            </Link>
-                            <Link href="/legal/cookie" className="text-teal-700 hover:underline block">
-                                Cookies
-                            </Link>
-                        </div>
-
-                        <div className="bg-white text-black rounded-md p-4 space-y-2 shadow-sm">
-                            <h4 className="text-lg font-semibold">FAQ / Contact</h4>
-                            <Link href="/legal/faq" className="text-teal-700 hover:underline block">
-                                FAQ
-                            </Link>
-                            <Link href="/legal/contact" className="text-teal-700 hover:underline block">
-                                Contactez-nous
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            </footer>
         </div>
     );
 }

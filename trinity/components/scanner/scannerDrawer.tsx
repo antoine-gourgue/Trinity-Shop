@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState } from "react";
 import BarcodeScannerComponent from "react-qr-barcode-scanner";
 import {
   ResponsiveDialog,
@@ -18,11 +18,12 @@ import {
 } from "@/lib/server-actions/scann-product-actions";
 import { Skeleton } from "../ui/skeleton";
 import Image from "next/image";
-import { FaShoppingBag, FaStar } from "react-icons/fa";
+import { FaShoppingBag } from "react-icons/fa";
 import { Button } from "../ui/button";
 import { useCart } from "@/app/contexts/CartContext";
 import { useSession } from "next-auth/react";
 import Accordion from "@/components/ui/Accordion";
+import { formatPrice } from "@/lib/format";
 
 interface Props {
   children?: React.ReactNode;
@@ -33,14 +34,9 @@ export default function ScannerDrawer({ children }: Props) {
   const [data, setData] = useState<any>(null);
   const [isFromOpenFoodFacts, setIsFromOpenFoodFacts] = useState(false);
   const [quantity, setQuantity] = useState(0);
-  const [rating, setRating] = useState(0);
   const { data: session } = useSession();
   const { addProductToCart, removeProduct, updateProductQuantity } = useCart();
   const [errorMessage, setErrorMessage] = useState("");
-
-  useEffect(() => {
-    setRating(Math.floor(Math.random() * 5) + 1);
-  }, []);
 
   const handleBarCodeUpdate = useCallback(async (err: any, result: any) => {
     if (!result) return;
@@ -192,20 +188,11 @@ export default function ScannerDrawer({ children }: Props) {
                   </div>
                 )}
 
-                <div className="flex items-center mt-3">
-                  {[...Array(5)].map((_, index) => (
-                    <FaStar
-                      key={index}
-                      className={`text-yellow-400 ${index < rating ? "opacity-100" : "opacity-30"}`}
-                    />
-                  ))}
-                </div>
-
                 <div className="w-64 bg-gray-100 p-6 rounded-lg flex flex-col items-center mt-4">
                   <span className="text-3xl font-bold text-gray-900 underline decoration-yellow-400">
                     {isFromOpenFoodFacts
                       ? "N/A"
-                      : `${(data.price / 1000).toFixed(2)} €`}
+                      : formatPrice(data.price)}
                   </span>
 
                   {isFromOpenFoodFacts ? (

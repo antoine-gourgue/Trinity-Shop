@@ -1,24 +1,17 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
-  BookUser,
   LogOut,
-  Menu,
   Package,
-  ShoppingBasket,
-  ShoppingCart,
-  Trash2,
-  Plus,
-  Minus,
-  User,
-  Users,
-  Search,
   ScanBarcode,
+  ShieldCheck,
+  ShoppingBasket,
+  User,
+  UserPlus,
 } from "lucide-react";
 import SearchProduct from "@/components/product/searchProduct";
 import {
@@ -37,314 +30,182 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import ScannerDrawer from "../scanner/scannerDrawer";
 import { useCart } from "@/app/contexts/CartContext";
-import { Skeleton } from "../ui/skeleton";
-import dynamic from "next/dynamic";
-import { useIsMobile } from "@/hooks/use-mobile";
+import CartSheetContent from "@/components/cart/cart-sheet-content";
+import Logo from "@/components/general/logo";
 import HeaderMobile from "./header-mobile";
+import { formatPrice } from "@/lib/format";
+import type { RayonLink } from "@/lib/rayons";
 
-const Sidebar = dynamic(() => import("./sidebar"), {
-  ssr: false,
-  loading: () => <Skeleton className="w-full h-8" />,
-});
+interface HeaderProps {
+  rayons: RayonLink[];
+}
 
-export default function Header() {
-  const { data: session } = useSession();
-  const { cartProducts, removeProduct, handleUpdateProductQuantity } =
-    useCart();
-  const router = useRouter();
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [open, setOpen] = useState(false);
-  const isMobile = useIsMobile();
+const searchFallback = <div className="h-11 w-full rounded-full bg-muted" />;
 
-  const handleLogout = async () => {
-    await signOut({ redirect: false });
-    router.push("/");
-  };
-
-  const openSearch = () => {
-    setShowSearch(true);
-    requestAnimationFrame(() => setSearchOpen(true));
-  };
-
-  const closeSearch = () => {
-    setSearchOpen(false);
-  };
-
-  useEffect(() => {
-    if (!searchOpen && showSearch) {
-      const t = setTimeout(() => {
-        setShowSearch(false);
-      }, 300);
-      return () => clearTimeout(t);
-    }
-  }, [searchOpen, showSearch]);
+export default function Header({ rayons }: HeaderProps) {
+  const { cartProducts } = useCart();
+  const [cartOpen, setCartOpen] = useState(false);
 
   const totalItems = cartProducts.reduce((acc, item) => acc + item.quantity, 0);
   const totalPrice = cartProducts.reduce(
     (acc, product) => acc + product.price * product.quantity,
     0
   );
-  const totalPriceEuro = (totalPrice / 1000).toFixed(2);
-
-  if (isMobile) {
-    return <HeaderMobile />;
-  }
 
   return (
-    <header className="bg-white shadow-md sticky top-0 z-50">
-      <div className="container mx-auto flex items-center justify-between px-6 py-4">
-        <button className="md:hidden p-2">
-          <Menu size={26} className="text-blue-600" />
-        </button>
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/assets/trinity-logo.png"
-            alt="Accéder au Drive U sur CoursesU"
-            width={50}
-            height={20}
-          />
-        </Link>
-        <div className="hidden md:flex flex-1 mx-4 md:mx-8">
-          <Suspense>
-            <SearchProduct />
-          </Suspense>
-        </div>
-        <button className="md:hidden p-2" onClick={openSearch}>
-          <Search size={22} className="text-teal-600" />
-        </button>
-        <div className="flex items-center gap-4">
-          {session ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 text-gray-700 ml-2">
-                <User size={22} className="text-teal-600" />
-                <span className="text-sm hidden md:inline">Mon Compte</span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-white shadow-xl rounded-lg p-3 w-56 animate-fade-in border border-gray-200 mt-3">
-                <DropdownMenuLabel className="text-gray-900 font-semibold text-sm px-4">
-                  Mon Compte
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="my-2 border-t border-gray-300" />
-                <DropdownMenuItem
-                  asChild
-                  className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded-md transition"
-                >
-                  <Link
-                    href={`/user?userId=${session.user.id}`}
-                    className="flex items-center gap-3"
-                  >
-                    <BookUser className="text-teal-600" size={30} />
-                    <span className="text-gray-800 text-sm">Mon Compte</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  asChild
-                  className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded-md transition"
-                >
-                  <Link href="/cart" className="flex items-center gap-3">
-                    <ShoppingBasket className="text-teal-600" size={30} />
-                    <span className="text-gray-800 text-sm">Mon Panier</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  asChild
-                  className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded-md transition"
-                >
-                  <Link
-                    href={`/user/${session?.user?.id}/order`}
-                    className="flex items-center gap-3"
-                  >
-                    <Package className="text-teal-600" size={30} />
-                    <span className="text-gray-800 text-sm">Mes Commandes</span>
-                  </Link>
-                </DropdownMenuItem>
-                {session?.user?.role === "Admin" && (
-                  <DropdownMenuItem
-                    asChild
-                    className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded-md transition"
-                  >
-                    <Link href="/admin" className="flex items-center gap-3">
-                      <Users className="text-teal-600" size={30} />
-                      <span className="text-gray-800 text-sm">Admin</span>
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator className="my-2 border-t border-gray-300" />
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="flex items-center gap-3 px-4 py-2 hover:bg-red-50 hover:text-red-600 rounded-md transition"
-                >
-                  <LogOut className="text-red-500" size={20} />
-                  <span className="text-sm font-medium">Déconnexion</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 text-gray-700 ml-2">
-                <User size={22} className="text-teal-600" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-white shadow-xl rounded-lg p-3 w-56 animate-fade-in border border-gray-200 mt-3">
-                <DropdownMenuItem
-                  asChild
-                  className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded-md transition"
-                >
-                  <Link
-                    href="/api/auth/signin"
-                    className="flex items-center gap-3"
-                  >
-                    <User className="text-teal-600" size={30} />
-                    <span className="text-gray-800 text-sm">Se connecter</span>
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <div className="relative">
-            <Sheet>
-              <SheetTrigger className="relative flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-full cursor-pointer hover:bg-teal-700 transition">
-                <ShoppingCart size={22} />
-                <span className="hidden md:inline">Panier</span>
+    <>
+      <header className="hidden border-b bg-white md:block">
+        <div className="mx-auto flex h-[76px] max-w-[1400px] items-center gap-6 px-6">
+          <Logo />
+
+          <div className="mx-auto flex max-w-3xl flex-1 items-center gap-2">
+            <Suspense fallback={searchFallback}>
+              <SearchProduct />
+            </Suspense>
+            <ScannerDrawer>
+              <button
+                type="button"
+                aria-label="Scanner un code-barres"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-input text-primary transition-colors hover:bg-secondary"
+              >
+                <ScanBarcode size={20} />
+              </button>
+            </ScannerDrawer>
+          </div>
+
+          <AccountMenu />
+
+          <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+            <SheetTrigger
+              aria-label={`Mon panier, ${totalItems} article${totalItems > 1 ? "s" : ""}`}
+              className="flex h-12 shrink-0 items-center gap-3 rounded-full bg-primary px-4 text-primary-foreground transition-colors hover:bg-brand-dark lg:pr-5"
+            >
+              <span className="relative">
+                <ShoppingBasket size={24} />
                 {totalItems > 0 && (
-                  <Badge className="bg-red-500 text-white absolute top-0 right-0 transform translate-x-3 -translate-y-2">
+                  <span className="absolute -right-2.5 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-highlight px-1 text-[11px] font-extrabold text-brand-dark">
                     {totalItems}
-                  </Badge>
+                  </span>
                 )}
-              </SheetTrigger>
+              </span>
+              <span className="hidden flex-col items-start leading-tight lg:flex">
+                <span className="text-[11px] font-semibold text-white/80">Mon panier</span>
+                <span className="text-sm font-extrabold">{formatPrice(totalPrice)}</span>
+              </span>
+            </SheetTrigger>
 
-              <SheetContent className="sm:w-full p-4 bg-white shadow-xl rounded-lg">
-                <SheetHeader className="bg-teal-700 text-white p-4 rounded-t-lg shadow-md">
-                  <div className="flex items-center gap-2">
-                    <ShoppingCart size={24} className="text-white" />
-                    <SheetTitle className="text-white text-lg font-semibold">
-                      Mon Panier
-                    </SheetTitle>
-                  </div>
-                </SheetHeader>
-
-                <div className="mt-4 space-y-3 max-h-[500px] overflow-y-auto p-2">
-                  {cartProducts.length === 0 ? (
-                    <p className="text-gray-500 text-center">
-                      Votre panier est vide.
-                    </p>
-                  ) : (
-                    <ul className="space-y-4">
-                      {cartProducts.map((product) => (
-                        <li
-                          key={product.id}
-                          className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg bg-white shadow-sm"
-                        >
-                          <Image
-                            src={product.picture}
-                            alt={product.name}
-                            width={80}
-                            height={80}
-                            className="rounded-md object-cover"
-                          />
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-800 text-sm">
-                              {product.name}
-                            </h3>
-                            <p className="text-lg font-bold text-gray-900">
-                              {(product.price / 1000).toFixed(2)} €
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Prix au kg {(product.price / 1000).toFixed(2)} €
-                            </p>
-                          </div>
-
-                          <div className="flex flex-col items-end gap-2">
-                            <button
-                              onClick={() => removeProduct(product.id)}
-                              className="text-gray-500 hover:text-gray-700 transition"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                            <div className="flex items-center bg-teal-600 text-white rounded-full px-3 py-2">
-                              <button
-                                onClick={() =>
-                                  handleUpdateProductQuantity(
-                                    product.id,
-                                    product.quantity - 1
-                                  )
-                                }
-                                className="hover:opacity-80"
-                              >
-                                <Minus size={16} />
-                              </button>
-
-                              <span className="mx-2 text-sm font-semibold">
-                                {product.quantity}
-                              </span>
-
-                              <button
-                                onClick={() =>
-                                  handleUpdateProductQuantity(
-                                    product.id,
-                                    product.quantity + 1
-                                  )
-                                }
-                                className="hover:opacity-80"
-                              >
-                                <Plus size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {cartProducts.length > 0 && (
-                  <div className="mt-6 border-t pt-4">
-                    <div className="flex justify-between items-center text-lg font-bold">
-                      <span>Total estimé :</span>
-                      <span className="text-gray-900">{totalPriceEuro} €</span>
-                    </div>
-                    <Link href="/cart">
-                      <Button className="w-full bg-teal-600 text-white font-bold mt-3 hover:bg-teal-700 transition">
-                        Valider mon Panier
-                      </Button>
-                    </Link>
-                  </div>
-                )}
-              </SheetContent>
-            </Sheet>
-          </div>
-          <ScannerDrawer>
-            <ScanBarcode />
-          </ScannerDrawer>
+            <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+              <SheetHeader className="border-b px-5 py-4 text-left">
+                <SheetTitle className="flex items-center gap-2 text-lg font-extrabold">
+                  <ShoppingBasket size={22} className="text-primary" />
+                  Mon panier
+                </SheetTitle>
+                <SheetDescription className="sr-only">
+                  Les produits que vous avez ajoutés à votre panier.
+                </SheetDescription>
+              </SheetHeader>
+              <CartSheetContent onNavigate={() => setCartOpen(false)} />
+            </SheetContent>
+          </Sheet>
         </div>
-      </div>
-      {showSearch && (
-        <div
-          onClick={closeSearch}
-          className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-300"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className={`relative w-full max-w-md bg-white rounded-b-3xl shadow-xl p-6 ${
-              searchOpen ? "animate-slide-down" : "animate-slide-up"
-            }`}
-          >
-            <button
-              onClick={closeSearch}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition"
-            />
-            <h2 className="text-xl font-semibold text-center">Recherche</h2>
-            <div className="mt-6">
-              <Suspense>
-                <SearchProduct onSearch={closeSearch} />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-      )}
-    </header>
+      </header>
+
+      <header className="flex items-center gap-3 border-b bg-white px-4 py-2.5 md:hidden">
+        <Logo compact />
+        <Suspense fallback={searchFallback}>
+          <SearchProduct className="h-10" />
+        </Suspense>
+      </header>
+
+      <HeaderMobile rayons={rayons} />
+    </>
+  );
+}
+
+function AccountMenu() {
+  const { data: session } = useSession();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
+    router.push("/");
+  };
+
+  const itemClass = "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex shrink-0 items-center gap-2.5 rounded-full p-1 pr-2 text-left transition-colors hover:bg-muted">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-primary">
+          <User size={20} />
+        </span>
+        <span className="hidden flex-col leading-tight lg:flex">
+          <span className="text-[11px] font-semibold text-muted-foreground">
+            {session ? `Bonjour ${session.user.firstName}` : "Identifiez-vous"}
+          </span>
+          <span className="text-sm font-extrabold">Mon compte</span>
+        </span>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-60 rounded-xl p-2">
+        {session ? (
+          <>
+            <DropdownMenuLabel className="px-3 py-2">
+              <span className="block text-sm font-extrabold">
+                {session.user.firstName} {session.user.lastName}
+              </span>
+              <span className="block truncate text-xs font-normal text-muted-foreground">
+                {session.user.email}
+              </span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className={itemClass}>
+              <Link href={`/user?userId=${session.user.id}`}>
+                <User size={18} className="text-primary" /> Mon compte
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className={itemClass}>
+              <Link href={`/user/${session.user.id}/order`}>
+                <Package size={18} className="text-primary" /> Mes commandes
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className={itemClass}>
+              <Link href="/cart">
+                <ShoppingBasket size={18} className="text-primary" /> Mon panier
+              </Link>
+            </DropdownMenuItem>
+            {session.user.role === "Admin" && (
+              <DropdownMenuItem asChild className={itemClass}>
+                <Link href="/admin">
+                  <ShieldCheck size={18} className="text-primary" /> Administration
+                </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className={`${itemClass} text-destructive focus:bg-destructive/10 focus:text-destructive`}
+            >
+              <LogOut size={18} /> Déconnexion
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <>
+            <DropdownMenuItem asChild className={itemClass}>
+              <Link href="/api/auth/signin">
+                <User size={18} className="text-primary" /> Se connecter
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className={itemClass}>
+              <Link href="/auth">
+                <UserPlus size={18} className="text-primary" /> Créer un compte
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

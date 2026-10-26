@@ -1,132 +1,185 @@
+import Image from "next/image";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowRight, CreditCard, Leaf, MapPin, ShoppingBasket, Sparkles, Store } from "lucide-react";
 import prisma from "@/lib/prisma";
-import ProductCard from "@/components/product/productCard";
-import CategoriesSection from "@/components/category/categoriesSections";
-import ModesRetraitFAQ from "@/components/general/ModesRetraitFAQ";
-import ReassuranceSection from "@/components/general/ReassuranceSection";
-import Banner from "@/components/general/Banner";
-import CategoryCarousel from "@/components/category/CategoryCarousel";
-export default async function MainPage({
+import RayonTiles from "@/components/catalog/rayon-tiles";
+import ProductSection from "@/components/catalog/product-section";
+
+const SECTION_SIZE = 10;
+
+const STEPS = [
+  {
+    icon: ShoppingBasket,
+    title: "Je remplis mon panier",
+    text: "Parcourez les rayons, cherchez un produit ou scannez son code-barres.",
+  },
+  {
+    icon: CreditCard,
+    title: "Je valide ma commande",
+    text: "Paiement en ligne en quelques secondes (simulé sur cette démo).",
+  },
+  {
+    icon: Store,
+    title: "Je récupère mes courses",
+    text: "Au drive Trinity U Rennes Epitech, ou livrées chez vous.",
+  },
+];
+
+function productsWhere(where: object) {
+  return prisma.product.findMany({
+    where,
+    include: { brand: true },
+    orderBy: { name: "asc" },
+    take: SECTION_SIZE,
+  });
+}
+
+export default async function HomePage({
   searchParams,
 }: {
   searchParams: Promise<{ product?: string }>;
 }) {
-  const searchQuery = (await searchParams).product || "";
-  const products = await prisma.product.findMany({
-    where: searchQuery
-      ? {
-          name: {
-            contains: searchQuery,
-            mode: "insensitive",
-          },
-        }
-      : {},
-    take: 24,
-    include: {
-      brand: true,
-    },
-  });
+  // Ancienne URL de recherche (/?product=…)
+  const legacyQuery = (await searchParams).product;
+  if (legacyQuery) redirect(`/produits?q=${encodeURIComponent(legacyQuery)}`);
+
+  const [productCount, bioCount, nutriACount, saveurs, nutriA, bio, matLou] = await Promise.all([
+    prisma.product.count(),
+    prisma.product.count({ where: { brand: { name: "u-bio" } } }),
+    prisma.product.count({ where: { nutriScore: "A" } }),
+    productsWhere({ brand: { name: "u-saveurs" } }),
+    productsWhere({ nutriScore: "A" }),
+    productsWhere({ brand: { name: "u-bio" } }),
+    productsWhere({ brand: { name: "u-mat-lou" } }),
+  ]);
 
   return (
-    <div className="w-full px-4 md:px-12 py-4">
-
-      {searchQuery && products.length === 0 ? (
-        <div className="container mx-auto px-4 ">
-          <div className="container-xl bg-[#007d8f] p-4 flex items-center rounded-lg">
-            <img
-              className="w-12 h-auto"
-              src="https://www.coursesu.com/on/demandware.static/-/Sites-DigitalU-Library/default/dwd9d9c3fd/images/error/0-results.svg"
-              alt="Aucun produit trouvé"
-            />
-            <div className="ml-4 text-white">
-              <h1 className="text-sm font-semibold">
-                Désolé, nous n’avons rien trouvé pour{" "}
-                <span className="text-white font-bold">{searchQuery}</span>.
-              </h1>
-              <p className="text-xs">Essayez de rechercher dans nos rayons.</p>
-            </div>
-          </div>
-
-          <div className="text-center text-gray-900 text-lg font-semibold mt-4">
-            Tentez un tour dans{" "}
-            <span className="relative inline-block">
-              <span className="relative z-10 font-bold">nos rayons</span>
-              <svg
-                className="absolute bottom-0 left-0 w-full h-[0.5em] z-0"
-                viewBox="0 0 100 15"
-                preserveAspectRatio="none"
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="relative overflow-hidden rounded-3xl bg-brand-dark px-6 py-8 text-white sm:px-10 sm:py-12 lg:col-span-2">
+          <Image
+            src="/assets/fruits.png"
+            alt=""
+            width={420}
+            height={420}
+            priority
+            className="pointer-events-none absolute -right-20 top-1/2 hidden w-[380px] -translate-y-1/2 rotate-12 sm:block"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-brand-dark from-45% via-brand-dark/85 to-transparent sm:block"
+          />
+          <div className="relative max-w-md">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
+              <MapPin size={14} className="text-highlight" aria-hidden />
+              Trinity U Rennes Epitech
+            </span>
+            <h1 className="mt-4 text-3xl font-black leading-tight sm:text-4xl">
+              Vos courses du quotidien, <span className="text-highlight">prêtes au drive</span>
+            </h1>
+            <p className="mt-3 text-white/80">
+              Plus de {Math.floor(productCount / 100) * 100} produits U, des fruits et légumes à
+              l’épicerie : commandez en ligne et récupérez vos courses en magasin.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="#rayons"
+                className="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-brand-dark transition-colors hover:bg-highlight"
               >
-                <path
-                  d="M0 10 Q25 5, 50 10 T100 10"
-                  fill="none"
-                  stroke="#FFC107"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
-          </div>
-
-          <CategoriesSection />
-          <ModesRetraitFAQ />
-          <ReassuranceSection />
-        </div>
-      ) : (
-          <div className="w-full px-2 md:px-4 py-1">
-            {!searchQuery && <Banner />}
-
-            <div className="rounded-lg overflow-hidden">
-              {searchQuery && (
-                  <div className="col-span-full bg-teal-800 text-white px-3 py-2 rounded-lg shadow-md mb-1">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                      <div className="flex-shrink-0">
-                        <svg
-                            className="w-5 h-5 sm:w-6 sm:h-6"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="#FFD600"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                          <path d="M4 5c2-3 7-3 9 0" />
-                          <path d="M4 19c2 3 7 3 9 0" />
-                        </svg>
-                      </div>
-
-                      <div className="flex-1">
-                        <h1 className="text-sm sm:text-lg font-bold break-words leading-tight">
-                          {`Résultats de recherche pour : "${searchQuery}"`}
-                        </h1>
-
-                        <span className="text-xs sm:text-sm font-medium text-gray-200 block mt-0">
-              {products.length > 0
-                  ? `${products.length} produit${products.length > 1 ? "s" : ""} trouvé${products.length > 1 ? "s" : ""}`
-                  : "Aucun produit correspondant"}
-            </span>
-                      </div>
-                    </div>
-                  </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {products.map((product) => (
-                    <ProductCard
-                        key={product.id}
-                        id={product.id}
-                        name={product.name}
-                        price={product.price}
-                        picture={product.picture}
-                        nutriScore={product.nutriScore || undefined}
-                        rating={Math.floor(Math.random() * 5) + 1}
-                        brand={product.brand.name}
-                    />
-                ))}
-              </div>
+                Découvrir les rayons <ArrowRight size={16} aria-hidden />
+              </Link>
+              <Link
+                href="/produits"
+                className="rounded-full border border-white/40 px-5 py-3 text-sm font-bold transition-colors hover:bg-white/10"
+              >
+                Tous les produits
+              </Link>
             </div>
           </div>
+        </div>
 
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <Link
+            href="/produits?marque=u-bio"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-bio p-6 text-white"
+          >
+            <Leaf size={96} className="absolute -bottom-4 -right-4 rotate-12 text-white/15" aria-hidden />
+            <span className="w-fit rounded-full bg-white/20 px-3 py-1 text-xs font-bold uppercase tracking-wide">
+              U Bio
+            </span>
+            <div className="mt-6">
+              <p className="text-2xl font-black">Le bio au quotidien</p>
+              <p className="mt-1 flex items-center gap-1 text-sm font-semibold text-white/85">
+                {bioCount} produits bio <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/produits?nutriscore=A"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-highlight p-6 text-brand-dark"
+          >
+            <Sparkles size={96} className="absolute -bottom-4 -right-4 text-brand-dark/10" aria-hidden />
+            <span className="w-fit rounded-full bg-brand-dark/10 px-3 py-1 text-xs font-bold uppercase tracking-wide">
+              Nutri-Score A
+            </span>
+            <div className="mt-6">
+              <p className="text-2xl font-black">Mangez équilibré</p>
+              <p className="mt-1 flex items-center gap-1 text-sm font-bold">
+                {nutriACount} produits bien notés <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </p>
+            </div>
+          </Link>
+        </div>
+      </section>
 
-      )}
+      <section id="rayons" className="mt-10 scroll-mt-40">
+        <h2 className="mb-4 text-xl font-black md:text-2xl">Nos rayons</h2>
+        <RayonTiles />
+      </section>
+
+      <ProductSection
+        title="U Saveurs, le goût des régions"
+        subtitle="Des recettes de terroir sélectionnées par nos équipes."
+        href="/produits?marque=u-saveurs"
+        products={saveurs}
+      />
+      <ProductSection
+        title="Les champions du Nutri-Score"
+        subtitle="Des produits notés A pour composer des repas équilibrés."
+        href="/produits?nutriscore=A"
+        products={nutriA}
+      />
+      <ProductSection
+        title="Le bio U"
+        subtitle="Issus de l’agriculture biologique."
+        href="/produits?marque=u-bio"
+        products={bio}
+      />
+      <ProductSection
+        title="Pour les petits : U Mat&Lou"
+        subtitle="Goûters, compotes et repas pensés pour les enfants."
+        href="/produits?marque=u-mat-lou"
+        products={matLou}
+      />
+
+      <section className="mt-14 rounded-3xl bg-white p-6 ring-1 ring-border md:p-10">
+        <h2 className="text-center text-xl font-black md:text-2xl">Comment ça marche ?</h2>
+        <ol className="mt-8 grid gap-8 md:grid-cols-3">
+          {STEPS.map(({ icon: Icon, title, text }, index) => (
+            <li key={title} className="flex flex-col items-center text-center">
+              <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-secondary text-primary">
+                <Icon size={28} aria-hidden />
+                <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
+                  {index + 1}
+                </span>
+              </span>
+              <p className="mt-4 font-extrabold">{title}</p>
+              <p className="mt-1 max-w-xs text-sm text-muted-foreground">{text}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }

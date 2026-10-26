@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
+import { Mulish } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/app/contexts/CartContext";
 import { SessionProvider } from "next-auth/react";
+
+const mulish = Mulish({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://trinity-shop-rho.vercel.app"),
@@ -41,8 +48,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
-      <body className="mb-[81px]">
+    <html lang="fr" className={mulish.variable}>
+      <body className="font-sans">
         <SessionProvider>
           <CartProvider>{children}</CartProvider>
         </SessionProvider>

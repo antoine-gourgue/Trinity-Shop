@@ -3,15 +3,19 @@ import Link from "next/link";
 import { getOrderById } from "@/lib/server-actions/orders-actions";
 import Image from "next/image";
 import InvoiceDownloadButton from "@/components/invoice/InvoiceDownloadButton";
+import { formatPrice } from "@/lib/format";
+import { CircleCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 interface OrderDetailPageProps {
     params: Promise<{ userId: string; orderId: string }>;
+    searchParams: Promise<{ confirmation?: string }>;
 }
 
-export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
+export default async function OrderDetailPage({ params, searchParams }: OrderDetailPageProps) {
     const { userId, orderId } = await params;
+    const justOrdered = (await searchParams).confirmation === "1";
 
     if (!orderId || !userId) return notFound();
 
@@ -20,7 +24,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     if (!order) return notFound();
 
     const totalAmount = order.cart.productsInCart.reduce(
-        (acc, item) => acc + (item.product.price * item.quantity) / 1000,
+        (acc, item) => acc + item.product.price * item.quantity,
         0
     );
 
@@ -36,6 +40,18 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 </Link>{" "}
                 &gt; <span className="text-teal-700">Commande #{order.id}</span>
             </nav>
+
+            {justOrdered && (
+                <div className="flex items-start gap-4 rounded-3xl bg-bio p-5 text-white md:p-6">
+                    <CircleCheck size={32} className="shrink-0" aria-hidden />
+                    <div>
+                        <p className="text-lg font-black">Merci, votre commande est validée !</p>
+                        <p className="text-sm text-white/85">
+                            Nos équipes préparent vos courses. Retrouvez ci-dessous le détail et votre facture.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Détail de la commande</h1>
             <div className="mt-4">
@@ -56,7 +72,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 <p className="text-gray-600">
                     Date de la commande : {new Date(order.createdAt).toLocaleDateString()}
                 </p>
-                <p className="text-gray-600">Total : {totalAmount.toFixed(2)} €</p>
+                <p className="text-gray-600">Total : {formatPrice(totalAmount)}</p>
 
                 <h3 className="text-lg font-semibold mt-4">Produits :</h3>
                 <ul className="space-y-4">
@@ -77,14 +93,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                                 <p className="text-gray-600 text-sm">{item.product.description}</p>
 
                                 <p className="text-gray-700 mt-1">
-                                    <strong>Prix unitaire :</strong> {(item.product.price / 1000).toFixed(2)} €
+                                    <strong>Prix unitaire :</strong> {formatPrice(item.product.price)}
                                 </p>
                                 <p className="text-gray-700">
                                     <strong>Quantité :</strong> {item.quantity}
                                 </p>
                                 <p className="text-gray-700">
                                     <strong>Sous-total :</strong>{" "}
-                                    {((item.product.price * item.quantity) / 1000).toFixed(2)} €
+                                    {formatPrice(item.product.price * item.quantity)}
                                 </p>
                             </div>
                         </li>

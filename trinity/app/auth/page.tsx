@@ -30,12 +30,12 @@ export default function SignIn() {
     });
 
     return (
-        <div className="p-6 flex justify-center items-center w-full min-h-screen">
+        <div className="p-6 flex justify-center items-center w-full">
             <div className="max-w-lg w-full flex flex-col gap-10">
                 <div className="text-center">
-                    <h1 className="font-medium text-3xl">Créer un compte gratuitement</h1>
-                    <h2 className="text-lg text-gray-600 mt-2">
-                        Acheter depuis n'importe quel endroit ce que vous souhaitez
+                    <h1 className="font-black text-3xl">Créer un compte gratuitement</h1>
+                    <h2 className="text-lg text-muted-foreground mt-2">
+                        Faites vos courses en ligne et récupérez-les au drive.
                     </h2>
                 </div>
                 <div className="flex flex-col gap-4 w-full">
@@ -104,19 +104,19 @@ export default function SignIn() {
                                 </FormItem>
                             )}
                         />
-                        <Button type="submit" size={"lg"} className="bg-blue-600 hover:bg-blue-800 w-full">
+                        <Button type="submit" size={"lg"} className="w-full rounded-full font-bold">
                             Créer un compte
                         </Button>
                         <p className="text-center font-medium">
                             Vous avez déjà un compte ? {" "}
-                            <Link className="text-blue-600 font-bold" href={"/auth/signin"}>
+                            <Link className="text-primary font-bold" href={"/auth/signin"}>
                                 Se connecter
                             </Link>
                         </p>
                     </form>
                 </Form>
                 <p className="text-sm text-gray-500 text-center">
-                    Copyright 2025, tous droits réservés
+                    © 2026 Trinity Shop, tous droits réservés
                 </p>
             </div>
         </div>
