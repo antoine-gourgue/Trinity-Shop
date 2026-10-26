@@ -32,7 +32,8 @@ const signinUser = async ({
     return null;
   }
 
-  return user;
+  // Le compte connecté, sans le mot de passe chiffré
+  return { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role };
 };
 
 export default signinUser;

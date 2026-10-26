@@ -5,6 +5,7 @@ import { canAccessUser } from "@/services/auth/guards";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
+import { PUBLIC_USER } from "@/lib/public-user";
 
 // Modification d'un compte : tous les champs sont requis
 const userUpdateSchema = z.object({
@@ -13,19 +14,6 @@ const userUpdateSchema = z.object({
     email: optionalField(z.string().min(1)),
     password: optionalField(z.string().min(1)),
 });
-
-// Champs renvoyés par l'API : jamais le mot de passe
-const PUBLIC_USER = {
-    id: true,
-    firstName: true,
-    lastName: true,
-    email: true,
-    phone: true,
-    role: true,
-    birthDate: true,
-    createdAt: true,
-    updatedAt: true,
-} as const;
 
 const FORBIDDEN = { error: "Forbidden" };
 

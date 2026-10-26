@@ -45,6 +45,8 @@ const createUserRepository = async ({
       lastName,
       password: passwordHash,
     },
+    // Champs utiles à la session et à l'e-mail de bienvenue : jamais le mot de passe chiffré
+    select: { id: true, email: true, firstName: true, lastName: true, role: true },
   });
 
   await sendWelcomeEmail(user);

@@ -6,6 +6,8 @@ import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
 import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
+import { PUBLIC_USER } from "@/lib/public-user";
+import { EmailAlreadyUsed } from "@/services/auth/errors";
 
 // Inscription : le détail des règles (e-mail, longueur du mot de passe) est vérifié par createUserSchema
 const signupBodySchema = z.object({
@@ -28,35 +30,41 @@ export async function GET() {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const users = await prisma.user.findMany();
     try {
+        // Jamais le mot de passe, même pour un administrateur
+        const users = await prisma.user.findMany({ select: PUBLIC_USER });
         return NextResponse.json({data: users});
     } catch (error) {
-        console.error('Error fetching carts:', error);
+        console.error('Error fetching users:', error);
         return NextResponse.json({error: 'Internal Server Error'}, {status: 500});
     }
 }
 
 export async function POST(request: NextRequest) {
+    const body = (await readJsonBody(request, signupBodySchema)) ?? {};
+    if (!body.firstName || !body.lastName || !body.email || !body.password) {
+        return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
+    }
+
+    // Mêmes règles que le formulaire d'inscription : un refus n'est jamais présenté comme une création
+    const parsedUser = createUserSchema.safeParse(body);
+    if (!parsedUser.success) {
+        const message = parsedUser.error.issues[0]?.message ?? 'Invalid signup data';
+        return NextResponse.json({ error: message }, { status: 400 });
+    }
+
     try {
-        const { firstName, lastName, email, password } = (await readJsonBody(request, signupBodySchema)) ?? {};
-        if (!firstName || !lastName || !email || !password) {
-            return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
+        const user = await createUserRepository(parsedUser.data);
+        // Le compte créé, sans le mot de passe
+        return NextResponse.json(
+            { data: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email } },
+            { status: 201 }
+        );
+    } catch (error) {
+        if (error instanceof EmailAlreadyUsed) {
+            return NextResponse.json({ error: 'Email already used' }, { status: 409 });
         }
-        const createdUser = {
-            data: {
-                firstName,
-                lastName,
-                email,
-                password,
-            },
-        };
-        const parsedUser = createUserSchema.safeParse(createdUser.data);
-        if (parsedUser.success) {
-            await createUserRepository(parsedUser.data);
-        }
-        return NextResponse.json({ data: createdUser }, { status: 201 });
-    } catch {
+        console.error('Error creating user:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

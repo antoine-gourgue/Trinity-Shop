@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
 import { buildRequest } from '@/test-utils/requests';
+import { PUBLIC_USER } from '@/lib/public-user';
 
 jest.mock('@/lib/prisma', () => ({
     user: {
@@ -47,10 +48,10 @@ describe('API: /api/users', () => {
     });
 
     describe('GET', () => {
-        it('should return all users successfully', async () => {
+        it('should return all users without their password', async () => {
             (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
             const mockUsers = [
-                { id: '1', firstName: 'John', lastName: 'Doe', email: 'john@example.com', password: '123456', cart: [] },
+                { id: '1', firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
             ];
             (prisma.user.findMany as jest.Mock).mockResolvedValue(mockUsers);
 
@@ -58,7 +59,8 @@ describe('API: /api/users', () => {
 
             await getUsers();
 
-            expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+            expect(prisma.user.findMany).toHaveBeenCalledWith({ select: PUBLIC_USER });
+            expect(PUBLIC_USER).not.toHaveProperty('password');
             expect(jsonMock).toHaveBeenCalledWith({ data: mockUsers });
         });
     });
@@ -78,9 +80,61 @@ describe('API: /api/users', () => {
             );
         });
 
+        it('should return 400 with the reason if the data is invalid', async () => {
+            const jsonMock = jest.spyOn(NextResponse, 'json');
+            const req = buildRequest('/api/users', {
+                method: 'POST',
+                body: { firstName: 'Jane', lastName: 'Doe', email: 'not-an-email', password: 'password123' },
+            });
+
+            await createUser(req);
+
+            expect(prisma.user.create).not.toHaveBeenCalled();
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'Adresse e-mail invalide.' }, { status: 400 });
+        });
+
+        it('should return the created account without the password', async () => {
+            (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+            (prisma.user.create as jest.Mock).mockResolvedValue({
+                id: 'new-user',
+                firstName: 'Jane',
+                lastName: 'Doe',
+                email: 'jane@example.com',
+                role: 'Customer',
+            });
+            const jsonMock = jest.spyOn(NextResponse, 'json');
+            const req = buildRequest('/api/users', {
+                method: 'POST',
+                body: { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', password: 'password123' },
+            });
+
+            await createUser(req);
+
+            expect(jsonMock).toHaveBeenCalledWith(
+                { data: { id: 'new-user', firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' } },
+                { status: 201 }
+            );
+            expect(JSON.stringify(jsonMock.mock.calls)).not.toContain('password123');
+        });
+
+        it('should return 409 if the email is already used', async () => {
+            (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'existing-user' });
+            const jsonMock = jest.spyOn(NextResponse, 'json');
+            const req = buildRequest('/api/users', {
+                method: 'POST',
+                body: { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', password: 'password123' },
+            });
+
+            await createUser(req);
+
+            expect(prisma.user.create).not.toHaveBeenCalled();
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'Email already used' }, { status: 409 });
+        });
+
         it('should return 500 on database error', async () => {
             console.log('Mocking database error');
             const mockError = new Error('Database error');
+            (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
             (prisma.user.create as jest.Mock).mockRejectedValue(mockError);
 
             const jsonMock = jest.spyOn(NextResponse, 'json');
