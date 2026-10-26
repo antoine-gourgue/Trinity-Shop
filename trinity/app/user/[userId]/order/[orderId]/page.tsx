@@ -1,10 +1,14 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, CircleCheck, MapPin, Store } from "lucide-react";
 import { getOrderById } from "@/lib/server-actions/orders-actions";
-import Image from "next/image";
 import InvoiceDownloadButton from "@/components/invoice/InvoiceDownloadButton";
-import { formatPrice } from "@/lib/format";
-import { CircleCheck } from "lucide-react";
+import ProductImage from "@/components/product/product-image";
+import OrderStatus from "@/components/account/order-status";
+import { AccountCard } from "@/components/account/account-ui";
+import Price from "@/components/product/price";
+import { formatBrand, formatPrice } from "@/lib/format";
+import { orderNumber, requireUser } from "@/lib/account";
 
 export const dynamic = "force-dynamic";
 
@@ -14,32 +18,27 @@ interface OrderDetailPageProps {
 }
 
 export default async function OrderDetailPage({ params, searchParams }: OrderDetailPageProps) {
-    const { userId, orderId } = await params;
+    const sessionUser = await requireUser();
+    const { orderId } = await params;
     const justOrdered = (await searchParams).confirmation === "1";
 
-    if (!orderId || !userId) return notFound();
-
     const order = await getOrderById(orderId);
+    // Une commande d'un autre compte est traitée comme introuvable
+    if (!order || order.userId !== sessionUser.id) return notFound();
 
-    if (!order) return notFound();
-
-    const totalAmount = order.cart.productsInCart.reduce(
-        (acc, item) => acc + item.product.price * item.quantity,
-        0
-    );
+    const items = order.cart.productsInCart;
+    const totalAmount = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+    const articleCount = items.reduce((acc, item) => acc + item.quantity, 0);
+    const billing = order.billingAddress;
 
     return (
-        <div className="max-w-6xl mx-auto p-4 md:p-6 bg-gray-50 space-y-6">
-            <nav className="text-sm text-gray-600 mb-4">
-                <Link href={`/user/?userId=${userId}`} className="hover:underline">
-                    Mon espace
-                </Link>{" "}
-                &gt;{" "}
-                <Link href={`/user/${userId}/order`} className="hover:underline">
-                    Mes commandes
-                </Link>{" "}
-                &gt; <span className="text-teal-700">Commande #{order.id}</span>
-            </nav>
+        <div className="space-y-6">
+            <Link
+                href={`/user/${sessionUser.id}/order`}
+                className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
+            >
+                <ArrowLeft size={16} aria-hidden /> Mes commandes
+            </Link>
 
             {justOrdered && (
                 <div className="flex items-start gap-4 rounded-3xl bg-bio p-5 text-white md:p-6">
@@ -53,67 +52,98 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                 </div>
             )}
 
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Détail de la commande</h1>
-            <div className="mt-4">
-                <InvoiceDownloadButton orderId={order.id} />
-            </div>
-            <div className="border border-gray-300 rounded-lg p-4 bg-white space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                    <h2 className="text-lg md:text-xl font-semibold">Commande #{order.id}</h2>
-                    <span
-                        className={`text-sm px-2 py-1 rounded-full mt-2 sm:mt-0 ${
-                            order.validated ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                        }`}
-                    >
-                        {order.validated ? "Validée" : "En attente"}
-                    </span>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                        Commande n° {orderNumber(order.id)}
+                    </p>
+                    <h1 className="mt-1 text-2xl font-black first-letter:uppercase md:text-3xl">
+                        {new Date(order.createdAt).toLocaleDateString("fr-FR", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                        })}
+                    </h1>
                 </div>
+                <OrderStatus validated={order.validated} className="text-sm" />
+            </div>
 
-                <p className="text-gray-600">
-                    Date de la commande : {new Date(order.createdAt).toLocaleDateString()}
-                </p>
-                <p className="text-gray-600">Total : {formatPrice(totalAmount)}</p>
-
-                <h3 className="text-lg font-semibold mt-4">Produits :</h3>
-                <ul className="space-y-4">
-                    {order.cart.productsInCart.map((item) => (
-                        <li
-                            key={item.product.id}
-                            className="flex flex-col sm:flex-row items-start sm:items-center bg-gray-50 p-4 rounded-lg shadow-sm"
-                        >
-                            <Image
-                                src={item.product.picture || "/placeholder.png"}
-                                alt={item.product.name}
-                                width={96}
-                                height={96}
-                                className="w-24 h-24 object-cover rounded-lg mb-4 sm:mb-0 sm:mr-4"
-                            />
-                            <div className="flex-1">
-                                <h4 className="text-lg font-semibold">{item.product.name}</h4>
-                                <p className="text-gray-600 text-sm">{item.product.description}</p>
-
-                                <p className="text-gray-700 mt-1">
-                                    <strong>Prix unitaire :</strong> {formatPrice(item.product.price)}
-                                </p>
-                                <p className="text-gray-700">
-                                    <strong>Quantité :</strong> {item.quantity}
-                                </p>
-                                <p className="text-gray-700">
-                                    <strong>Sous-total :</strong>{" "}
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <AccountCard title={`${articleCount} article${articleCount > 1 ? "s" : ""}`}>
+                    <ul className="divide-y">
+                        {items.map((item) => (
+                            <li key={item.product.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
+                                <Link
+                                    href={`/product/${item.product.id}`}
+                                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border bg-white sm:h-20 sm:w-20"
+                                >
+                                    <ProductImage src={item.product.picture} alt={item.product.name} sizes="80px" className="p-1.5" />
+                                </Link>
+                                <div className="min-w-0 flex-1">
+                                    {item.product.brand && (
+                                        <p className="text-[11px] font-extrabold uppercase tracking-wide text-primary">
+                                            {formatBrand(item.product.brand.name)}
+                                        </p>
+                                    )}
+                                    <Link
+                                        href={`/product/${item.product.id}`}
+                                        className="line-clamp-2 font-bold leading-snug hover:underline"
+                                    >
+                                        {item.product.name}
+                                    </Link>
+                                    <p className="mt-0.5 text-sm text-muted-foreground">
+                                        {item.quantity} × {formatPrice(item.product.price)}
+                                    </p>
+                                </div>
+                                <span className="shrink-0 font-black tabular-nums">
                                     {formatPrice(item.product.price * item.quantity)}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </AccountCard>
+
+                <div className="space-y-6 xl:sticky xl:top-[140px]">
+                    <AccountCard title="Récapitulatif">
+                        <dl className="space-y-2.5 text-sm">
+                            <div className="flex justify-between">
+                                <dt className="text-muted-foreground">Sous-total</dt>
+                                <dd className="font-bold">{formatPrice(totalAmount)}</dd>
+                            </div>
+                            <div className="flex justify-between">
+                                <dt className="text-muted-foreground">Préparation de la commande</dt>
+                                <dd className="font-bold text-bio">Offerte</dd>
+                            </div>
+                        </dl>
+                        <div className="mt-4 flex items-end justify-between border-t pt-4">
+                            <span className="font-extrabold">Total</span>
+                            <Price value={totalAmount} size="lg" />
+                        </div>
+                        <div className="mt-5">
+                            <InvoiceDownloadButton orderId={order.id} />
+                        </div>
+                    </AccountCard>
+
+                    <AccountCard title="Retrait" icon={<Store size={18} aria-hidden />}>
+                        <p className="text-sm">
+                            <span className="font-bold">Drive Trinity U Rennes Epitech</span>
+                        </p>
+                        {billing && (
+                            <div className="mt-4 border-t pt-4 text-sm">
+                                <p className="mb-1 flex items-center gap-1.5 font-bold">
+                                    <MapPin size={15} className="text-primary" aria-hidden /> Adresse de facturation
+                                </p>
+                                <p className="text-muted-foreground">
+                                    {billing.street}
+                                    <br />
+                                    {billing.zipCode} {billing.city}, {billing.country}
                                 </p>
                             </div>
-                        </li>
-                    ))}
-                </ul>
+                        )}
+                    </AccountCard>
+                </div>
             </div>
-
-            <Link
-                href={`/user/${userId}/order`}
-                className="inline-block mt-4 text-teal-700 hover:underline"
-            >
-                ← Retour à mes commandes
-            </Link>
         </div>
     );
 }

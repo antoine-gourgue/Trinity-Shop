@@ -1,60 +1,44 @@
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { Phone } from "lucide-react";
+import { requireUser } from "@/lib/account";
+import { AccountCard, AccountHeader } from "@/components/account/account-ui";
 import PhoneModal from "@/app/user/modal/PhoneModal";
 
-export default async function UserPhonePage(props: any) {
-    const { userId } = ((await props.searchParams) ?? {}) as { userId?: string };
+export const dynamic = "force-dynamic";
 
-    if (!userId) return notFound();
+// Numéro stocké sans espaces par react-phone-input-2 (ex. 33612345678)
+function formatPhone(phone: string) {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.startsWith("33") && digits.length === 11) {
+        return `+33 ${digits.slice(2).replace(/(\d)(?=(\d{2})+$)/g, "$1 ")}`;
+    }
+    return /^\d+$/.test(phone) ? `+${phone}` : phone;
+}
 
+export default async function UserPhonePage() {
+    const sessionUser = await requireUser();
     const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-            id: true,
-            phone: true,
-        },
+        where: { id: sessionUser.id },
+        select: { id: true, phone: true },
     });
-
     if (!user) return notFound();
 
     return (
-        <div className="max-w-6xl mx-auto p-6 bg-gray-50 space-y-6">
-            <nav className="text-sm text-gray-600 mb-4">
-                <Link
-                    href={`/user?userId=${user.id}`}
-                    className=" hover:underline"
-                >
-                    Mon espace
-                </Link>
-                {" "} &gt; {" "}
-                <Link
-                    href={`/user/info?userId=${user.id}`}
-                    className="text-teal-700 hover:underline"
-                >
-                    Mes informations
-                </Link>
-                {" "} &gt; {" "}
-                <span className="text-teal-700">Mes numéros de téléphone</span>
-            </nav>
+        <div>
+            <AccountHeader
+                title="Mon téléphone"
+                description="Le numéro de téléphone associé à votre compte."
+            />
 
-            <h1 className="text-3xl font-bold text-gray-900">Mes numéros de téléphone</h1>
-
-            <div className="border border-gray-300 rounded-lg p-4 bg-white relative max-w-md">
-                <h2 className="font-semibold text-gray-800">Mon numéro principal</h2>
-
+            <AccountCard title="Numéro principal" icon={<Phone size={18} aria-hidden />} className="max-w-xl">
                 {user.phone ? (
-                    <p className="text-gray-700 mt-1 text-xl">{user.phone}</p>
+                    <p className="text-2xl font-black tracking-wide">{formatPhone(user.phone)}</p>
                 ) : (
-                    <div className="flex items-center text-teal-700 mt-3 group">
-                        <span className="text-gray-600">
-              Aucun numéro enregistré
-            </span>
-                    </div>
+                    <p className="text-sm text-muted-foreground">Aucun numéro enregistré pour le moment.</p>
                 )}
-
                 <PhoneModal userId={user.id} currentPhone={user.phone} />
-            </div>
+            </AccountCard>
         </div>
     );
 }

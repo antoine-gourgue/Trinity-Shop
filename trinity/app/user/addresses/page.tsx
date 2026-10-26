@@ -1,86 +1,72 @@
 import { notFound } from "next/navigation";
+import { Home, Truck } from "lucide-react";
 import { getUserWithAddresses } from "@/lib/server-actions/users-actions";
-import Link from "next/link";
-
+import { requireUser } from "@/lib/account";
+import { AccountCard, AccountHeader } from "@/components/account/account-ui";
 import AddAddressModal from "@/app/user/modal/AddAddressModal";
 import EditAddressModal from "@/app/user/modal/EditAddressModal";
 import DeleteAddressModal from "@/app/user/modal/DeleteAddressModal";
 
-export default async function UserAddressesPage(props: any) {
-    const raw = await props.searchParams;
-    const userId = raw?.userId;
+export const dynamic = "force-dynamic";
 
-    if (!userId) return notFound();
+const ADDRESS_TYPES = [
+    {
+        type: "domicile" as const,
+        title: "Adresse de domicile",
+        hint: "Utilisée pour vos factures.",
+        icon: Home,
+    },
+    {
+        type: "livraison" as const,
+        title: "Adresse de livraison",
+        hint: "Utilisée pour la livraison à domicile.",
+        icon: Truck,
+    },
+];
 
-    const user = await getUserWithAddresses(userId);
+export default async function UserAddressesPage() {
+    const sessionUser = await requireUser();
+    const user = await getUserWithAddresses(sessionUser.id);
     if (!user) return notFound();
 
-    const domicileAddress = user.addresses.find((addr) => addr.type === "domicile");
-    const livraisonAddress = user.addresses.find((addr) => addr.type === "livraison");
-
     return (
-        <div className="max-w-6xl mx-auto p-6 bg-gray-50 space-y-6">
-            <nav className="text-sm text-gray-600 mb-4">
-                <Link href={`/user?userId=${user.id}`} className="hover:underline">
-                    Mon espace
-                </Link>{" "}
-                &gt;{" "}
-                <Link href={`/user/info?userId=${user.id}`} className="hover:underline">
-                    Mes informations
-                </Link>{" "}
-                &gt; <span className="text-teal-700">Mes adresses</span>
-            </nav>
+        <div>
+            <AccountHeader title="Mes adresses" description="Gérez vos adresses de facturation et de livraison." />
 
-            <h1 className="text-3xl font-bold text-gray-900">Mes adresses</h1>
+            <div className="grid gap-6 xl:grid-cols-2">
+                {ADDRESS_TYPES.map(({ type, title, hint, icon: Icon }) => {
+                    const address = user.addresses.find((addr) => addr.type === type);
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-gray-300 rounded-lg p-4 bg-white relative">
-                    <h2 className="font-semibold text-gray-800 mb-2">Adresse de domicile</h2>
-
-                    {domicileAddress ? (
-                        <>
-                            <div className="absolute top-2 right-2">
-                                <DeleteAddressModal addressId={domicileAddress.id} />
-                            </div>
-
-                            <p className="text-gray-700">{domicileAddress.street}</p>
-                            <p className="text-gray-700">
-                                {domicileAddress.zipCode} {domicileAddress.city}
-                            </p>
-                            <p className="text-gray-700">{domicileAddress.country}</p>
-
-                            <div className="mt-3">
-                                <EditAddressModal address={domicileAddress} />
-                            </div>
-                        </>
-                    ) : (
-                        <AddAddressModal userId={user.id} defaultType="domicile" />
-                    )}
-                </div>
-
-                <div className="border border-gray-300 rounded-lg p-4 bg-white relative">
-                    <h2 className="font-semibold text-gray-800 mb-2">Adresse de livraison</h2>
-
-                    {livraisonAddress ? (
-                        <>
-                            <div className="absolute top-2 right-2">
-                                <DeleteAddressModal addressId={livraisonAddress.id} />
-                            </div>
-
-                            <p className="text-gray-700">{livraisonAddress.street}</p>
-                            <p className="text-gray-700">
-                                {livraisonAddress.zipCode} {livraisonAddress.city}
-                            </p>
-                            <p className="text-gray-700">{livraisonAddress.country}</p>
-
-                            <div className="mt-3">
-                                <EditAddressModal address={livraisonAddress} />
-                            </div>
-                        </>
-                    ) : (
-                        <AddAddressModal userId={user.id} defaultType="livraison" />
-                    )}
-                </div>
+                    return (
+                        <AccountCard key={type} title={title} icon={<Icon size={18} aria-hidden />}>
+                            {address ? (
+                                <>
+                                    <address className="not-italic leading-relaxed">
+                                        <span className="block font-bold">
+                                            {user.firstName} {user.lastName}
+                                        </span>
+                                        {address.street}
+                                        <br />
+                                        {address.zipCode} {address.city}
+                                        <br />
+                                        {address.country}
+                                    </address>
+                                    <div className="mt-5 flex flex-wrap gap-2 border-t pt-4">
+                                        <EditAddressModal address={address} />
+                                        <DeleteAddressModal addressId={address.id} />
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed p-5">
+                                    <p className="text-sm text-muted-foreground">
+                                        Aucune adresse enregistrée. {hint}
+                                    </p>
+                                    <AddAddressModal userId={user.id} defaultType={type} />
+                                </div>
+                            )}
+                        </AccountCard>
+                    );
+                })}
             </div>
         </div>
     );

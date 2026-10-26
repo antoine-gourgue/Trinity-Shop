@@ -3,6 +3,7 @@
 import { useState, FormEvent } from "react";
 import { updateUserAddress } from "@/lib/server-actions/users-actions";
 import { useRouter } from "next/navigation";
+import { Pencil } from "lucide-react";
 
 type Address = {
     id: string;
@@ -56,43 +57,40 @@ export default function EditAddressModal({ address }: Props) {
 
     return (
         <>
-            <button
-                onClick={openModal}
-                className="text-teal-700 hover:underline inline-block mt-2"
-            >
+            <button type="button" onClick={openModal} className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-bold text-primary transition-colors hover:border-primary hover:bg-secondary">
+                <Pencil size={15} aria-hidden />
                 Modifier
             </button>
 
             {open && (
-                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
-                    <div className="bg-white max-w-md w-full p-8 rounded-xl shadow-2xl relative">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                    <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl md:p-8">
                         <button
                             onClick={closeModal}
-                            className="absolute top-4 right-4 text-gray-600 hover:text-black"
+                            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
                             ✕
                         </button>
 
-                        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                            Modifier l'adresse
+                        <h2 className="mb-2 pr-10 text-xl font-black">
+                            Modifier l’adresse
                         </h2>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block mb-1 font-semibold text-gray-800">Rue</label>
+                                <label className="mb-1.5 block text-sm font-bold">Rue</label>
                                 <input
                                     type="text"
                                     required
                                     value={street}
                                     onChange={(e) => setStreet(e.target.value)}
-                                    className="w-full border border-gray-300 rounded px-3 py-2
-                             focus:outline-none focus:ring-2 focus:ring-teal-600"
+                                    className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                 />
                             </div>
 
                             <div className="flex gap-4">
                                 <div className="flex-1">
-                                    <label className="block mb-1 font-semibold text-gray-800">
+                                    <label className="mb-1.5 block text-sm font-bold">
                                         Code postal
                                     </label>
                                     <input
@@ -100,12 +98,11 @@ export default function EditAddressModal({ address }: Props) {
                                         required
                                         value={zipCode}
                                         onChange={(e) => setZipCode(e.target.value)}
-                                        className="w-full border border-gray-300 rounded px-3 py-2
-                               focus:outline-none focus:ring-2 focus:ring-teal-600"
+                                        className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                     />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block mb-1 font-semibold text-gray-800">
+                                    <label className="mb-1.5 block text-sm font-bold">
                                         Ville
                                     </label>
                                     <input
@@ -113,52 +110,47 @@ export default function EditAddressModal({ address }: Props) {
                                         required
                                         value={city}
                                         onChange={(e) => setCity(e.target.value)}
-                                        className="w-full border border-gray-300 rounded px-3 py-2
-                               focus:outline-none focus:ring-2 focus:ring-teal-600"
+                                        className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block mb-1 font-semibold text-gray-800">Pays</label>
+                                <label className="mb-1.5 block text-sm font-bold">Pays</label>
                                 <input
                                     type="text"
                                     required
                                     value={country}
                                     onChange={(e) => setCountry(e.target.value)}
-                                    className="w-full border border-gray-300 rounded px-3 py-2
-                             focus:outline-none focus:ring-2 focus:ring-teal-600"
+                                    className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                 />
                             </div>
 
                             <div>
-                                <label className="block mb-1 font-semibold text-gray-800">
-                                    Type d'adresse
+                                <label className="mb-1.5 block text-sm font-bold">
+                                    Type d’adresse
                                 </label>
                                 <select
                                     value={type}
                                     onChange={(e) => setType(e.target.value as "domicile" | "livraison")}
-                                    className="w-full border border-gray-300 rounded px-3 py-2
-                             focus:outline-none focus:ring-2 focus:ring-teal-600"
+                                    className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                 >
                                     <option value="domicile">Domicile</option>
                                     <option value="livraison">Livraison</option>
                                 </select>
                             </div>
 
-                            <div className="flex justify-end mt-5 gap-4">
+                            <div className="mt-6 flex justify-end gap-3">
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="border border-gray-300 px-4 py-2 rounded-md
-                             text-gray-700 hover:bg-gray-100"
+                                    className="rounded-full border px-5 py-2.5 text-sm font-bold transition-colors hover:bg-muted"
                                 >
                                     Annuler
                                 </button>
                                 <button
                                     type="submit"
-                                    className="bg-teal-700 text-white px-5 py-2 rounded-md
-                             font-semibold hover:bg-teal-800"
+                                    className="rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark"
                                 >
                                     Enregistrer
                                 </button>

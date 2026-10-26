@@ -1,8 +1,8 @@
 "use client";
 
-import { generateInvoice } from "@/lib/server-actions/orders-actions";
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Download, Loader2 } from "lucide-react";
+import { generateInvoice } from "@/lib/server-actions/orders-actions";
 
 interface InvoiceDownloadButtonProps {
     orderId: string;
@@ -10,9 +10,11 @@ interface InvoiceDownloadButtonProps {
 
 export default function InvoiceDownloadButton({ orderId }: InvoiceDownloadButtonProps) {
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(false);
 
     const downloadInvoice = async () => {
-        setLoading(true); // Active le spinner
+        setLoading(true);
+        setError(false);
         try {
             const pdfBase64 = await generateInvoice(orderId);
             const pdfBlob = new Blob([Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))], {
@@ -27,42 +29,30 @@ export default function InvoiceDownloadButton({ orderId }: InvoiceDownloadButton
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error("Erreur lors du téléchargement de la facture :", error);
+        } catch (err) {
+            console.error("Erreur lors du téléchargement de la facture :", err);
+            setError(true);
         } finally {
-            setLoading(false); // Désactive le spinner
+            setLoading(false);
         }
     };
 
     return (
-        <div className="relative">
-            {/* Bouton de téléchargement */}
+        <div>
             <button
+                type="button"
                 onClick={downloadInvoice}
-                className="bg-teal-600 text-white px-4 py-2 rounded-full text-sm hover:bg-teal-700 transition"
                 disabled={loading}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-primary px-5 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground disabled:opacity-60"
             >
-                Télécharger la facture
+                {loading ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Download size={16} aria-hidden />}
+                {loading ? "Préparation de la facture…" : "Télécharger la facture (PDF)"}
             </button>
-
-            {/* Spinner en overlay lorsque `loading` est actif */}
-            <AnimatePresence>
-                {loading && (
-                    <motion.div
-                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                    >
-                        <motion.div
-                            className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"
-                            initial={{ scale: 0.8 }}
-                            animate={{ scale: 1 }}
-                            exit={{ scale: 0.8 }}
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {error && (
+                <p role="alert" className="mt-2 text-center text-xs font-semibold text-destructive">
+                    La facture n’a pas pu être générée. Réessayez.
+                </p>
+            )}
         </div>
     );
 }

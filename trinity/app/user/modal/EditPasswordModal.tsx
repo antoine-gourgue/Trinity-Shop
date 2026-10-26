@@ -3,7 +3,7 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { updateUserPassword } from "@/lib/server-actions/users-actions";
-import { CheckCircle, XCircle, Eye, EyeOff } from "lucide-react";
+import { CheckCircle, XCircle, Eye, EyeOff, Pencil } from "lucide-react";
 
 type EditPasswordModalProps = {
     userId: string;
@@ -89,35 +89,36 @@ export default function EditPasswordModal({ userId }: EditPasswordModalProps) {
 
     return (
         <>
-            <button onClick={openModal} className="text-teal-700 hover:underline">
+            <button type="button" onClick={openModal} className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-bold text-primary transition-colors hover:border-primary hover:bg-secondary">
+                <Pencil size={15} aria-hidden />
                 Modifier
             </button>
 
             {open && (
-                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
-                    <div className="bg-white rounded-lg max-w-sm w-full p-6 relative">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                    <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl md:p-8">
                         <button
                             onClick={closeModal}
-                            className="absolute top-3 right-3 text-gray-600 hover:text-black"
+                            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
                             ✕
                         </button>
 
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">
+                        <h2 className="mb-2 pr-10 text-xl font-black">
                             Modifier mon mot de passe
                         </h2>
 
-                        <p className="text-gray-700 text-sm mb-5">
+                        <p className="mb-5 text-sm text-muted-foreground">
                             Veuillez entrer votre ancien mot de passe et confirmer le nouveau.
                         </p>
 
                         {error && (
-                            <div className="text-red-600 text-sm mb-3">{error}</div>
+                            <div className="mb-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive">{error}</div>
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block font-semibold text-gray-800 mb-1">
+                                <label className="mb-1.5 block text-sm font-bold">
                                     Ancien mot de passe
                                 </label>
                                 <input
@@ -125,12 +126,12 @@ export default function EditPasswordModal({ userId }: EditPasswordModalProps) {
                                     required
                                     value={currentPassword}
                                     onChange={(e) => setCurrentPassword(e.target.value)}
-                                    className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-teal-600"
+                                    className="h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                                 />
                             </div>
 
                             <div className="relative">
-                                <label className="block font-semibold text-gray-800 mb-1">
+                                <label className="mb-1.5 block text-sm font-bold">
                                     Nouveau mot de passe
                                 </label>
                                 <div className="relative">
@@ -140,31 +141,31 @@ export default function EditPasswordModal({ userId }: EditPasswordModalProps) {
                                         value={newPassword}
                                         onChange={(e) => handlePasswordChange(e.target.value)}
                                         onBlur={() => setTouchedNewPassword(true)}
-                                        className={`w-full border ${touchedNewPassword && !isPasswordValid ? 'border-red-500' : isPasswordValid ? 'border-green-500' : 'border-gray-300'} px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-teal-600`}
+                                        className={`h-11 w-full rounded-xl border bg-white ${touchedNewPassword && !isPasswordValid ? 'border-red-500' : isPasswordValid ? 'border-green-500' : 'border-input'} px-3 pr-16 text-sm outline-none focus:ring-2 focus:ring-primary/20`}
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowNewPassword(!showNewPassword)}
-                                        className="absolute right-3 top-2.5 text-gray-600 hover:text-black"
+                                        className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
                                     >
                                         {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                     </button>
 
                                     {touchedNewPassword && isPasswordValid && (
-                                        <CheckCircle className="absolute right-10 top-2.5 text-green-500" size={20} />
+                                        <CheckCircle className="absolute right-10 top-3 text-green-500" size={20} />
                                     )}
                                     {touchedNewPassword && !isPasswordValid && newPassword && (
-                                        <XCircle className="absolute right-10 top-2.5 text-red-500" size={20} />
+                                        <XCircle className="absolute right-10 top-3 text-red-500" size={20} />
                                     )}
                                 </div>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="mt-1 text-xs text-muted-foreground">
                                     Le mot de passe doit contenir au moins :
                                     <br />- 8 caractères, une majuscule et un chiffre.
                                 </p>
                             </div>
 
                             <div className="relative">
-                                <label className="block font-semibold text-gray-800 mb-1">
+                                <label className="mb-1.5 block text-sm font-bold">
                                     Confirmer le nouveau mot de passe
                                 </label>
                                 <div className="relative">
@@ -174,40 +175,40 @@ export default function EditPasswordModal({ userId }: EditPasswordModalProps) {
                                         value={confirmPassword}
                                         onChange={(e) => handleConfirmPasswordChange(e.target.value)}
                                         onBlur={() => setTouchedConfirmPassword(true)}
-                                        className={`w-full border ${touchedConfirmPassword && !isPasswordMatch ? 'border-red-500' : isPasswordMatch ? 'border-green-500' : 'border-gray-300'} px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-teal-600`}
+                                        className={`h-11 w-full rounded-xl border bg-white ${touchedConfirmPassword && !isPasswordMatch ? 'border-red-500' : isPasswordMatch ? 'border-green-500' : 'border-input'} px-3 pr-16 text-sm outline-none focus:ring-2 focus:ring-primary/20`}
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute right-3 top-2.5 text-gray-600 hover:text-black"
+                                        className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
                                     >
                                         {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                     </button>
 
                                     {touchedConfirmPassword && isPasswordMatch && (
-                                        <CheckCircle className="absolute right-10 top-2.5 text-green-500" size={20} />
+                                        <CheckCircle className="absolute right-10 top-3 text-green-500" size={20} />
                                     )}
                                     {touchedConfirmPassword && !isPasswordMatch && confirmPassword && (
-                                        <XCircle className="absolute right-10 top-2.5 text-red-500" size={20} />
+                                        <XCircle className="absolute right-10 top-3 text-red-500" size={20} />
                                     )}
                                 </div>
                             </div>
 
-                            <div className="flex justify-end space-x-3 pt-2">
+                            <div className="mt-6 flex justify-end gap-3">
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+                                    className="rounded-full border px-5 py-2.5 text-sm font-bold transition-colors hover:bg-muted"
                                 >
                                     Annuler
                                 </button>
 
                                 <button
                                     type="submit"
-                                    className={`px-4 py-2 rounded-md font-semibold ${
+                                    className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${
                                         isPasswordValid && isPasswordMatch && currentPassword
-                                            ? "bg-teal-600 text-white hover:bg-teal-700"
-                                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                            ? "bg-primary text-primary-foreground hover:bg-brand-dark"
+                                            : "cursor-not-allowed bg-muted text-muted-foreground"
                                     }`}
                                     disabled={!isPasswordValid || !isPasswordMatch || !currentPassword}
                                 >
