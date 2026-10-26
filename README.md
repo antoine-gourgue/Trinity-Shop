@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/antoine-gourgue/Trinity-Shop/actions/workflows/ci.yml/badge.svg)](https://github.com/antoine-gourgue/Trinity-Shop/actions/workflows/ci.yml)
 
-Supermarché en ligne de type « drive » : le client remplit son panier dans un catalogue de plus de 1 300 produits réels issus d'[Open Food Facts](https://world.openfoodfacts.org), choisit le retrait au drive ou la livraison à domicile sur un créneau d'une heure, puis paie (paiement simulé). Un back-office permet de suivre les commandes, le catalogue, les stocks et les clients.
+Supermarché en ligne de type « drive » : le client remplit son panier dans un catalogue de plus de 1 300 produits réels issus d'[Open Food Facts](https://world.openfoodfacts.org), choisit le retrait au drive ou la livraison à domicile sur un créneau d'une heure, puis paie par carte via Stripe, en mode test. Un back-office permet de suivre les commandes, le catalogue, les stocks et les clients.
 
-> Le paiement est une démonstration : aucune donnée bancaire n'est demandée et aucun débit n'est effectué.
+> Le paiement passe par [Stripe](https://stripe.com) en mode test (carte `4242 4242 4242 4242`) : aucun débit réel n'est effectué. Sans clé Stripe, le paiement est simulé.
 
 ## Aperçu
 
@@ -144,6 +144,8 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 | `NEXTAUTH_SECRET` | Clé de signature des sessions (`openssl rand -base64 32`) |
 | `RESEND_API_KEY` | Facultatif : e-mails de bienvenue, de confirmation de commande et de réinitialisation du mot de passe (sans clé, le lien de réinitialisation s'affiche dans la console en développement) |
 | `APP_URL` | Facultatif : URL publique du site (liens des e-mails, URL canoniques, Open Graph, sitemap, robots.txt) ; à défaut, le domaine de production Vercel, sinon `http://localhost:3000` |
+| `STRIPE_SECRET_KEY` | Facultatif : clé secrète Stripe (`sk_test_…`) pour le paiement par carte ; sans clé, le paiement est simulé |
+| `STRIPE_WEBHOOK_SECRET` | Facultatif : secret du webhook Stripe (`whsec_…`) envoyé à `/api/payments/stripe/webhook`, pour créer la commande même si le client ne revient pas sur le site |
 | `SEED_ADMIN_PASSWORD` | Mot de passe du compte administrateur créé par le seed (12 caractères au moins) ; inutile en production |
 
 ## Commandes

@@ -1,0 +1,115 @@
+/**
+ * @jest-environment node
+ */
+import prisma from "@/lib/prisma";
+import { auth } from "@/auth";
+import { checkAvailability } from "@/lib/orders/place-order";
+import { stripeClient } from "@/lib/payments/stripe";
+import { startCheckout, type StartCheckoutInput } from "@/lib/server-actions/payment-actions";
+
+jest.mock("@/lib/prisma", () => ({
+    cart: { findFirst: jest.fn() },
+    address: { findUnique: jest.fn() },
+    user: { findUnique: jest.fn() },
+}));
+
+jest.mock("@/lib/payments/stripe", () => ({
+    ...jest.requireActual<typeof import("@/lib/payments/stripe")>("@/lib/payments/stripe"),
+    stripeClient: jest.fn(),
+}));
+
+jest.mock("@/lib/orders/place-order", () => ({
+    ...jest.requireActual<typeof import("@/lib/orders/place-order")>("@/lib/orders/place-order"),
+    checkAvailability: jest.fn(),
+}));
+
+// Paramètres de la session lus tels quels : on vérifie leur forme avec toMatchObject
+const sessionsCreate = jest.fn<Promise<{ url: string | null }>, [unknown]>();
+const couponsCreate = jest.fn();
+const fakeStripe = { checkout: { sessions: { create: sessionsCreate } }, coupons: { create: couponsCreate } };
+
+const INPUT: StartCheckoutInput = {
+    pickupSlot: "2099-06-02_10",
+    fulfillment: "delivery",
+    shippingAddressId: "address1",
+    loyaltyVouchers: 1,
+    returnPath: "/cart/paiement?creneau=2099-06-02_10&mode=livraison&adresse=address1",
+};
+
+const CART = {
+    id: "cart1",
+    productsInCart: [
+        { quantity: 2, product: { name: "Lait", price: 1190, picture: "/products/1.jpg" } },
+        { quantity: 1, product: { name: "Café", price: 4590, picture: "/products/2.jpg" } },
+    ],
+};
+
+describe("startCheckout", () => {
+    beforeEach(() => {
+        (stripeClient as jest.Mock).mockReturnValue(fakeStripe);
+        (auth as jest.Mock).mockResolvedValue({ user: { id: "user1", email: "jane@example.com" } });
+        (prisma.cart.findFirst as jest.Mock).mockResolvedValue(CART);
+        (prisma.address.findUnique as jest.Mock).mockResolvedValue({ userId: "user1" });
+        (prisma.user.findUnique as jest.Mock).mockResolvedValue({ loyaltyNumber: "1234", loyaltyPoints: 250 });
+        (checkAvailability as jest.Mock).mockResolvedValue(null);
+        couponsCreate.mockResolvedValue({ id: "coupon1" });
+        sessionsCreate.mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/cs_test_1" });
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it("keeps the simulated payment when Stripe is not configured", async () => {
+        (stripeClient as jest.Mock).mockReturnValue(null);
+
+        await expect(startCheckout(INPUT)).resolves.toEqual({ mode: "simulated" });
+        expect(sessionsCreate).not.toHaveBeenCalled();
+    });
+
+    it("sends the cart, the delivery fee and the loyalty discount to Stripe", async () => {
+        await expect(startCheckout(INPUT)).resolves.toEqual({ mode: "stripe", url: "https://checkout.stripe.com/c/pay/cs_test_1" });
+
+        // Bon de 5 € en remise, livraison de 5,90 € (articles sous 60 €), prix en centimes
+        expect(couponsCreate).toHaveBeenCalledWith({ amount_off: 500, currency: "eur", duration: "once", name: "Bons Carte Trinity" });
+        const [params] = sessionsCreate.mock.calls[0];
+        expect(params).toMatchObject({
+            mode: "payment",
+            customer_email: "jane@example.com",
+            discounts: [{ coupon: "coupon1" }],
+            line_items: [
+                { quantity: 2, price_data: { currency: "eur", unit_amount: 119, product_data: { name: "Lait" } } },
+                { quantity: 1, price_data: { currency: "eur", unit_amount: 459, product_data: { name: "Café" } } },
+                { quantity: 1, price_data: { currency: "eur", unit_amount: 590, product_data: { name: "Livraison à domicile" } } },
+            ],
+            metadata: { userId: "user1", cartId: "cart1", fulfillment: "delivery", shippingAddressId: "address1", loyaltyVouchers: "1" },
+            success_url: "http://localhost:3000/api/payments/stripe/confirm?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url: `http://localhost:3000${INPUT.returnPath}`,
+        });
+    });
+
+    it("refuses to charge a cart that can no longer be prepared", async () => {
+        (checkAvailability as jest.Mock).mockResolvedValue({ code: "out_of_stock", products: ["Lait"] });
+
+        const result = await startCheckout(INPUT);
+
+        expect(result).toEqual({ mode: "error", error: "Stock insuffisant pour : Lait. Modifiez ces articles dans votre panier." });
+        expect(sessionsCreate).not.toHaveBeenCalled();
+    });
+
+    it("refuses a delivery address of another customer", async () => {
+        (prisma.address.findUnique as jest.Mock).mockResolvedValue({ userId: "someone-else" });
+
+        await expect(startCheckout(INPUT)).resolves.toMatchObject({ mode: "error" });
+        expect(sessionsCreate).not.toHaveBeenCalled();
+    });
+
+    it("refuses vouchers the customer cannot afford", async () => {
+        (prisma.user.findUnique as jest.Mock).mockResolvedValue({ loyaltyNumber: "1234", loyaltyPoints: 50 });
+
+        await expect(startCheckout(INPUT)).resolves.toEqual({
+            mode: "error",
+            error: "Votre solde Carte Trinity ne couvre plus ces bons de réduction.",
+        });
+    });
+});

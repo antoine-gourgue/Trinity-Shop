@@ -17,6 +17,25 @@ import { formatSlot, parseFulfillmentParams, parseSlotParam, saveFulfillment, sa
 import { getMyAddresses } from "@/lib/server-actions/checkout-actions";
 import { deliveryFee, formatAddressLine } from "@/lib/delivery";
 import { formatPrice } from "@/lib/format";
+import { getPaymentMode, startCheckout } from "@/lib/server-actions/payment-actions";
+import { orderFailureMessage, type PaymentFailure } from "@/lib/orders/order-messages";
+
+// Motifs renvoyés par la page de retour Stripe quand le paiement n'a pas abouti
+const PAYMENT_FAILURES: PaymentFailure[] = [
+    "unpaid",
+    "invalid",
+    "slot_full",
+    "out_of_stock",
+    "not_enough_points",
+    "invalid_delivery_address",
+    "cart_empty",
+    "cart_not_found",
+    "cart_forbidden",
+];
+
+function paymentFailure(value: string | null): PaymentFailure | null {
+    return PAYMENT_FAILURES.find((failure) => failure === value) ?? null;
+}
 import { z } from "zod";
 
 // Réponse de POST /api/orders : seul l'identifiant de la commande sert à la redirection
@@ -56,8 +75,21 @@ function PaiementContent() {
     const [cartId, setCartId] = useState<string | null>(null);
     const [paying, setPaying] = useState(false);
     const [paymentError, setPaymentError] = useState<string | null>(null);
+    const [paymentMode, setPaymentMode] = useState<"stripe" | "simulated" | null>(null);
+    const returnedFailure = paymentFailure(searchParams.get("paiement"));
     // Adresse de livraison choisie à l'étape précédente, relue pour l'afficher
     const [address, setAddress] = useState<Awaited<ReturnType<typeof getMyAddresses>>[number] | null>(null);
+
+    useEffect(() => {
+        getPaymentMode().then(setPaymentMode);
+    }, []);
+
+    // Retour de Stripe sans commande : le motif est expliqué (remboursement compris le cas échéant)
+    useEffect(() => {
+        if (!returnedFailure) return;
+        const refunded = returnedFailure !== "unpaid" && returnedFailure !== "invalid";
+        setPaymentError(`${orderFailureMessage(returnedFailure)}${refunded ? " Votre paiement a été remboursé." : ""}`);
+    }, [returnedFailure]);
 
     const hasSlot = slot !== null;
     useEffect(() => {
@@ -86,7 +118,36 @@ function PaiementContent() {
     const fee = delivery ? deliveryFee(totalPrice) : 0;
     const amountToPay = totalPrice - loyaltyDiscount + fee;
 
-    // Paiement simulé : même flux de commande que PayPal, sans transaction réelle
+    // Paiement par carte : redirection vers la page de paiement Stripe ; sans Stripe, paiement simulé
+    const handlePayment = async () => {
+        setPaymentError(null);
+        if (!slot) return;
+        setPaying(true);
+        // Page à retrouver en cas d'abandon, sans un éventuel motif d'échec précédent
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("paiement");
+        const result = await startCheckout({
+            pickupSlot: slotParam(slot),
+            fulfillment: fulfillment.mode,
+            shippingAddressId: delivery ? fulfillment.addressId : null,
+            loyaltyVouchers: usedVouchers,
+            returnPath: `/cart/paiement?${params.toString()}`,
+        });
+        if (result.mode === "stripe") {
+            saveSlot(null);
+            saveFulfillment(null);
+            window.location.href = result.url;
+            return;
+        }
+        setPaying(false);
+        if (result.mode === "error") {
+            setPaymentError(result.error);
+            return;
+        }
+        await handleSimulatedPayment();
+    };
+
+    // Paiement simulé : même flux de commande, sans transaction réelle
     const handleSimulatedPayment = async () => {
         setPaymentError(null);
         if (!userId || !cartId || !slot) {
@@ -267,8 +328,18 @@ function PaiementContent() {
                         <p className="mt-4 flex items-start gap-2 rounded-2xl bg-highlight/25 px-4 py-3 text-sm">
                             <Lock size={16} className="mt-0.5 shrink-0 text-brand-dark" aria-hidden />
                             <span>
-                                <span className="font-bold">Paiement de démonstration.</span> Aucune donnée bancaire n’est
-                                demandée et aucun débit n’est effectué : la commande est validée directement.
+                                {paymentMode === "stripe" ? (
+                                    <>
+                                        <span className="font-bold">Paiement sécurisé par Stripe, en mode test.</span> Utilisez la
+                                        carte 4242 4242 4242 4242, une date d’expiration future et n’importe quel code : aucun débit
+                                        réel n’est effectué.
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="font-bold">Paiement de démonstration.</span> Aucune donnée bancaire n’est
+                                        demandée et aucun débit n’est effectué : la commande est validée directement.
+                                    </>
+                                )}
                             </span>
                         </p>
                     </section>
@@ -305,7 +376,7 @@ function PaiementContent() {
                 >
                     <button
                         type="button"
-                        onClick={handleSimulatedPayment}
+                        onClick={handlePayment}
                         disabled={paying || !cartId}
                         className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-6 font-bold text-primary-foreground transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
                     >

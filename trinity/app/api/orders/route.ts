@@ -2,10 +2,9 @@ import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse, after } from 'next/server';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
-import { SLOT_CAPACITY, parseSlotParam, slotToDate } from "@/lib/checkout";
+import { parseSlotParam, slotToDate } from "@/lib/checkout";
 import { auth } from "@/auth";
-import { orderNumber } from "@/lib/account";
-import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
+import { placeOrder, type PlaceOrderError } from "@/lib/orders/place-order";
 import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
 import { sendOrderConfirmation } from "@/lib/order-emails";
@@ -22,13 +21,23 @@ const orderBodySchema = z.object({
     loyaltyVouchers: optionalField(z.number().int()),
 });
 
-class InvalidVouchersError extends Error {}
-class SlotFullError extends Error {}
-
-// Articles dont le stock ne suffit plus au moment de commander
-class OutOfStockError extends Error {
-    constructor(readonly products: string[]) {
-        super("Out of stock");
+// Refus du passage de commande, traduits en réponses de l'API
+function orderErrorResponse(error: PlaceOrderError) {
+    switch (error.code) {
+        case "invalid_delivery_address":
+            return NextResponse.json({ error: "Invalid delivery address" }, { status: 400 });
+        case "cart_not_found":
+            return NextResponse.json({ error: "Cart not found" }, { status: 404 });
+        case "cart_forbidden":
+            return NextResponse.json({ error: "This cart does not belong to the specified user" }, { status: 403 });
+        case "cart_empty":
+            return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
+        case "not_enough_points":
+            return NextResponse.json({ error: "Not enough loyalty points" }, { status: 400 });
+        case "slot_full":
+            return NextResponse.json({ error: "Pickup slot full" }, { status: 409 });
+        case "out_of_stock":
+            return NextResponse.json({ error: "Out of stock", products: error.products }, { status: 409 });
     }
 }
 
@@ -96,7 +105,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Invalid order" }, { status: 400 });
         }
         const { userId, cartId } = body;
-        let { billingAddressId } = body;
 
         // Créneau de retrait facultatif (« 2026-10-28_18 ») : accepté seulement s'il est à venir
         const slot = typeof body.pickupSlot === "string" ? parseSlotParam(body.pickupSlot) : null;
@@ -118,156 +126,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        // Livraison à domicile : l'adresse doit appartenir au client (les frais sont calculés à l'affichage)
-        let shippingAddressId: string | null = null;
-        if (body.fulfillment === "delivery") {
-            const requested = body.shippingAddressId;
-            const address = requested
-                ? await prisma.address.findUnique({ where: { id: requested }, select: { userId: true } })
-                : null;
-            if (!requested || address?.userId !== userId) {
-                return NextResponse.json({ error: "Invalid delivery address" }, { status: 400 });
-            }
-            shippingAddressId = requested;
-        }
-
-        // Bons Carte Trinity demandés (100 points = 5 €), vérifiés plus bas dans la transaction
-        const requestedVouchers = Math.max(0, body.loyaltyVouchers ?? 0);
-
-        // Adresse de facturation résolue côté serveur : la session peut être
-        // antérieure à la création d'une adresse, et un nouveau compte n'en a pas
-        if (!billingAddressId) {
-            const existingAddress = await prisma.address.findFirst({
-                where: { userId },
-                orderBy: { createdAt: "asc" },
-            });
-
-            if (existingAddress) {
-                billingAddressId = existingAddress.id;
-            } else {
-                const defaultAddress = await prisma.address.create({
-                    data: {
-                        userId,
-                        type: "domicile",
-                        street: "1 rue de la Démonstration",
-                        city: "Anglet",
-                        zipCode: "64600",
-                        country: "France",
-                    },
-                });
-                billingAddressId = defaultAddress.id;
-            }
-        }
-
-        const cart = await prisma.cart.findUnique({
-            where: { id: cartId },
-            include: { productsInCart: { include: { product: { select: { price: true, name: true } } } } },
+        const result = await placeOrder({
+            userId,
+            cartId,
+            billingAddressId: body.billingAddressId,
+            pickupSlot,
+            // Livraison à domicile : l'adresse doit appartenir au client (les frais sont calculés à l'affichage)
+            delivery: body.fulfillment === "delivery" ? { shippingAddressId: body.shippingAddressId } : null,
+            // Bons Carte Trinity demandés (100 points = 5 €), vérifiés dans la transaction
+            loyaltyVouchers: body.loyaltyVouchers ?? 0,
         });
-
-        if (!cart) {
-            return NextResponse.json({ error: "Cart not found" }, { status: 404 });
-        }
-
-        if (cart.userId !== userId) {
-            return NextResponse.json(
-                { error: "This cart does not belong to the specified user" },
-                { status: 403 }
-            );
-        }
-
-        if (cart.productsInCart.length === 0) {
-            return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
-        }
-
-        const total = cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
-
-        const order = await prisma.$transaction(async (prisma) => {
-            const user = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { loyaltyNumber: true, loyaltyPoints: true },
-            });
-            const hasCard = !!user?.loyaltyNumber;
-
-            // Créneau complet : le nombre de commandes par heure est limité
-            if (pickupSlot && (await prisma.order.count({ where: { pickupSlot, status: { not: "cancelled" } } })) >= SLOT_CAPACITY) {
-                throw new SlotFullError();
-            }
-
-            // Stock décompté article par article : la mise à jour n'aboutit que si la quantité suffit,
-            // et une seule rupture annule toute la transaction
-            const missing: string[] = [];
-            for (const item of cart.productsInCart) {
-                const { count } = await prisma.stock.updateMany({
-                    where: { productId: item.productId, quantity: { gte: item.quantity } },
-                    data: { quantity: { decrement: item.quantity } },
-                });
-                if (count === 0) missing.push(item.product.name);
-            }
-            if (missing.length > 0) throw new OutOfStockError(missing);
-
-            if (requestedVouchers > 0 && (!hasCard || requestedVouchers > maxVouchers(user.loyaltyPoints, total))) {
-                throw new InvalidVouchersError();
-            }
-            const loyaltyDiscount = requestedVouchers * VOUCHER_VALUE;
-            const loyaltyPointsUsed = requestedVouchers * POINTS_PER_VOUCHER;
-            const loyaltyPointsEarned = hasCard ? pointsForAmount(total - loyaltyDiscount) : 0;
-
-            const newOrder = await prisma.order.create({
-                data: {
-                    userId,
-                    cartId,
-                    billingAddressId,
-                    shippingAddressId,
-                    pickupSlot,
-                    loyaltyDiscount,
-                    loyaltyPointsUsed,
-                    loyaltyPointsEarned,
-                    validated: true,
-                    stockDeducted: true,
-                },
-            });
-
-            await prisma.cart.update({
-                where: { id: cartId },
-                data: { archived: true },
-            });
-
-            // Solde et historique de la Carte Trinity
-            if (hasCard && (loyaltyPointsUsed > 0 || loyaltyPointsEarned > 0)) {
-                const number = orderNumber(newOrder.id);
-                await prisma.user.update({
-                    where: { id: userId },
-                    data: { loyaltyPoints: { increment: loyaltyPointsEarned - loyaltyPointsUsed } },
-                });
-                await prisma.loyaltyTransaction.createMany({
-                    data: [
-                        ...(loyaltyPointsUsed > 0
-                            ? [{ userId, orderId: newOrder.id, points: -loyaltyPointsUsed, label: `Bon de réduction, commande n° ${number}` }]
-                            : []),
-                        ...(loyaltyPointsEarned > 0
-                            ? [{ userId, orderId: newOrder.id, points: loyaltyPointsEarned, label: `Points gagnés, commande n° ${number}` }]
-                            : []),
-                    ],
-                });
-            }
-
-            return newOrder;
-        });
+        if (!result.ok) return orderErrorResponse(result.error);
 
         // E-mail de confirmation envoyé après la réponse, sans retarder la commande
-        after(() => sendOrderConfirmation(order.id));
+        after(() => sendOrderConfirmation(result.order.id));
 
-        return NextResponse.json({ data: order }, { status: 201 });
+        return NextResponse.json({ data: result.order }, { status: 201 });
     } catch (error) {
-        if (error instanceof InvalidVouchersError) {
-            return NextResponse.json({ error: "Not enough loyalty points" }, { status: 400 });
-        }
-        if (error instanceof SlotFullError) {
-            return NextResponse.json({ error: "Pickup slot full" }, { status: 409 });
-        }
-        if (error instanceof OutOfStockError) {
-            return NextResponse.json({ error: "Out of stock", products: error.products }, { status: 409 });
-        }
         if (error instanceof Error) {
             console.error("Error creating order:", error.message);
             return NextResponse.json(

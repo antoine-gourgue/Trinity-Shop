@@ -61,7 +61,7 @@ const SECTIONS: { title: string; questions: { question: string; answer: React.Re
       {
         question: "Quels sont les moyens de paiement acceptés ?",
         answer:
-          "La carte bancaire (CB, Visa, Mastercard). Trinity Shop est un projet de démonstration : le paiement est simulé, aucune donnée bancaire n’est demandée et aucun débit n’est effectué.",
+          "La carte bancaire (CB, Visa, Mastercard), sur la page de paiement sécurisée de Stripe. Trinity Shop est un projet de démonstration : Stripe fonctionne en mode test, avec la carte 4242 4242 4242 4242, et aucun débit réel n’est effectué.",
       },
       {
         question: "Comment suivre ma commande ?",
