@@ -62,16 +62,20 @@
       },
 
       async session({ session, token }) {
-        session.user = {
-          ...session.user,
-          id: token.id,
-          email: token.email,
-          firstName: token.firstName,
-          lastName: token.lastName,
-          role: token.role,
-          cartId: token.cartId,
-          billingAddress: token.billingAddress,
-        };
+        const { id, email, firstName, lastName, role } = token;
+        // Le jeton est complété à la connexion : sans ces champs, la session reste celle par défaut
+        if (id && email && firstName !== undefined && lastName !== undefined && role) {
+          session.user = {
+            ...session.user,
+            id,
+            email,
+            firstName,
+            lastName,
+            role,
+            cartId: token.cartId ?? null,
+            billingAddress: token.billingAddress ?? null,
+          };
+        }
         return session;
       },
     },
