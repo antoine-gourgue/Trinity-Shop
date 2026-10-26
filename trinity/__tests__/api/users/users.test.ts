@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import { isUserLoggedIn } from "@/services/auth/IsUserLoggedIn";
 import { buildRequest } from '@/test-utils/requests';
 import { PUBLIC_USER } from '@/lib/public-user';
+import { hitRateLimit } from '@/lib/rate-limit';
 
 jest.mock('@/lib/prisma', () => ({
     user: {
@@ -32,6 +33,12 @@ jest.mock("@/services/auth/guards", () => ({
     canAccessUser: jest.fn().mockResolvedValue(true),
     canAccessOrder: jest.fn().mockResolvedValue(true),
     canAccessCart: jest.fn().mockResolvedValue(true),
+}));
+
+// Limitation des inscriptions : autorisée par défaut, un test la déclenche
+jest.mock('@/lib/rate-limit', () => ({
+    ...jest.requireActual<typeof import('@/lib/rate-limit')>('@/lib/rate-limit'),
+    hitRateLimit: jest.fn().mockResolvedValue(true),
 }));
 
 jest.mock('resend', () => ({
@@ -115,6 +122,20 @@ describe('API: /api/users', () => {
                 { status: 201 }
             );
             expect(JSON.stringify(jsonMock.mock.calls)).not.toContain('password123');
+        });
+
+        it('should return 429 when too many accounts are created from the same address', async () => {
+            (hitRateLimit as jest.Mock).mockResolvedValueOnce(false);
+            const jsonMock = jest.spyOn(NextResponse, 'json');
+            const req = buildRequest('/api/users', {
+                method: 'POST',
+                body: { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', password: 'password123' },
+            });
+
+            await createUser(req);
+
+            expect(prisma.user.create).not.toHaveBeenCalled();
+            expect(jsonMock).toHaveBeenCalledWith({ error: 'Too many signups, try again later' }, { status: 429 });
         });
 
         it('should return 409 if the email is already used', async () => {

@@ -6,6 +6,7 @@ import bcrypt from "bcrypt";
 import prisma from "@/lib/prisma";
 import { requestPasswordResetAction, resetPasswordAction } from "@/lib/server-actions/password-reset-actions";
 import { INVALID_RESET_LINK } from "@/schemas/passwordResetSchema";
+import { hitRateLimit } from "@/lib/rate-limit";
 import { createResetToken, isPasswordResetLinkValid, PASSWORD_RESET_TTL_MS } from "@/services/auth/passwordReset";
 
 jest.mock("@/lib/prisma", () => ({
@@ -25,6 +26,16 @@ jest.mock("next/server", () => ({
 
 type SentEmail = { from: string; to: string[]; subject: string };
 const mockSend = jest.fn<Promise<{ error: null }>, [SentEmail]>();
+// En-têtes de la requête et limitation des demandes : autorisées par défaut, un test la déclenche
+jest.mock("next/headers", () => ({
+    headers: jest.fn(async () => new Headers({ "x-forwarded-for": "203.0.113.7" })),
+}));
+
+jest.mock("@/lib/rate-limit", () => ({
+    ...jest.requireActual<typeof import("@/lib/rate-limit")>("@/lib/rate-limit"),
+    hitRateLimit: jest.fn().mockResolvedValue(true),
+}));
+
 jest.mock("resend", () => ({
     Resend: jest.fn(() => ({ emails: { send: mockSend } })),
 }));
@@ -86,6 +97,16 @@ afterAll(() => {
 });
 
 describe("requestPasswordResetAction", () => {
+    it("refuses new requests once the limit is reached, without looking up the account", async () => {
+        (hitRateLimit as jest.Mock).mockResolvedValueOnce(false);
+
+        const result = await requestPasswordResetAction({ email: "jane@example.com" });
+
+        expect(result).toEqual({ ok: false, error: "Trop de demandes. Réessayez dans une heure." });
+        expect(hitRateLimit).toHaveBeenCalledWith("reset:jane@example.com", expect.objectContaining({ limit: 3 }));
+        expect(db.findUser).not.toHaveBeenCalled();
+    });
+
     it("gives the usual answer without creating a link when no account matches", async () => {
         db.findUser.mockResolvedValue(null);
         process.env.RESEND_API_KEY = "re_test";

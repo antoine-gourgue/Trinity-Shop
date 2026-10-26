@@ -8,6 +8,7 @@ import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
 import { PUBLIC_USER } from "@/lib/public-user";
 import { EmailAlreadyUsed } from "@/services/auth/errors";
+import { RATE_LIMITS, clientIp, hitRateLimit } from "@/lib/rate-limit";
 
 // Inscription : le détail des règles (e-mail, longueur du mot de passe) est vérifié par createUserSchema
 const signupBodySchema = z.object({
@@ -51,6 +52,10 @@ export async function POST(request: NextRequest) {
     if (!parsedUser.success) {
         const message = parsedUser.error.issues[0]?.message ?? 'Invalid signup data';
         return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    if (!(await hitRateLimit(`signup-ip:${clientIp(request.headers)}`, RATE_LIMITS.signupIp))) {
+        return NextResponse.json({ error: 'Too many signups, try again later' }, { status: 429 });
     }
 
     try {

@@ -4,7 +4,8 @@
   import signinUser from "./services/auth/signinUser";
   import { signinUserSchema } from "./schemas/signinUserSchema";
   import { createUserSchema } from "./schemas/createUserSchema";
-  import { InvalidSignupData } from "./services/auth/errors";
+  import { InvalidSignupData, TooManyAttempts } from "./services/auth/errors";
+  import { RATE_LIMITS, clearRateLimit, clientIp, hitRateLimit } from "./lib/rate-limit";
   import prisma from "./lib/prisma";
 
   export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -17,7 +18,9 @@
           lastName: {},
           role: {},
         },
-        authorize: async (credentials) => {
+        authorize: async (credentials, request) => {
+          const ip = clientIp(request.headers);
+
           if (!credentials.firstName) {
             const parsedUser = signinUserSchema.safeParse(credentials);
 
@@ -25,7 +28,16 @@
               return null;
             }
 
-            return signinUser(parsedUser.data);
+            // Tentatives limitées par adresse e-mail et par IP, contre le test de mots de passe en masse
+            const emailKey = `signin:${parsedUser.data.email.toLowerCase()}`;
+            const allowed =
+              (await hitRateLimit(emailKey, RATE_LIMITS.signinEmail)) &&
+              (await hitRateLimit(`signin-ip:${ip}`, RATE_LIMITS.signinIp));
+            if (!allowed) throw new TooManyAttempts();
+
+            const user = await signinUser(parsedUser.data);
+            if (user) await clearRateLimit(emailKey);
+            return user;
           }
 
           const parsedUser = createUserSchema.safeParse(credentials);
@@ -33,6 +45,8 @@
           if (!parsedUser.success) {
             throw new InvalidSignupData();
           }
+
+          if (!(await hitRateLimit(`signup-ip:${ip}`, RATE_LIMITS.signupIp))) throw new TooManyAttempts();
 
           return createUserRepository(parsedUser.data);
         },

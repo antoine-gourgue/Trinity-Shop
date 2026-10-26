@@ -3,6 +3,7 @@ const MESSAGES: Record<string, string> = {
   credentials: "E-mail ou mot de passe incorrect.",
   email_taken: "Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou utilisez une autre adresse.",
   invalid_signup: "Certaines informations sont invalides, vérifiez le formulaire.",
+  rate_limited: "Trop de tentatives. Patientez quelques minutes avant de réessayer.",
 };
 
 export function authErrorMessage(code?: string | null) {

@@ -8,3 +8,7 @@ export class EmailAlreadyUsed extends CredentialsSignin {
 export class InvalidSignupData extends CredentialsSignin {
   code = "invalid_signup";
 }
+
+export class TooManyAttempts extends CredentialsSignin {
+  code = "rate_limited";
+}

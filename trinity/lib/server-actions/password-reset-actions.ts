@@ -9,6 +9,8 @@ import {
   type ResetPasswordInput,
 } from "@/schemas/passwordResetSchema";
 import { requestPasswordReset, resetPassword } from "@/services/auth/passwordReset";
+import { headers } from "next/headers";
+import { RATE_LIMITS, clientIp, hitRateLimit } from "@/lib/rate-limit";
 
 // Parcours « mot de passe oublié ». Ces actions sont publiques (l'utilisateur n'est pas connecté) :
 // les données reçues sont toujours revalidées ici, quel que soit le contrôle fait dans le navigateur.
@@ -29,7 +31,13 @@ export async function requestPasswordResetAction(input: ForgotPasswordInput): Pr
   if (!parsed.success) return fail(firstIssue(parsed.error));
 
   try {
-    // Point d'accroche de la limitation de débit (par adresse et par IP) : avant cet appel
+    // Demandes limitées par adresse et par IP ; la limite s'applique qu'un compte existe ou non
+    const ip = clientIp(await headers());
+    const allowed =
+      (await hitRateLimit(`reset:${parsed.data.email.toLowerCase()}`, RATE_LIMITS.resetEmail)) &&
+      (await hitRateLimit(`reset-ip:${ip}`, RATE_LIMITS.resetIp));
+    if (!allowed) return fail("Trop de demandes. Réessayez dans une heure.");
+
     await requestPasswordReset(parsed.data.email);
   } catch (error) {
     console.error("Demande de réinitialisation impossible :", error);

@@ -83,8 +83,7 @@ async function issueResetLink(user: ResetRecipient) {
   await sendPasswordResetEmail(user, passwordResetUrl(user.email, token));
 }
 
-// Demande d'un lien de réinitialisation, appelée par la server action. Point d'accroche de la
-// future limitation de débit : elle se branchera ici ou juste avant l'appel.
+// Demande d’un lien de réinitialisation, appelée par la server action (qui limite le nombre de demandes).
 // Le résultat ne dépend jamais de l'existence du compte (pas d'énumération des comptes).
 export async function requestPasswordReset(email: string): Promise<void> {
   const user = await prisma.user.findUnique({
