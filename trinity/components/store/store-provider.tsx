@@ -26,9 +26,17 @@ const StoreMap = dynamic(() => import("@/components/store/store-map"), {
 interface StoreContextValue {
   store: StoreSummary | null;
   openStorePicker: () => void;
+  // État de la fenêtre de choix, affichée par StorePickerDialog
+  pickerOpen: boolean;
+  setPickerOpen: (open: boolean) => void;
 }
 
-const StoreContext = createContext<StoreContextValue>({ store: null, openStorePicker: () => undefined });
+const StoreContext = createContext<StoreContextValue>({
+  store: null,
+  openStorePicker: () => undefined,
+  pickerOpen: false,
+  setPickerOpen: () => undefined,
+});
 
 // Magasin du visiteur, et ouverture de la fenêtre de choix depuis n'importe quel bouton
 export function useStoreChoice() {
@@ -54,27 +62,34 @@ function rememberAsked() {
   }
 }
 
+// Le fournisseur n'enveloppe que la page : la fenêtre est rendue à part (StorePickerDialog). Rendue ici,
+// à côté de la page, elle décalait les identifiants générés par React (useId) entre le serveur et le
+// navigateur sur les pages diffusées en plusieurs morceaux (accueil, recherche).
 export default function StoreProvider({ store, children }: { store: StoreSummary | null; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
     if (store || pathname.startsWith("/auth") || alreadyAsked()) return;
     rememberAsked();
-    setOpen(true);
+    setPickerOpen(true);
   }, [store, pathname]);
 
-  const value = useMemo(() => ({ store, openStorePicker: () => setOpen(true) }), [store]);
+  const value = useMemo(() => ({ store, openStorePicker: () => setPickerOpen(true), pickerOpen, setPickerOpen }), [store, pickerOpen]);
+
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+}
+
+// Fenêtre de choix du magasin, placée une fois dans l'habillage des pages
+export function StorePickerDialog() {
+  const { store, pickerOpen, setPickerOpen } = useStoreChoice();
 
   return (
-    <StoreContext.Provider value={value}>
-      {children}
-      <ResponsiveDialog open={open} onOpenChange={setOpen}>
-        <ResponsiveDialogContent className="flex max-h-[92vh] flex-col gap-0 p-0 md:h-[85vh] md:max-w-5xl">
-          {open && <StorePicker current={store} onChosen={() => setOpen(false)} />}
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
-    </StoreContext.Provider>
+    <ResponsiveDialog open={pickerOpen} onOpenChange={setPickerOpen}>
+      <ResponsiveDialogContent className="flex max-h-[92vh] flex-col gap-0 p-0 md:h-[85vh] md:max-w-5xl">
+        {pickerOpen && <StorePicker current={store} onChosen={() => setPickerOpen(false)} />}
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
 

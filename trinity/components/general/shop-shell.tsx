@@ -4,7 +4,7 @@ import RayonsNav from "@/components/general/rayons-nav";
 import Footer from "@/components/general/footer";
 import { RAYON_LINKS } from "@/lib/rayons";
 import { Toaster } from "@/components/ui/toaster";
-import StoreProvider from "@/components/store/store-provider";
+import StoreProvider, { StorePickerDialog } from "@/components/store/store-provider";
 import { currentStore } from "@/lib/current-store";
 
 // Habillage commun des pages boutique : magasin du visiteur, en-tête, menu des rayons et pied de page
@@ -22,6 +22,7 @@ export default async function ShopShell({ children }: { children: React.ReactNod
         <main className="flex-1">{children}</main>
         <Footer rayons={RAYON_LINKS} />
         <Toaster />
+        <StorePickerDialog />
       </div>
     </StoreProvider>
   );
