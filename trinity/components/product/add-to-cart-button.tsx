@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useSession } from "next-auth/react";
+import { getSession, useSession } from "next-auth/react";
 import Link from "next/link";
 import { CircleCheck, Loader2, Minus, Plus, ShoppingBasket } from "lucide-react";
 import { useCart } from "@/app/contexts/CartContext";
@@ -26,7 +26,7 @@ export default function AddToCartButton({
   disabled,
   className,
 }: AddToCartButtonProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [isPending, startTransition] = useTransition();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const { cartProducts, addProductToCart, handleUpdateProductQuantity } = useCart();
@@ -35,12 +35,14 @@ export default function AddToCartButton({
   const large = size === "lg";
 
   const handleAdd = () => {
-    if (!session) {
-      setIsLoginModalOpen(true);
-      return;
-    }
-
     startTransition(async () => {
+      // Clic juste après l'affichage, session encore en chargement : on la demande au serveur plutôt
+      // que d'ouvrir la fenêtre de connexion à un client connecté
+      const signedIn = status === "loading" ? !!(await getSession()) : !!session;
+      if (!signedIn) {
+        setIsLoginModalOpen(true);
+        return;
+      }
       try {
         await addProductToCart(productId, 1);
         toast({

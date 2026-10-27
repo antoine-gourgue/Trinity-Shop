@@ -36,7 +36,7 @@ test("un réassort à date courte passe en anti-gaspi, le magasin prépare la co
   await expect(page.getByText("Ajouté à prix anti-gaspi").first()).toBeVisible();
   await page.goto("/cart");
   // Remise selon la date du lot le plus proche du produit (−40 % à deux jours, plus la veille)
-  await expect(page.getByText(/Anti-gaspi −\d+ % sur 1/)).toBeVisible();
+  await expect(page.getByRole("main").getByText(/Anti-gaspi −\d+ % sur 1/)).toBeVisible();
   await page.getByRole("link", { name: "Valider mon panier" }).first().click();
   await page.getByRole("button", { name: /^\d+h – \d+h$/ }).first().click();
   await page.getByRole("button", { name: "Continuer vers le paiement" }).click();
@@ -47,21 +47,22 @@ test("un réassort à date courte passe en anti-gaspi, le magasin prépare la co
   const orderPath = new URL(page.url()).pathname;
   const orderId = orderPath.split("/").pop() ?? "";
 
-  // L'équipe prépare la commande, qui devient prête au drive
+  // L'équipe prépare la commande, qui devient prête au drive. Les textes sont cherchés dans la page
+  // affichée (main) : pendant le chargement, Next garde des morceaux de page cachés à côté
   await shop.goto(`/admin/preparation/${orderId}`);
-  await expect(shop.getByText(/Anti-gaspi : prendre 1 à date courte/)).toBeVisible();
+  await expect(shop.getByRole("main").getByText(/Anti-gaspi : prendre 1 à date courte/)).toBeVisible();
   await shop.getByRole("button", { name: "Prélevé" }).click();
-  await expect(shop.getByText("1 article traité sur 1")).toBeVisible();
+  await expect(shop.getByRole("main").getByText("1 article traité sur 1")).toBeVisible();
   await shop.getByRole("button", { name: "Valider la préparation" }).click();
   await shop.getByRole("dialog").getByRole("button", { name: "Valider" }).click();
   await expect(shop).toHaveURL(/\/admin\/preparation$/);
 
   // Le client arrive sur le parking et indique sa place
   await page.goto(orderPath);
-  await expect(page.getByText("Vous êtes arrivé au drive ?")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Vous êtes arrivé au drive ?")).toBeVisible();
   await page.getByRole("radio", { name: "Place 3" }).click();
   await page.getByRole("button", { name: "Je suis arrivé, place n° 3" }).click();
-  await expect(page.getByText("C’est noté, nous arrivons !")).toBeVisible();
+  await expect(page.getByRole("main").getByText("C’est noté, nous arrivons !")).toBeVisible();
 
   // Le drive le voit sur le parking et lui remet ses courses
   await shop.goto("/admin/drive");

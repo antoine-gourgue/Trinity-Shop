@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { getSession, useSession } from "next-auth/react";
 import { CircleCheck, Loader2, Recycle } from "lucide-react";
 import { useCart } from "@/app/contexts/CartContext";
 import LoginModal from "@/components/modal/LoginModal";
@@ -20,18 +20,21 @@ interface AddAntiGaspiButtonProps {
 
 // Ajoute au panier un article à date courte, au prix anti-gaspi
 export default function AddAntiGaspiButton({ lotId, productName, size = "md", className }: AddAntiGaspiButtonProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { refreshCart } = useCart();
   const [pending, startTransition] = useTransition();
   const [loginOpen, setLoginOpen] = useState(false);
   const large = size === "lg";
 
   const add = () => {
-    if (!session) {
-      setLoginOpen(true);
-      return;
-    }
     startTransition(async () => {
+      // Clic juste après l'affichage, session encore en chargement : on la demande au serveur plutôt
+      // que d'ouvrir la fenêtre de connexion à un client connecté
+      const signedIn = status === "loading" ? !!(await getSession()) : !!session;
+      if (!signedIn) {
+        setLoginOpen(true);
+        return;
+      }
       const result = await addAntiGaspiToCart(lotId);
       if (!result.ok) {
         toast({ variant: "destructive", description: result.error });
