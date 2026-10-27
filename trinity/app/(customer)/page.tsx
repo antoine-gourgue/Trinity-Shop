@@ -18,7 +18,7 @@ import { discountPercent, formatPrice } from "@/lib/format";
 import { pickupDays, pickupHours } from "@/lib/checkout";
 import { FREE_DELIVERY_FROM } from "@/lib/delivery";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE } from "@/lib/loyalty";
-import { withStorePrices } from "@/lib/store-prices";
+import { applyStorePromotion, storePromotions } from "@/lib/store-prices";
 import { runningProspectus } from "@/lib/prospectus";
 import { formatProspectusDates, formatProspectusLastDay, prospectusBanner } from "@/lib/prospectus-rules";
 
@@ -76,7 +76,9 @@ export default async function HomePage({
   if (legacyQuery) redirect(`/produits?q=${encodeURIComponent(legacyQuery)}`);
 
   const [session, store] = await Promise.all([auth(), currentStore()]);
-  const [storeCount, favorites, saveurs, nutriA, bio, matLou, promoPrices] = await Promise.all([
+  // Une seule vague de requêtes : les prix des prospectus du magasin sont lus une fois, puis appliqués
+  // en mémoire à chaque section (le changement de magasin attend ce rendu)
+  const [storeCount, favorites, saveurs, nutriA, bio, matLou, promoPrices, promotions, storeProspectus, antiGaspiOffers] = await Promise.all([
     prisma.store.count(),
     favoriteProducts(session?.user?.id),
     productsWhere({ brand: { name: "u-saveurs" } }),
@@ -88,23 +90,20 @@ export default async function HomePage({
       where: { ...VISIBLE_PRODUCT, regularPrice: { not: null } },
       select: { id: true, name: true, picture: true, price: true, regularPrice: true, netContent: true, promoEndsAt: true },
     }),
+    storePromotions(store?.id),
+    store ? runningProspectus(store.id) : null,
+    // Dates courtes du magasin choisi, à prix réduit
+    store ? storeOffers(store.id) : [],
   ]);
   // Prix du magasin du client dans les sections de produits (prospectus en cours)
-  const [favoriteList, saveursList, nutriAList, bioList, matLouList, storeProspectus] = await Promise.all([
-    withStorePrices(favorites, store?.id),
-    withStorePrices(saveurs, store?.id),
-    withStorePrices(nutriA, store?.id),
-    withStorePrices(bio, store?.id),
-    withStorePrices(matLou, store?.id),
-    store ? runningProspectus(store.id) : null,
-  ]);
+  const atStorePrice = <T extends { id: string; price: number; regularPrice: number | null; promoEndsAt: Date | null }>(products: T[]) =>
+    products.map((product) => applyStorePromotion(product, promotions.get(product.id)));
+  const [favoriteList, saveursList, nutriAList, bioList, matLouList] = [favorites, saveurs, nutriA, bio, matLou].map(atStorePrice);
   // Promotions nationales, les plus fortes remises d'abord : les trois premières sur la bannière, les
   // suivantes au prospectus (quand le magasin n'a pas le sien)
   const topPromos: ProspectusItem[] = promoPrices
     .map((product) => ({ ...product, regularPrice: product.regularPrice ?? product.price, percent: discountPercent(product.price, product.regularPrice) ?? 0 }))
     .sort((a, b) => b.percent - a.percent);
-  // Dates courtes du magasin choisi, à prix réduit
-  const antiGaspiOffers = store ? await storeOffers(store.id) : [];
   const antiGaspi = antiGaspiOffers.slice(0, SECTION_SIZE);
   const topAntiGaspi = [...antiGaspiOffers].sort((a, b) => b.percent - a.percent);
   // Premier retrait possible : le prochain jour d'ouverture, au premier créneau

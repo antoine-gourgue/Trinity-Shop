@@ -17,12 +17,14 @@ export function runningProspectusWhere(storeId: string, now = new Date()) {
   return { storeId, publishedAt: { not: null }, startsAt: { lte: now }, endsAt: { gt: now } } satisfies Prisma.ProspectusWhereInput;
 }
 
-// Prix promo du magasin pour ces produits ; un produit présent dans deux prospectus prend le plus bas
-export async function storePromotions(storeId: string | null | undefined, productIds: string[], now = new Date()) {
+// Prix promo du magasin pour ces produits (sans liste : tous ceux de ses prospectus en cours, quelques
+// dizaines au plus, à appliquer ensuite en mémoire) ; un produit présent dans deux prospectus prend le
+// plus bas
+export async function storePromotions(storeId: string | null | undefined, productIds?: string[], now = new Date()) {
   const promotions = new Map<string, StorePromotion>();
-  if (!storeId || productIds.length === 0) return promotions;
+  if (!storeId || productIds?.length === 0) return promotions;
   const items = await prisma.prospectusItem.findMany({
-    where: { productId: { in: [...new Set(productIds)] }, prospectus: runningProspectusWhere(storeId, now) },
+    where: { ...(productIds && { productId: { in: [...new Set(productIds)] } }), prospectus: runningProspectusWhere(storeId, now) },
     select: { productId: true, price: true, prospectus: { select: { id: true, endsAt: true } } },
   });
   for (const item of items) {

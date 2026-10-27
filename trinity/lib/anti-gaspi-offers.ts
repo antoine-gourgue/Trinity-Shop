@@ -52,14 +52,17 @@ export interface AntiGaspiOffer {
 
 // Offres du magasin, les dates les plus proches d'abord (un produit n'apparaît qu'une fois)
 export async function storeOffers(storeId: string, now = new Date(), take?: number): Promise<AntiGaspiOffer[]> {
-  const lots = await prisma.stockLot.findMany({
-    where: onSaleWhere(storeId, now),
-    orderBy: [{ bestBefore: "asc" }, { createdAt: "asc" }],
-    select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true, product: { select: OFFER_PRODUCT } },
-  });
+  // Remise appliquée au prix du magasin (un produit peut y être en prospectus) : les prix de ses
+  // prospectus sont lus en même temps que les lots
+  const [lots, promotions] = await Promise.all([
+    prisma.stockLot.findMany({
+      where: onSaleWhere(storeId, now),
+      orderBy: [{ bestBefore: "asc" }, { createdAt: "asc" }],
+      select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true, product: { select: OFFER_PRODUCT } },
+    }),
+    storePromotions(storeId, undefined, now),
+  ]);
 
-  // Remise appliquée au prix du magasin (un produit peut y être en prospectus)
-  const promotions = await storePromotions(storeId, lots.map((lot) => lot.product.id), now);
   const seen = new Set<string>();
   const offers: AntiGaspiOffer[] = [];
   for (const { product: listed, ...lot } of lots) {

@@ -96,11 +96,13 @@ export function StorePickerDialog() {
 type Located = { status: "idle" } | { status: "locating" } | { status: "located"; position: Coordinates } | { status: "failed" };
 
 function StorePicker({ current, onChosen }: { current: StoreSummary | null; onChosen: () => void }) {
-  const router = useRouter();
   const [stores, setStores] = useState<StoreSummary[] | null>(null);
   const [query, setQuery] = useState("");
   const [located, setLocated] = useState<Located>({ status: "idle" });
+  const router = useRouter();
   const [choosing, setChoosing] = useState<string | null>(null);
+  // Magasin enregistré, en attente de la page recalculée
+  const [chosen, setChosen] = useState<StoreSummary | null>(null);
   // Magasin mis en avant (liste ↔ carte) et vue affichée sur mobile
   const [focused, setFocused] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "map">("list");
@@ -147,20 +149,42 @@ function StorePicker({ current, onChosen }: { current: StoreSummary | null; onCh
     );
   };
 
+  // La réponse de l'action contient la page recalculée pour le nouveau magasin (revalidatePath), qui
+  // arrive juste après le résultat : la fenêtre reste ouverte, avec son message de chargement, jusqu'à
+  // ce que la page affiche ce magasin. Pas de second rendu.
   const choose = (store: StoreSummary) => {
+    if (choosing) return;
     setChoosing(store.slug);
     startTransition(async () => {
       const result = await chooseStore(store.slug);
-      setChoosing(null);
       if (!result.ok) {
+        setChoosing(null);
         toast({ variant: "destructive", description: result.error });
         return;
       }
-      onChosen();
-      router.refresh();
-      toast({ title: "Votre magasin", description: `${result.store.name}, ${result.store.city}`, duration: 3000 });
+      setChosen(result.store);
     });
   };
+
+  // Nouvelle page reçue (le magasin affiché est celui choisi) : la fenêtre se ferme sur une page à jour.
+  // Par sécurité, sans nouvelle page au bout de 10 s, elle se ferme et la page est rechargée.
+  useEffect(() => {
+    if (!chosen) return;
+    const done = () => {
+      onChosen();
+      toast({ title: "Votre magasin", description: `${chosen.name}, ${chosen.city}`, duration: 3000 });
+    };
+    if (current?.slug === chosen.slug) {
+      done();
+      return;
+    }
+    const fallback = setTimeout(() => {
+      done();
+      router.refresh();
+    }, 10_000);
+    return () => clearTimeout(fallback);
+  }, [chosen, current, onChosen, router]);
+  const choosingStore = choosing ? stores?.find((store) => store.slug === choosing) : undefined;
 
   return (
     <>
@@ -196,6 +220,13 @@ function StorePicker({ current, onChosen }: { current: StoreSummary | null; onCh
       </div>
       {located.status === "failed" && (
         <p className="px-5 pt-2 text-sm text-destructive">Position indisponible : cherchez plutôt votre ville ou votre code postal.</p>
+      )}
+      {/* Pendant le changement : prix, stocks et offres du nouveau magasin se chargent */}
+      {choosingStore && (
+        <p role="status" className="mx-5 mt-3 flex items-center gap-2 rounded-2xl bg-secondary px-4 py-2.5 text-sm font-semibold text-primary">
+          <Loader2 size={16} className="shrink-0 animate-spin" aria-hidden />
+          Chargement des prix et des offres de {choosingStore.name}…
+        </p>
       )}
 
       {/* Mobile : liste ou carte ; ordinateur : les deux côte à côte */}
