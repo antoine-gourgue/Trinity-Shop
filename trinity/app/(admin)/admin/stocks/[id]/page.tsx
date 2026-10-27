@@ -88,8 +88,13 @@ export default async function StockPage({ params }: { params: Promise<{ id: stri
         <StatCard label="Lots en rayon" value={openLots.length} hint="Les clients reçoivent les dates les plus longues" icon={Layers} />
         <StatCard
           label="Date la plus proche"
-          value={nearest ? formatBestBefore(nearest) : "—"}
-          hint={nearest ? daysLeftLabel(daysLeft(nearest)) : "Aucun lot ouvert"}
+          // Date courte en grand (la carte est étroite), jour de la semaine en dessous
+          value={nearest ? nearest.toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "short" }) : "—"}
+          hint={
+            nearest
+              ? `${nearest.toLocaleDateString("fr-FR", { timeZone: "UTC", weekday: "long" })} · ${daysLeftLabel(daysLeft(nearest))}`
+              : "Aucun lot ouvert"
+          }
           icon={CalendarClock}
           tone={nearest && daysLeft(nearest) <= 2 ? "promo" : "brand"}
         />
