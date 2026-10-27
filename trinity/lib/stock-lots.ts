@@ -87,13 +87,22 @@ export async function addLot(tx: Tx, { storeId, productId, quantity, bestBefore,
   return lot;
 }
 
+export interface StockCount {
+  storeId: string;
+  productId: string;
+  quantity: number;
+  shelfLife: number;
+  // Date des unités trouvées en plus, lue sur le produit ; sinon la date habituelle du produit
+  bestBefore?: Date;
+}
+
 // Stock compté en rayon : les unités en trop sont retirées des dates les plus courtes, les unités
-// trouvées en plus entrent comme un lot à la date habituelle du produit
-export async function setStockQuantity(tx: Tx, { storeId, productId, quantity, shelfLife }: { storeId: string; productId: string; quantity: number; shelfLife: number }) {
+// trouvées en plus entrent comme un lot
+export async function setStockQuantity(tx: Tx, { storeId, productId, quantity, shelfLife, bestBefore }: StockCount) {
   const stock = await tx.storeStock.findUnique({ where: { storeId_productId: { storeId, productId } }, select: { quantity: true } });
   const difference = quantity - (stock?.quantity ?? 0);
   if (difference > 0) {
-    await addLot(tx, { storeId, productId, quantity: difference, bestBefore: bestBeforeIn(shelfLife), shelfLife });
+    await addLot(tx, { storeId, productId, quantity: difference, bestBefore: bestBefore ?? bestBeforeIn(shelfLife), shelfLife });
   } else if (difference < 0) {
     await takeFromLots(tx, { storeId, productId, quantity: -difference, outcome: "adjusted", order: "oldest" });
     await tx.storeStock.update({ where: { storeId_productId: { storeId, productId } }, data: { quantity } });

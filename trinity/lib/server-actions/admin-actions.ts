@@ -8,6 +8,7 @@ import prisma from "@/lib/prisma";
 import { restock } from "@/lib/stock";
 import { releaseAllocations, setStockQuantity } from "@/lib/stock-lots";
 import { bestBeforeIn, markdownWindow, shelfLifeDays } from "@/lib/shelf-life";
+import { bestBeforeFromDay, daysLeft } from "@/lib/anti-gaspi";
 import { promoEndFromDay, rearmFavoritePromoAlerts } from "@/lib/promotions";
 import { canCancelOrder, nextOrderStatus } from "@/lib/order-status";
 import { isBarcode } from "@/lib/barcode";
@@ -263,21 +264,38 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
 
 // ——— Stocks ———
 
-// Stock d'un produit dans un magasin
-export async function updateStockQuantity(stockId: string, quantity: number): Promise<AdminResult> {
+const countSchema = z.object({
+  quantity: z.number().int("Indiquez une quantité entière.").min(0, "La quantité ne peut pas être négative.").max(100000, "100 000 unités au plus."),
+  bestBefore: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date limite invalide.").nullable(),
+});
+
+// Correction après comptage en rayon : les unités manquantes sortent des dates les plus courtes ; des
+// unités trouvées en plus entrent comme un lot, à la date lue sur le produit
+export async function correctStockCount(stockId: string, input: z.infer<typeof countSchema>): Promise<AdminResult> {
   // Siège, ou compte du magasin de ce stock
   await requireStockManagement(stockId);
-  if (!Number.isInteger(quantity) || quantity < 0 || quantity > 100000) {
-    return fail("Indiquez une quantité entière entre 0 et 100 000.");
-  }
+  const parsed = countSchema.safeParse(input);
+  if (!parsed.success) return fail(firstIssue(parsed.error));
   const stock = await prisma.storeStock.findUnique({
     where: { id: stockId },
-    select: { storeId: true, productId: true, product: { select: { shelfLifeDays: true } } },
+    select: { storeId: true, productId: true, quantity: true, product: { select: { shelfLifeDays: true } } },
   });
   if (!stock) return fail("Stock introuvable.");
-  // Comptage en rayon : les lots suivent (unités retirées des dates les plus courtes, ou lot ajouté)
+
+  let bestBefore: Date | undefined;
+  if (parsed.data.quantity > stock.quantity) {
+    if (!parsed.data.bestBefore) return fail("Indiquez la date limite des unités trouvées en plus.");
+    bestBefore = bestBeforeFromDay(parsed.data.bestBefore);
+    if (daysLeft(bestBefore) < 1) return fail("La date limite des unités trouvées doit être postérieure à aujourd'hui.");
+  }
   await prisma.$transaction((tx) =>
-    setStockQuantity(tx, { storeId: stock.storeId, productId: stock.productId, quantity, shelfLife: stock.product.shelfLifeDays })
+    setStockQuantity(tx, {
+      storeId: stock.storeId,
+      productId: stock.productId,
+      quantity: parsed.data.quantity,
+      shelfLife: stock.product.shelfLifeDays,
+      bestBefore,
+    })
   );
   revalidatePath("/admin", "layout");
   return { ok: true };

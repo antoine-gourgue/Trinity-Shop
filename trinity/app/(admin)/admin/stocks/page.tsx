@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Boxes, PackageX, Pencil } from "lucide-react";
+import { AlertTriangle, Boxes, ChevronRight, PackageX, Pencil } from "lucide-react";
 import { LOW_STOCK, STOCK_FILTERS, getAdminStocks, parseAdminParams } from "@/lib/admin/queries";
 import { formatBrand } from "@/lib/format";
 import { AdminPageHeader, AdminPagination, AdminTable, Badge, EmptyState, Panel, StatCard, Td, Th, adminHref, formatDate } from "@/components/admin/admin-ui";
 import { AdminFilterTabs, AdminSearch, AdminSelectFilter } from "@/components/admin/admin-toolbar";
 import { ProductThumb, StockBadge } from "@/components/admin/admin-bits";
-import StockEditor from "@/components/admin/stock-editor";
 import { backOfficePage } from "@/lib/admin/access";
 import { daysLeft, daysLeftLabel, formatBestBefore } from "@/lib/anti-gaspi";
 
@@ -36,8 +35,8 @@ export default async function AdminStocksPage({
         title="Stocks"
         description={
           store
-            ? `Stock de ${store.name}, par lots datés. Ouvrez un produit pour voir ses lots, leurs commandes et le réassort.`
-            : "Stock de chaque magasin, par lots datés. Choisissez un magasin, puis ouvrez un produit pour voir ses lots."
+            ? `Stock de ${store.name}, par lots datés. Ouvrez un produit pour voir ses lots, leurs commandes, son réassort, et le corriger après comptage.`
+            : "Stock de chaque magasin, par lots datés. Choisissez un magasin, puis ouvrez un produit pour voir ses lots et le corriger après comptage."
         }
       />
 
@@ -85,7 +84,7 @@ export default async function AdminStocksPage({
                   <Th>Disponible</Th>
                   <Th>Date la plus proche</Th>
                   <Th>Mis à jour</Th>
-                  <Th className="text-right">Ajuster le stock</Th>
+                  <Th className="text-right">Lots</Th>
                 </tr>
               </thead>
               <tbody>
@@ -127,12 +126,13 @@ export default async function AdminStocksPage({
                     <Td className="whitespace-nowrap text-muted-foreground">{formatDate(stock.updatedAt, true)}</Td>
                     <Td>
                       <div className="flex items-center justify-end gap-2">
-                        <StockEditor
-                          key={`${stock.id}-${stock.quantity}`}
-                          stockId={stock.id}
-                          quantity={stock.quantity}
-                          productName={`${stock.product.name} (${stock.store.name})`}
-                        />
+                        <Link
+                          href={`/admin/stocks/${stock.id}`}
+                          aria-label={`Voir les lots de ${stock.product.name}`}
+                          className="flex h-9 items-center gap-1 whitespace-nowrap rounded-full border bg-white pl-3 pr-2 text-xs font-bold text-primary transition-colors hover:border-primary hover:bg-secondary"
+                        >
+                          Voir les lots <ChevronRight size={14} aria-hidden />
+                        </Link>
                         {!store && (
                           <Link
                             href={`/admin/products/${stock.product.id}`}
