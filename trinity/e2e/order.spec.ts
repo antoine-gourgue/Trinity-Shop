@@ -61,7 +61,8 @@ test("un client commande au drive, l'équipe prépare puis annule la commande", 
   await expect(admin.getByText("2 articles traités sur 2")).toBeVisible();
   await expect(admin.getByText(/À rembourser au client/)).toBeVisible();
   await admin.goto(`/admin/orders/${orderId}`);
-  await expect(admin.getByText(/1 manquant · remboursé/)).toBeVisible();
+  // .first() : le badge est aussi présent dans une copie masquée de la page
+  await expect(admin.getByText(/1 manquant · remboursé/).first()).toBeVisible();
   await admin.getByRole("button", { name: "Annuler la commande" }).first().click();
   await admin.getByRole("dialog").getByRole("button", { name: "Annuler la commande" }).click();
   await expect(admin.getByText("Annulée").first()).toBeVisible();

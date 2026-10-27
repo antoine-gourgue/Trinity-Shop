@@ -41,18 +41,21 @@ interface PickingListProps {
 // et un produit équivalent peut le remplacer si le client l'accepte
 export default function PickingList({ orderId, lines, editable, refunded }: PickingListProps) {
   const router = useRouter();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  // Une action à la fois : les clics rapides s'enchaînent au lieu de se croiser
+  const [lastLine, setLastLine] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const summary = preparationSummary(lines);
   const treated = lines.length - summary.pending;
 
+  // L'action recharge elle-même la page (revalidatePath) ; en cas de refus, on relit la commande
   const run = (lineId: string, action: () => Promise<PreparationResult>) => {
-    setBusy(lineId);
+    setLastLine(lineId);
     startTransition(async () => {
       const result = await action();
-      setBusy(null);
-      if (!result.ok) toast({ variant: "destructive", description: result.error });
-      router.refresh();
+      if (!result.ok) {
+        toast({ variant: "destructive", description: result.error });
+        router.refresh();
+      }
     });
   };
 
@@ -68,7 +71,14 @@ export default function PickingList({ orderId, lines, editable, refunded }: Pick
               {lines
                 .filter((line) => line.rayon === rayon)
                 .map((line) => (
-                  <PickingItem key={line.id} line={line} editable={editable} busy={busy === line.id} run={run} />
+                  <PickingItem
+                    key={line.id}
+                    line={line}
+                    editable={editable}
+                    pending={pending}
+                    busy={pending && lastLine === line.id}
+                    run={run}
+                  />
                 ))}
             </ul>
           </section>
@@ -98,7 +108,7 @@ export default function PickingList({ orderId, lines, editable, refunded }: Pick
               trigger={
                 <button
                   type="button"
-                  disabled={!summary.done}
+                  disabled={!summary.done || pending}
                   className="flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Check size={16} aria-hidden /> Valider la préparation
@@ -127,11 +137,15 @@ export default function PickingList({ orderId, lines, editable, refunded }: Pick
 function PickingItem({
   line,
   editable,
+  pending,
   busy,
   run,
 }: {
   line: PickingLine;
   editable: boolean;
+  // Une action est en cours sur la commande
+  pending: boolean;
+  // Cette action porte sur cet article
   busy: boolean;
   run: (lineId: string, action: () => Promise<PreparationResult>) => void;
 }) {
@@ -173,7 +187,7 @@ function PickingItem({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            disabled={busy}
+            disabled={pending}
             onClick={() => prepare(line.quantity)}
             className={cn(
               "flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-bold transition-colors disabled:opacity-60",
@@ -187,7 +201,7 @@ function PickingItem({
               <button
                 type="button"
                 aria-label="Un de moins"
-                disabled={busy || prepared === 0}
+                disabled={pending || prepared === 0}
                 onClick={() => prepare(Math.max(0, (treated ? prepared : line.quantity) - 1))}
                 className="flex h-10 w-10 items-center justify-center rounded-full disabled:opacity-40"
               >
@@ -199,7 +213,7 @@ function PickingItem({
               <button
                 type="button"
                 aria-label="Un de plus"
-                disabled={busy || (treated && prepared === line.quantity)}
+                disabled={pending || (treated && prepared === line.quantity)}
                 onClick={() => prepare(Math.min(line.quantity, (treated ? prepared : 0) + 1))}
                 className="flex h-10 w-10 items-center justify-center rounded-full disabled:opacity-40"
               >
@@ -209,7 +223,7 @@ function PickingItem({
           )}
           <button
             type="button"
-            disabled={busy}
+            disabled={pending}
             onClick={() => prepare(0)}
             className={cn(
               "flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-bold transition-colors disabled:opacity-60",
@@ -235,7 +249,7 @@ function PickingItem({
               {editable && (
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={pending}
                   onClick={() => run(line.id, () => setSubstitute(line.id, null))}
                   className="flex items-center gap-1 font-bold text-promo hover:underline"
                 >
@@ -270,7 +284,7 @@ function PickingItem({
                     <li key={option.id}>
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={pending}
                         onClick={() => run(line.id, () => setSubstitute(line.id, option.id))}
                         className="flex w-full items-center gap-3 rounded-2xl border bg-white p-2 text-left transition-colors hover:border-primary"
                       >

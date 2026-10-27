@@ -153,7 +153,8 @@ describe("finishPreparation", () => {
 
         // Beurre manquant (25,00 €) et lait remplacé moins cher (2,00 €)
         expect(refundPreparation).toHaveBeenCalledWith("cs_test_1", 2700);
-        expect((prisma.order.updateMany as jest.Mock).mock.calls[0][0]).toMatchObject({
+        const [[update]] = (prisma.order.updateMany as jest.Mock<Promise<{ count: number }>, [unknown]>).mock.calls;
+        expect(update).toMatchObject({
             where: { id: "order1", status: { in: ["received", "preparing"] } },
             data: { status: "ready", preparationRefund: 2700 },
         });
