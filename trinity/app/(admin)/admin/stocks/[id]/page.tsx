@@ -5,13 +5,15 @@ import { Boxes, CalendarClock, Layers, ShieldCheck } from "lucide-react";
 import { getStockDetail, LOW_STOCK, type StockDetail } from "@/lib/admin/queries";
 import { backOfficePage } from "@/lib/admin/access";
 import { orderNumber } from "@/lib/account";
-import { daysLeft, daysLeftLabel, formatBestBefore, lotPricing } from "@/lib/anti-gaspi";
+import { daysLeft, daysLeftLabel, formatBestBefore, lotDay, lotPricing } from "@/lib/anti-gaspi";
 import { formatBrand, formatPrice } from "@/lib/format";
 import { formatDelivery, suggestedQuantity } from "@/lib/restock";
 import { AdminPageHeader, Badge, EmptyState, Panel, StatCard, formatDate } from "@/components/admin/admin-ui";
 import { StockBadge, customerName } from "@/components/admin/admin-bits";
 import LotActions from "@/components/admin/anti-gaspi/lot-actions";
 import QuickOrderButton from "@/components/admin/restock/quick-order-button";
+import StockCountButton from "@/components/admin/stock-count-button";
+import { bestBeforeIn } from "@/lib/shelf-life";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Stock" };
@@ -48,6 +50,8 @@ export default async function StockPage({ params }: { params: Promise<{ id: stri
   const nearest = openLots[0]?.bestBefore ?? null;
   const pending = stock.restocks.filter((order) => order.status === "ordered");
   const traced = stock.lots.filter((lot) => lot.allocations.length > 0);
+  // Quantité à commander pour remonter au stock visé : rien à proposer au-dessus
+  const toOrder = suggestedQuantity(stock.quantity, 0);
 
   return (
     <div>
@@ -58,14 +62,18 @@ export default async function StockPage({ params }: { params: Promise<{ id: stri
           .filter(Boolean)
           .join(" · ")}
         actions={
-          pending.length === 0 && (
-            <QuickOrderButton
-              storeId={stock.storeId}
-              productId={stock.productId}
+          <>
+            <StockCountButton
+              stockId={stock.id}
               productName={stock.product.name}
-              quantity={suggestedQuantity(stock.quantity, 0)}
+              quantity={stock.quantity}
+              suggestedBestBefore={lotDay(bestBeforeIn(stock.product.shelfLifeDays))}
+              minBestBefore={lotDay(bestBeforeIn(1))}
             />
-          )
+            {pending.length === 0 && toOrder > 0 && (
+              <QuickOrderButton storeId={stock.storeId} productId={stock.productId} productName={stock.product.name} quantity={toOrder} />
+            )}
+          </>
         }
       />
 
@@ -120,7 +128,8 @@ export default async function StockPage({ params }: { params: Promise<{ id: stri
         )}
       </Panel>
 
-      <div className="mt-6 grid items-start gap-6 xl:grid-cols-2">
+      {/* Cadres de même hauteur, même quand l'un des deux est vide */}
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <Panel title="Traçabilité" description="Commandes servies par chaque lot : en cas de rappel, les clients concernés" padded={false}>
           {traced.length ? (
             <ul className="divide-y">
@@ -180,7 +189,7 @@ export default async function StockPage({ params }: { params: Promise<{ id: stri
               ))}
             </ul>
           ) : (
-            <EmptyState icon={Boxes} title="Aucun réassort" />
+            <EmptyState icon={Boxes} title="Aucun réassort" text="Les commandes de ce produit pour ce magasin apparaîtront ici." />
           )}
         </Panel>
       </div>
