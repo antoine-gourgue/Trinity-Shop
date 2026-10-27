@@ -21,6 +21,7 @@ export default function ProductGrid({ products, className }: ProductGridProps) {
             picture={product.picture}
             nutriScore={product.nutriScore ?? undefined}
             brand={product.brand?.name}
+            promoEndsAt={product.promoEndsAt}
           />
         </li>
       ))}

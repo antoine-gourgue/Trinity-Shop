@@ -54,3 +54,9 @@ export function discountPercent(price: number, regularPrice?: number | null) {
   if (!regularPrice || regularPrice <= price) return null;
   return Math.round((1 - price / regularPrice) * 100);
 }
+
+// Dernier jour d'une promotion, en court (« 02/11 ») : la fin enregistrée est minuit le lendemain
+export function formatPromoLastDay(end: Date | string) {
+  const last = new Date(new Date(end).getTime() - 1);
+  return last.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit" });
+}

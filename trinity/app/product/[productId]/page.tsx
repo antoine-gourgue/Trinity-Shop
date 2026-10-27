@@ -406,6 +406,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                       picture={item.picture}
                       nutriScore={item.nutriScore ?? undefined}
                       brand={item.brand?.name}
+                      promoEndsAt={item.promoEndsAt}
                     />
                   </li>
                 ))}

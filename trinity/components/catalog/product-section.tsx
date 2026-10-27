@@ -47,6 +47,7 @@ export default function ProductSection({ id, title, subtitle, href, products }: 
               picture={product.picture}
               nutriScore={product.nutriScore ?? undefined}
               brand={product.brand?.name}
+              promoEndsAt={product.promoEndsAt}
             />
           </li>
         ))}

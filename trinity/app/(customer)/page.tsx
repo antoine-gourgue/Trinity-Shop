@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, CreditCard, Leaf, MapPin, ShoppingBasket, Sparkles, Store } from "lucide-react";
+import { ArrowRight, CreditCard, MapPin, ShoppingBasket, Store } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -13,6 +13,8 @@ import ProductSection from "@/components/catalog/product-section";
 import ProductCarousel from "@/components/catalog/product-carousel";
 import AntiGaspiCard from "@/components/anti-gaspi/anti-gaspi-card";
 import { storeOffers } from "@/lib/anti-gaspi-offers";
+import OfferShowcase, { type ShowcaseProduct } from "@/components/catalog/offer-showcase";
+import { discountPercent } from "@/lib/format";
 
 // Titre et description viennent du layout racine ; l'URL canonique écarte les paramètres ajoutés (?utm_…)
 export const metadata: Metadata = { alternates: { canonical: "/" } };
@@ -68,20 +70,40 @@ export default async function HomePage({
   if (legacyQuery) redirect(`/produits?q=${encodeURIComponent(legacyQuery)}`);
 
   const [session, store] = await Promise.all([auth(), currentStore()]);
-  const [storeCount, productCount, bioCount, nutriACount, favorites, promos, saveurs, nutriA, bio, matLou] = await Promise.all([
+  const [storeCount, productCount, favorites, promos, saveurs, nutriA, bio, matLou, promoPrices] = await Promise.all([
     prisma.store.count(),
     prisma.product.count({ where: VISIBLE_PRODUCT }),
-    prisma.product.count({ where: { ...VISIBLE_PRODUCT, brand: { name: "u-bio" } } }),
-    prisma.product.count({ where: { ...VISIBLE_PRODUCT, nutriScore: "A" } }),
     favoriteProducts(session?.user?.id),
     productsWhere({ regularPrice: { not: null } }),
     productsWhere({ brand: { name: "u-saveurs" } }),
     productsWhere({ nutriScore: "A" }),
     productsWhere({ brand: { name: "u-bio" } }),
     productsWhere({ brand: { name: "u-mat-lou" } }),
+    // Promotions en cours, pour la carte Promos : leur nombre et les plus fortes remises
+    prisma.product.findMany({
+      where: { ...VISIBLE_PRODUCT, regularPrice: { not: null } },
+      select: { id: true, name: true, picture: true, price: true, regularPrice: true },
+    }),
   ]);
+  const promoCount = promoPrices.length;
+  const topPromos: ShowcaseProduct[] = promoPrices
+    .map((product) => ({ ...product, regularPrice: product.regularPrice ?? product.price, percent: discountPercent(product.price, product.regularPrice) ?? 0 }))
+    .sort((a, b) => b.percent - a.percent)
+    .slice(0, 3);
   // Dates courtes du magasin choisi, à prix réduit
-  const antiGaspi = store ? await storeOffers(store.id, new Date(), SECTION_SIZE) : [];
+  const antiGaspiOffers = store ? await storeOffers(store.id) : [];
+  const antiGaspi = antiGaspiOffers.slice(0, SECTION_SIZE);
+  const topAntiGaspi: ShowcaseProduct[] = [...antiGaspiOffers]
+    .sort((a, b) => b.percent - a.percent)
+    .slice(0, 3)
+    .map((offer) => ({
+      id: offer.product.id,
+      name: offer.product.name,
+      picture: offer.product.picture,
+      percent: offer.percent,
+      price: offer.unitPrice,
+      regularPrice: offer.product.price,
+    }));
   // Magasin choisi, sinon le réseau
   const storeLabel = store ? store.name : `${storeCount} magasins Trinity en France`;
 
@@ -130,37 +152,26 @@ export default async function HomePage({
           </div>
         </div>
 
+        {/* Les deux offres du moment, avec leurs produits : promotions du catalogue et dates courtes du magasin */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-          <Link
-            href="/produits?marque=u-bio"
-            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-bio p-6 text-white"
-          >
-            <Leaf size={96} className="absolute -bottom-4 -right-4 rotate-12 text-white/15" aria-hidden />
-            <span className="w-fit rounded-full bg-white/20 px-3 py-1 text-xs font-bold uppercase tracking-wide">
-              U Bio
-            </span>
-            <div className="mt-6">
-              <p className="text-2xl font-black">Le bio au quotidien</p>
-              <p className="mt-1 flex items-center gap-1 text-sm font-semibold text-white/85">
-                {bioCount} produits bio <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </p>
-            </div>
-          </Link>
-          <Link
-            href="/produits?nutriscore=A"
-            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-highlight p-6 text-brand-dark"
-          >
-            <Sparkles size={96} className="absolute -bottom-4 -right-4 text-brand-dark/10" aria-hidden />
-            <span className="w-fit rounded-full bg-brand-dark/10 px-3 py-1 text-xs font-bold uppercase tracking-wide">
-              Nutri-Score A
-            </span>
-            <div className="mt-6">
-              <p className="text-2xl font-black">Mangez équilibré</p>
-              <p className="mt-1 flex items-center gap-1 text-sm font-bold">
-                {nutriACount} produits bien notés <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </p>
-            </div>
-          </Link>
+          <OfferShowcase href="/produits?promo=1" tone="promo" title="Promos de la semaine" subtitle={`${promoCount} produits en promotion`} products={topPromos} />
+          {topAntiGaspi.length > 0 ? (
+            <OfferShowcase
+              href="/anti-gaspi"
+              tone="bio"
+              title="Anti-gaspi"
+              subtitle={`${antiGaspiOffers.length} dates courtes à ${store?.name ?? "votre magasin"}`}
+              products={topAntiGaspi}
+            />
+          ) : (
+            <Link href="/anti-gaspi" className="group flex flex-col justify-between rounded-3xl bg-bio p-5 text-white">
+              <span className="text-2xl font-black">Anti-gaspi</span>
+              <span className="mt-2 text-sm text-white/85">
+                {store ? "Pas de date courte dans votre magasin pour le moment." : "Choisissez votre magasin pour voir ses dates courtes, jusqu'à −50 %."}
+              </span>
+              <span className="mt-4 text-sm font-bold underline-offset-4 group-hover:underline">Voir le rayon anti-gaspi</span>
+            </Link>
+          )}
         </div>
       </section>
 

@@ -4,7 +4,8 @@ import ProductImage from "@/components/product/product-image";
 import NutriScore from "@/components/product/nutri-score";
 import AddToCartButton from "@/components/product/add-to-cart-button";
 import FavoriteButton from "@/components/product/favorite-button";
-import { discountPercent, formatBrand, isBioBrand } from "@/lib/format";
+import OfferRibbon from "@/components/product/offer-ribbon";
+import { discountPercent, formatBrand, formatPromoLastDay, isBioBrand } from "@/lib/format";
 
 interface ProductProps {
     id: string;
@@ -15,14 +16,19 @@ interface ProductProps {
     picture: string;
     nutriScore?: string;
     brand?: string;
+    // Fin de la promotion, annoncée sur le bandeau
+    promoEndsAt?: Date | string | null;
 }
 
-export default function ProductCard({ id, name, price, regularPrice, netContent, picture, nutriScore, brand }: ProductProps) {
+export default function ProductCard({ id, name, price, regularPrice, netContent, picture, nutriScore, brand, promoEndsAt }: ProductProps) {
     const href = `/product/${id}`;
     const discount = discountPercent(price, regularPrice);
 
     return (
         <article className="group relative flex h-full flex-col rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-lg sm:p-4">
+            {discount && (
+                <OfferRibbon tone="promo" label={`Promo −${discount} %`} detail={promoEndsAt ? `jusqu'au ${formatPromoLastDay(promoEndsAt)}` : null} />
+            )}
             <div className="relative">
                 <Link href={href} className="relative block aspect-square overflow-hidden rounded-lg bg-white">
                     <ProductImage
@@ -34,11 +40,6 @@ export default function ProductCard({ id, name, price, regularPrice, netContent,
                     {isBioBrand(brand) && (
                         <span className="absolute left-0 top-0 rounded-md bg-bio px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">
                             Bio
-                        </span>
-                    )}
-                    {discount && (
-                        <span className="absolute right-0 top-0 rounded-md bg-promo px-2 py-0.5 text-xs font-black text-white">
-                            -{discount} %
                         </span>
                     )}
                 </Link>
