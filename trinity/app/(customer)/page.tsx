@@ -114,18 +114,17 @@ export default async function HomePage({
   const freeDelivery = formatPrice(FREE_DELIVERY_FROM).replace(",00", "");
 
   const banners: OperationBanner[] = [
-    // Le prospectus du magasin en tête ; sinon les promotions nationales
-    storeProspectus
-      ? prospectusBanner(storeProspectus, storeProspectus.offers)
-      : {
-          href: "/produits?promo=1",
-          tone: "promo",
-          kicker: "Promos de la semaine",
-          title: `Jusqu'à −${topPromos[0]?.percent ?? 0}\u00a0%`,
-          text: `Sur ${promoPrices.length} produits en promotion`,
-          cta: "J'en profite",
-          visual: { kind: "products", products: topPromos.slice(0, 3) },
-        },
+    // Le prospectus du magasin en tête, puis les promotions nationales
+    ...(storeProspectus ? [prospectusBanner(storeProspectus, storeProspectus.offers)] : []),
+    {
+      href: "/produits?promo=1",
+      tone: "promo",
+      kicker: "Promos de la semaine",
+      title: `Jusqu'à −${topPromos[0]?.percent ?? 0}\u00a0%`,
+      text: `Sur ${promoPrices.length} produits en promotion`,
+      cta: "J'en profite",
+      visual: { kind: "products", products: topPromos.slice(0, 3) },
+    },
     {
       href: "/anti-gaspi",
       tone: "bio",
@@ -164,6 +163,47 @@ export default async function HomePage({
     },
   ];
 
+  // Promotions nationales : toujours présentes, après le prospectus du magasin s'il en a un
+  const nationalPromotions = (
+    <Prospectus
+      id="promos-nationales"
+      label="Promos de la semaine"
+      tag={`${promoPrices.length} produits en promo`}
+      headline={
+        <>
+          Les prix
+          <br />
+          qui comptent
+          <br />
+          <span className="text-promo">cette semaine</span>
+        </>
+      }
+      description={`${promoPrices.length} produits en promotion dans tous les magasins Trinity, à retirer dès ${pickupWeekday} au drive ou à vous faire livrer.`}
+      href="/produits?promo=1"
+      cta="Toutes les promos"
+      items={topPromos.slice(3, 8)}
+    />
+  );
+  const storePromotionsBlock = storeProspectus && store && (
+    <Prospectus
+      id="prospectus-magasin"
+      label="Prospectus de votre magasin"
+      tag={formatProspectusDates(storeProspectus)}
+      headline={
+        <>
+          {storeProspectus.title}
+          <br />
+          <span className="text-promo">à {store.city}</span>
+        </>
+      }
+      description={`${storeProspectus.offers.length} produit${storeProspectus.offers.length > 1 ? "s" : ""} à prix promo dans votre magasin, jusqu'au ${formatProspectusLastDay(storeProspectus.endsAt)}.`}
+      href={`/prospectus/${storeProspectus.id}`}
+      cta="Tout le prospectus"
+      // Sans reprendre les produits de la bannière quand le prospectus en a assez
+      items={storeProspectus.offers.length >= 8 ? storeProspectus.offers.slice(3, 8) : storeProspectus.offers.slice(0, 5)}
+    />
+  );
+
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
       <h1 className="sr-only">{store ? `Vos courses au drive ${store.name}` : "Vos courses en ligne, prêtes au drive"}</h1>
@@ -176,24 +216,7 @@ export default async function HomePage({
         products={favoriteList}
       />
 
-      {storeProspectus ? (
-        <Prospectus
-          label={storeProspectus.title}
-          tag={formatProspectusDates(storeProspectus)}
-          description={`${storeProspectus.offers.length} produit${storeProspectus.offers.length > 1 ? "s" : ""} à prix promo dans votre magasin, jusqu'au ${formatProspectusLastDay(storeProspectus.endsAt)}.`}
-          href={`/prospectus/${storeProspectus.id}`}
-          // Sans reprendre les produits de la bannière quand le prospectus en a assez
-          items={storeProspectus.offers.length >= 8 ? storeProspectus.offers.slice(3, 8) : storeProspectus.offers.slice(0, 5)}
-        />
-      ) : (
-        <Prospectus
-          label="Promos de la semaine"
-          tag={`${promoPrices.length} produits en promo`}
-          description={`${promoPrices.length} produits en promotion, à retirer dès ${pickupWeekday} au drive ou à vous faire livrer.`}
-          href="/produits?promo=1"
-          items={topPromos.slice(3, 8)}
-        />
-      )}
+      {storeProspectus ? storePromotionsBlock : nationalPromotions}
 
       {antiGaspi.length > 0 && (
         <section className="mt-12">
@@ -215,6 +238,8 @@ export default async function HomePage({
           </ProductCarousel>
         </section>
       )}
+
+      {storeProspectus && nationalPromotions}
 
       <section id="rayons" className="mt-10 scroll-mt-40">
         <h2 className="mb-4 text-xl font-black md:text-2xl">Nos rayons</h2>

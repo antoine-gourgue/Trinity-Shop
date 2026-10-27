@@ -37,8 +37,10 @@ function ProspectusRow({ prospectus, status, showStore }: { prospectus: AdminPro
         </span>
       </span>
       {(status === "running" || status === "scheduled") && (
+        // Dans un nouvel onglet : la page telle que la voient les clients, sans quitter le back-office
         <Link
           href={`/prospectus/${prospectus.id}`}
+          target="_blank"
           className="flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition-colors hover:bg-secondary"
         >
           <ExternalLink size={14} aria-hidden /> Voir

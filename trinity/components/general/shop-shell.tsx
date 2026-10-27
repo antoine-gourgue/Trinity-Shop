@@ -10,10 +10,17 @@ import StoreProvider, { StorePickerDialog } from "@/components/store/store-provi
 import { currentStore } from "@/lib/current-store";
 
 // Habillage commun des pages boutique : magasin du visiteur, en-tête, menu des rayons et pied de page
-export default async function ShopShell({ children }: { children: React.ReactNode }) {
+export default async function ShopShell({
+  children,
+  openToStaff = false,
+}: {
+  children: React.ReactNode;
+  // Page que le back-office ouvre telle que la voient les clients (prospectus d'un magasin)
+  openToStaff?: boolean;
+}) {
   // Un compte magasin travaille dans son back-office : la boutique le renvoie vers ses commandes et ses stocks
   const session = await auth();
-  if (session?.user?.role === "StoreManager") redirect("/admin");
+  if (session?.user?.role === "StoreManager" && !openToStaff) redirect("/admin");
   const store = await currentStore();
 
   return (
