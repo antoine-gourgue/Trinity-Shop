@@ -160,11 +160,22 @@ function endsWithBrand(value: string, brand: string) {
   return words.length > brandWords + 1 && fold(words.slice(-brandWords).join(" ")) === fold(brand);
 }
 
+// Entités HTML laissées dans certains libellés (« Madeleines &quot;coquilles&quot; »)
+const HTML_ENTITIES: Record<string, string> = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " " };
+
+export function decodeHtmlEntities(value: string) {
+  return value.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, code: string) => {
+    if (code[0] !== "#") return HTML_ENTITIES[code.toLowerCase()] ?? entity;
+    const point = code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+    return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : entity;
+  });
+}
+
 // Libellé lisible : sans la marque autour, sans contenance, sans MAJUSCULES criardes ni symboles ;
 // la dénomination générique remplace un libellé réduit à un mot ou à la marque
 export function cleanProductName(name: string, brandNames: string[], generic?: string) {
   const brands = brandNames.filter((brand) => !NOT_BRANDS.includes(slugify(brand)));
-  let value = name
+  let value = decodeHtmlEntities(name)
     .replace(/[​-‍﻿®™©⁰¹²³⁴⁵⁶⁷⁸⁹]/g, "")
     .replace(/bio\*/gi, (match) => match.slice(0, -1))
     .replace(/’/g, "'")
