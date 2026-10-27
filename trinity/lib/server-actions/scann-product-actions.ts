@@ -1,22 +1,32 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { isBarcode } from "@/lib/barcode";
 import { fetchOpenFoodFactsProduct, type OpenFoodFactsProduct } from "@/lib/open-food-facts";
 
-// Produit scanné : s'il est au catalogue, sa fiche s'ouvre ; sinon on renvoie la fiche
-// Open Food Facts (produit que le drive ne vend pas), ou null s'il est inconnu
-export async function findScannedProduct(barcode: string): Promise<OpenFoodFactsProduct | null> {
-  if (!isBarcode(barcode)) return null;
+export type ScanResult =
+  // Produit du catalogue : le scanner ouvre sa fiche
+  | { kind: "catalog"; productId: string }
+  // Produit que le drive ne vend pas, décrit par Open Food Facts
+  | { kind: "external"; product: OpenFoodFactsProduct }
+  | { kind: "unknown" }
+  // Code lu qui n'est pas un code-barres de produit (QR code, code tronqué)
+  | { kind: "invalid" };
+
+// Produit scanné. Pas de redirect() ici : appelée depuis le navigateur, l'action le transmettait
+// comme une exception, que le scanner affichait en erreur avant d'ouvrir la fiche. Le scanner
+// navigue lui-même vers la fiche d'un produit du catalogue.
+export async function findScannedProduct(barcode: string): Promise<ScanResult> {
+  if (!isBarcode(barcode)) return { kind: "invalid" };
 
   const product = await prisma.product.findUnique({ where: { barCode: BigInt(barcode) }, select: { id: true } });
-  if (product) redirect(`/product/${product.id}`);
+  if (product) return { kind: "catalog", productId: product.id };
 
   try {
-    return await fetchOpenFoodFactsProduct(barcode);
+    const external = await fetchOpenFoodFactsProduct(barcode);
+    return external ? { kind: "external", product: external } : { kind: "unknown" };
   } catch (error) {
     console.error("Erreur lors de la récupération depuis Open Food Facts :", error);
-    return null;
+    return { kind: "unknown" };
   }
 }

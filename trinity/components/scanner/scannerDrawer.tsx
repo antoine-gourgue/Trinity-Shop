@@ -1,7 +1,9 @@
 "use client";
 
-import { ComponentProps, useCallback, useState } from "react";
+import { ComponentProps, useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import BarcodeScannerComponent from "react-qr-barcode-scanner";
+import { Loader2, ScanBarcode } from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -14,7 +16,6 @@ import {
 import { findScannedProduct } from "@/lib/server-actions/scann-product-actions";
 import type { OpenFoodFactsProduct } from "@/lib/open-food-facts";
 import { nutritionRows } from "@/lib/product-info";
-import { Skeleton } from "../ui/skeleton";
 import Image from "next/image";
 import { FaShoppingBag } from "react-icons/fa";
 import { Button } from "../ui/button";
@@ -62,30 +63,76 @@ function toScannedProduct(product: OpenFoodFactsProduct): ScannedProduct {
 }
 
 export default function ScannerDrawer({ children }: Props) {
-  const [isLoaded, setIsLoaded] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  // Fiche du produit trouvé, en cours d'ouverture : le chargement reste affiché jusqu'à son arrivée
+  const [opening, setOpening] = useState<string | null>(null);
+  const [, startNavigation] = useTransition();
   const [data, setData] = useState<ScannedProduct | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  // La caméra lit le même code plusieurs fois par seconde : une seule recherche à la fois
+  const busy = useRef(false);
 
-  const scan = useCallback(async (scannedCode: string) => {
-    setIsLoaded(true);
+  const reset = useCallback(() => {
+    busy.current = false;
+    setSearching(false);
+    setData(null);
     setErrorMessage("");
-
-    try {
-      // Redirige vers la fiche si le produit est au catalogue
-      const product = await findScannedProduct(scannedCode);
-      if (product) {
-        setData(toScannedProduct(product));
-      } else {
-        setData(null);
-        setErrorMessage("Produit non trouvé dans la base de données ni sur Open Food Facts.");
-      }
-    } catch (error) {
-      setErrorMessage("Erreur lors de la récupération des données.");
-      console.error(error);
-    }
-
-    setIsLoaded(false);
   }, []);
+
+  const changeOpen = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setOpening(null);
+      reset();
+    }
+  };
+
+  const scan = useCallback(
+    async (scannedCode: string) => {
+      if (busy.current) return;
+      busy.current = true;
+      setSearching(true);
+      setErrorMessage("");
+      try {
+        const result = await findScannedProduct(scannedCode);
+        switch (result.kind) {
+          case "catalog": {
+            // Produit du drive : sa fiche s'ouvre ; le scanner, avec son chargement, reste affiché
+            // jusqu'à ce qu'elle soit à l'écran (voir l'effet plus bas)
+            const href = `/product/${result.productId}`;
+            setOpening(href);
+            startNavigation(() => router.push(href));
+            return;
+          }
+          case "external":
+            setData(toScannedProduct(result.product));
+            break;
+          case "invalid":
+            setErrorMessage("Ce code n'est pas un code-barres de produit. Visez le code-barres imprimé sur l'emballage.");
+            break;
+          default:
+            setErrorMessage("Produit introuvable, ni dans notre catalogue ni sur Open Food Facts.");
+        }
+      } catch (error) {
+        console.error(error);
+        setErrorMessage("La recherche n'a pas abouti. Vérifiez votre connexion et réessayez.");
+      }
+      // Résultat affiché : la caméra s'arrête jusqu'au prochain scan demandé
+      setSearching(false);
+    },
+    [router]
+  );
+
+  // Fiche affichée : le scanner se ferme sur la nouvelle page
+  useEffect(() => {
+    if (!opening || pathname !== opening) return;
+    setOpen(false);
+    setOpening(null);
+    reset();
+  }, [opening, pathname, reset]);
 
   const handleBarCodeUpdate = useCallback<ScanHandler>(
     (_error, result) => {
@@ -93,6 +140,12 @@ export default function ScannerDrawer({ children }: Props) {
     },
     [scan]
   );
+
+  // Caméra refusée ou absente : on l'explique au lieu d'afficher un cadre vide
+  const handleCameraError = useCallback(() => {
+    busy.current = true;
+    setErrorMessage("Caméra indisponible : autorisez l'accès à la caméra dans votre navigateur, puis réessayez.");
+  }, []);
 
   const title = data ? data.name : "Scanner votre produit";
   const description = data ? (
@@ -102,7 +155,7 @@ export default function ScannerDrawer({ children }: Props) {
   );
 
   return (
-    <ResponsiveDialog>
+    <ResponsiveDialog open={open} onOpenChange={changeOpen}>
       <ResponsiveDialogTrigger asChild>{children}</ResponsiveDialogTrigger>
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
@@ -110,20 +163,34 @@ export default function ScannerDrawer({ children }: Props) {
           <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <div className="max-h-[80vh] overflow-y-auto">
-          {!data && !isLoaded && (
-            <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg shadow-lg relative">
-              <div className="relative border-4 border-teal-500 rounded-lg overflow-hidden shadow-lg">
-                <BarcodeScannerComponent width={500} height={400} onUpdate={handleBarCodeUpdate} />
-                <div className="absolute inset-0 border-4 border-dashed border-teal-400 rounded-lg pointer-events-none animate-pulse"></div>
+          {!data && !searching && !opening && !errorMessage && (
+            <div className="flex flex-col items-center gap-3 px-4 pb-4">
+              <div className="relative w-full overflow-hidden rounded-2xl bg-black">
+                <BarcodeScannerComponent width="100%" height={320} onUpdate={handleBarCodeUpdate} onError={handleCameraError} />
+                {/* Zone de visée */}
+                <div className="pointer-events-none absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-xl border-2 border-white/80" />
               </div>
-
-              <p className="text-sm text-gray-500 p-2">
-                Placez le code-barres dans la zone pour le scanner automatiquement.
-              </p>
+              <p className="text-center text-sm text-muted-foreground">Placez le code-barres dans le cadre : il est lu automatiquement.</p>
             </div>
           )}
-          {isLoaded && <Skeleton className="w-full h-10" />}
-          {errorMessage && <div className="text-red-500 text-center my-4">{errorMessage}</div>}
+          {(searching || opening) && (
+            <p role="status" className="mx-4 mb-4 flex items-center justify-center gap-2 rounded-2xl bg-secondary px-4 py-6 text-sm font-semibold text-primary">
+              <Loader2 size={18} className="animate-spin" aria-hidden />
+              {opening ? "Ouverture de la fiche produit…" : "Recherche du produit…"}
+            </p>
+          )}
+          {errorMessage && (
+            <div className="mx-4 mb-4 flex flex-col items-center gap-3 rounded-2xl bg-muted px-4 py-6 text-center">
+              <p className="text-sm font-semibold text-foreground">{errorMessage}</p>
+              <button
+                type="button"
+                onClick={reset}
+                className="flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark"
+              >
+                <ScanBarcode size={16} aria-hidden /> Scanner un autre produit
+              </button>
+            </div>
+          )}
           {data && (
             <div className="flex flex-col md:flex-row p-4">
               <div className="flex-1 flex justify-center">
@@ -215,8 +282,8 @@ export default function ScannerDrawer({ children }: Props) {
           )}
           {data && (
             <ResponsiveDialogFooter>
-              <Button variant="secondary" onClick={() => setData(null)}>
-                Retour
+              <Button variant="secondary" onClick={reset}>
+                Scanner un autre produit
               </Button>
             </ResponsiveDialogFooter>
           )}
