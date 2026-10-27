@@ -2,12 +2,14 @@ import { Minus, Plus } from "lucide-react";
 
 interface NutritionTableProps {
   rows: { label: string; value: string }[];
+  // Replié d'abord là où la place manque (fiche du scanner)
+  defaultOpen?: boolean;
 }
 
 // Tableau « Pour 100 g » repliable, lignes alternées
-export default function NutritionTable({ rows }: NutritionTableProps) {
+export default function NutritionTable({ rows, defaultOpen = true }: NutritionTableProps) {
   return (
-    <details open className="group overflow-hidden rounded-xl">
+    <details open={defaultOpen} className="group overflow-hidden rounded-xl">
       <summary className="flex cursor-pointer list-none items-center justify-between bg-brand-dark px-5 py-3.5 text-base font-bold text-white [&::-webkit-details-marker]:hidden">
         Pour 100 g
         <Minus size={18} className="hidden group-open:block" aria-hidden />

@@ -1,25 +1,25 @@
 "use client";
 
 import { ComponentProps, useCallback, useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import BarcodeScannerComponent from "react-qr-barcode-scanner";
-import { Loader2, ScanBarcode } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, ScanBarcode } from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
-  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsiveDialog";
-import { findScannedProduct } from "@/lib/server-actions/scann-product-actions";
-import type { OpenFoodFactsProduct } from "@/lib/open-food-facts";
-import { nutritionRows } from "@/lib/product-info";
-import Image from "next/image";
-import { FaShoppingBag } from "react-icons/fa";
-import { Button } from "../ui/button";
-import Accordion from "@/components/ui/Accordion";
+import { findScannedProduct, type ScanResult } from "@/lib/server-actions/scann-product-actions";
+import { formatBrand, formatPrice } from "@/lib/format";
+import { ingredientParts } from "@/lib/product-info";
+import { cn } from "@/lib/utils";
+import ProductImage from "@/components/product/product-image";
+import NutriScore from "@/components/product/nutri-score";
+import NutritionTable from "@/components/product/nutrition-table";
 
 interface Props {
   children?: React.ReactNode;
@@ -27,40 +27,8 @@ interface Props {
 
 type ScanHandler = ComponentProps<typeof BarcodeScannerComponent>["onUpdate"];
 
-// Fiche affichée pour un produit que le drive ne vend pas (les produits du catalogue ouvrent leur page)
-interface ScannedProduct {
-  name: string;
-  picture: string;
-  // Note A à E, ou null si Open Food Facts n'en donne pas (pas d'image pour « unknown »)
-  nutriScore: string | null;
-  genericName: string;
-  ingredients: string;
-  origins: string;
-  nutrition: string;
-  conservation: string;
-  manufacturingPlaces: string;
-  brands: string;
-}
-
-function toScannedProduct(product: OpenFoodFactsProduct): ScannedProduct {
-  const nutrition = [
-    product.quantity ? `Quantité : ${product.quantity}` : null,
-    ...nutritionRows(product.nutriments).map((row) => `${row.label} : ${row.value}`),
-  ];
-
-  return {
-    name: product.product_name_fr || product.product_name || "Produit inconnu",
-    picture: product.image_front_url || "/default-product.png",
-    nutriScore: /^[a-e]$/i.test(product.nutriscore_grade ?? "") ? (product.nutriscore_grade ?? "").toUpperCase() : null,
-    genericName: product.generic_name || "Aucune description disponible.",
-    ingredients: product.ingredients_text_fr || "Ingrédients non disponibles.",
-    origins: product.origins || "Origine non renseignée.",
-    nutrition: nutrition.filter(Boolean).join(", "),
-    conservation: product.conservation_conditions || "Aucune information sur la conservation.",
-    manufacturingPlaces: product.manufacturing_places || "Lieu de fabrication non disponible.",
-    brands: product.brands || "Marque non renseignée.",
-  };
-}
+// Produit que le drive ne vend pas (les produits du catalogue ouvrent leur page)
+type ExternalScan = Extract<ScanResult, { kind: "external" }>;
 
 export default function ScannerDrawer({ children }: Props) {
   const router = useRouter();
@@ -70,7 +38,7 @@ export default function ScannerDrawer({ children }: Props) {
   // Fiche du produit trouvé, en cours d'ouverture : le chargement reste affiché jusqu'à son arrivée
   const [opening, setOpening] = useState<string | null>(null);
   const [, startNavigation] = useTransition();
-  const [data, setData] = useState<ScannedProduct | null>(null);
+  const [data, setData] = useState<ExternalScan | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   // La caméra lit le même code plusieurs fois par seconde : une seule recherche à la fois
   const busy = useRef(false);
@@ -108,7 +76,7 @@ export default function ScannerDrawer({ children }: Props) {
             return;
           }
           case "external":
-            setData(toScannedProduct(result.product));
+            setData(result);
             break;
           case "invalid":
             setErrorMessage("Ce code n'est pas un code-barres de produit. Visez le code-barres imprimé sur l'emballage.");
@@ -147,24 +115,20 @@ export default function ScannerDrawer({ children }: Props) {
     setErrorMessage("Caméra indisponible : autorisez l'accès à la caméra dans votre navigateur, puis réessayez.");
   }, []);
 
-  const title = data ? data.name : "Scanner votre produit";
-  const description = data ? (
-    <span className="text-red-500">Produit pas en stock</span>
-  ) : (
-    "Passez le code barre devant la caméra."
-  );
+  const title = data ? "Produit scanné" : "Scanner votre produit";
+  const description = data ? `Code-barres ${data.product.barCode}` : "Passez le code barre devant la caméra.";
 
   return (
     <ResponsiveDialog open={open} onOpenChange={changeOpen}>
       <ResponsiveDialogTrigger asChild>{children}</ResponsiveDialogTrigger>
-      <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+      <ResponsiveDialogContent className="md:rounded-3xl">
+        <ResponsiveDialogHeader className="text-left">
+          <ResponsiveDialogTitle className="text-lg font-extrabold">{title}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
-        <div className="max-h-[80vh] overflow-y-auto">
+        <div className="max-h-[70vh] overflow-y-auto">
           {!data && !searching && !opening && !errorMessage && (
-            <div className="flex flex-col items-center gap-3 px-4 pb-4">
+            <div className="flex flex-col items-center gap-3 px-4 pb-4 md:px-0 md:pb-0">
               <div className="relative w-full overflow-hidden rounded-2xl bg-black">
                 <BarcodeScannerComponent width="100%" height={320} onUpdate={handleBarCodeUpdate} onError={handleCameraError} />
                 {/* Zone de visée */}
@@ -174,121 +138,179 @@ export default function ScannerDrawer({ children }: Props) {
             </div>
           )}
           {(searching || opening) && (
-            <p role="status" className="mx-4 mb-4 flex items-center justify-center gap-2 rounded-2xl bg-secondary px-4 py-6 text-sm font-semibold text-primary">
+            <p role="status" className="mx-4 mb-4 flex items-center justify-center gap-2 rounded-2xl bg-secondary px-4 py-6 text-sm font-semibold text-primary md:mx-0 md:mb-0">
               <Loader2 size={18} className="animate-spin" aria-hidden />
               {opening ? "Ouverture de la fiche produit…" : "Recherche du produit…"}
             </p>
           )}
           {errorMessage && (
-            <div className="mx-4 mb-4 flex flex-col items-center gap-3 rounded-2xl bg-muted px-4 py-6 text-center">
+            <div className="mx-4 mb-4 flex flex-col items-center gap-3 rounded-2xl bg-muted px-4 py-6 text-center md:mx-0 md:mb-0">
               <p className="text-sm font-semibold text-foreground">{errorMessage}</p>
-              <button
-                type="button"
-                onClick={reset}
-                className="flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark"
-              >
-                <ScanBarcode size={16} aria-hidden /> Scanner un autre produit
-              </button>
+              <ScanAgainButton onClick={reset} />
             </div>
           )}
-          {data && (
-            <div className="flex flex-col md:flex-row p-4">
-              <div className="flex-1 flex justify-center">
-                <Image
-                  src={data.picture}
-                  alt={data.name}
-                  width={350}
-                  height={350}
-                  className="object-contain w-auto h-96"
-                />
-              </div>
-
-              <div className="flex-1 ml-4">
-                <h1 className="text-2xl font-bold text-gray-900">{data.name}</h1>
-
-                {data.nutriScore && (
-                  <div className="mt-2">
-                    <Image
-                      src={`/assets/nutri-score-${data.nutriScore}.png`}
-                      alt={`NutriScore ${data.nutriScore}`}
-                      width={100}
-                      height={40}
-                    />
-                  </div>
-                )}
-
-                <div className="w-64 bg-gray-100 p-6 rounded-lg flex flex-col items-center mt-4">
-                  <span className="text-3xl font-bold text-gray-900 underline decoration-yellow-400">N/A</span>
-
-                  <button
-                    className="mt-4 bg-gray-400 text-white py-3 rounded-full flex items-center justify-center gap-2 w-full h-12 cursor-not-allowed"
-                    disabled
-                  >
-                    <FaShoppingBag size={20} />
-                    <span className="text-md font-semibold">Produit pas en stock</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          {data && (
-            <div className="mt-8">
-              <Accordion title="Description">
-                <div>
-                  <h3 className="font-semibold">Informations complémentaires</h3>
-                  <p className="text-gray-700 mt-2">{data.genericName}</p>
-                </div>
-              </Accordion>
-
-              <Accordion title="Composition et origine">
-                <div>
-                  <h3 className="font-semibold">Ingrédients</h3>
-                  <p className="text-gray-700 mt-2">{data.ingredients}</p>
-
-                  <h3 className="font-semibold mt-4">Informations nutritionnelles</h3>
-                  <div className="flex items-center mt-2">
-                    {data.nutriScore && (
-                      <Image
-                        src={`/assets/nutri-score-${data.nutriScore}.png`}
-                        alt={`NutriScore ${data.nutriScore}`}
-                        width={100}
-                        height={40}
-                      />
-                    )}
-                    <p className="text-gray-700 ml-2">
-                      Le Nutri-score est un logo qui informe sur la qualité nutritionnelle d&apos;un produit.
-                    </p>
-                  </div>
-
-                  <h3 className="font-semibold mt-4">Origine</h3>
-                  <p className="text-gray-700 mt-2">{data.origins}</p>
-
-                  <h3 className="font-semibold mt-4">Valeurs nutritionnelles</h3>
-                  <p className="text-gray-700 mt-2">{data.nutrition}</p>
-                </div>
-              </Accordion>
-
-              <Accordion title="Conseils">
-                <div>
-                  <h3 className="font-semibold">Instruction de conservation</h3>
-                  <p className="text-gray-700 mt-2">{data.conservation}</p>
-
-                  <h3 className="font-semibold mt-4">Contact exploitant / Service consommateur</h3>
-                  <p className="text-gray-700 mt-2">{data.manufacturingPlaces}</p>
-                  <p className="text-gray-700 mt-2">{data.brands}</p>
-                </div>
-              </Accordion>
-            </div>
-          )}
-          {data && (
-            <ResponsiveDialogFooter>
-              <Button variant="secondary" onClick={reset}>
-                Scanner un autre produit
-              </Button>
-            </ResponsiveDialogFooter>
-          )}
+          {data && <ExternalProduct scan={data} onNavigate={() => changeOpen(false)} />}
         </div>
+        {data && (
+          <div className="border-t px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:px-0 md:pb-0">
+            <ScanAgainButton onClick={reset} className="w-full" />
+          </div>
+        )}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
+  );
+}
+
+function ScanAgainButton({ onClick, className }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark",
+        className
+      )}
+    >
+      <ScanBarcode size={16} aria-hidden /> Scanner un autre produit
+    </button>
+  );
+}
+
+// Fiche d'un produit que le drive ne vend pas, au style des fiches du catalogue, suivie des produits
+// proches que le client peut acheter à la place
+function ExternalProduct({ scan, onNavigate }: { scan: ExternalScan; onNavigate: () => void }) {
+  const { product, similar, rayon } = scan;
+  const composition = product.nonFood ? "Composition" : "Ingrédients";
+
+  return (
+    <div className="space-y-5 px-4 pb-4 md:px-0">
+      <article className="flex gap-4 rounded-3xl border bg-white p-4">
+        <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl border bg-white sm:h-32 sm:w-32">
+          <ProductImage src={product.picture ?? ""} alt={product.name} sizes="128px" remote className="p-2" />
+        </div>
+        <div className="min-w-0 flex-1">
+          {product.brand && (
+            <p className="text-xs font-extrabold uppercase tracking-wide text-primary">{formatBrand(product.brand)}</p>
+          )}
+          <h3 className="mt-0.5 text-lg font-black leading-tight">{product.name}</h3>
+          {product.quantity && <p className="mt-0.5 text-sm text-muted-foreground">{product.quantity}</p>}
+          <NutriScore grade={product.nutriScore} className="mt-3 h-9" />
+          <p className="mt-3 flex items-center gap-2 text-sm font-bold">
+            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-promo" />
+            Pas vendu au drive
+          </p>
+        </div>
+      </article>
+
+      {similar.length > 0 && (
+        <section aria-labelledby="scan-similar">
+          <h3 id="scan-similar" className="text-sm font-extrabold uppercase tracking-wide text-brand-dark">
+            À la place, chez Trinity
+          </h3>
+          <ul className="mt-2 divide-y rounded-2xl border bg-white">
+            {similar.map((item) => {
+              const promo = item.regularPrice !== null && item.regularPrice > item.price;
+              return (
+                <li key={item.id}>
+                  <Link
+                    href={`/product/${item.id}`}
+                    onClick={onNavigate}
+                    className="flex items-center gap-3 px-3 py-2.5 transition-colors first:rounded-t-2xl last:rounded-b-2xl hover:bg-muted"
+                  >
+                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border bg-white">
+                      <ProductImage src={item.picture} alt="" sizes="48px" className="p-0.5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{item.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {formatBrand(item.brand)}
+                        {item.netContent && ` · ${item.netContent}`}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end">
+                      {promo && item.regularPrice && (
+                        <span className="text-[11px] text-muted-foreground line-through">
+                          <span className="sr-only">Au lieu de </span>
+                          {formatPrice(item.regularPrice)}
+                        </span>
+                      )}
+                      <span className={cn("text-sm font-black tabular-nums", promo && "text-promo")}>{formatPrice(item.price)}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {rayon && (
+            <Link
+              href={rayon.href}
+              onClick={onNavigate}
+              className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
+            >
+              Voir le rayon {rayon.name} <ChevronRight size={16} aria-hidden />
+            </Link>
+          )}
+        </section>
+      )}
+
+      <div className="divide-y rounded-2xl border bg-white">
+        <ScanDetails title={product.allergens.length ? `${composition} et allergènes` : composition}>
+          <p>
+            {product.ingredients
+              ? ingredientParts(product.ingredients).map((part, index) =>
+                  part.allergen ? <strong key={index}>{part.text}</strong> : part.text
+                )
+              : product.nonFood
+                ? "Composition non renseignée."
+                : "Ingrédients non renseignés."}
+          </p>
+          {product.allergens.length > 0 && (
+            <p className="mt-3 flex flex-wrap gap-2">
+              {product.allergens.map((allergen) => (
+                <span key={allergen} className="rounded-full bg-promo/10 px-3 py-1 text-xs font-bold text-promo">
+                  {allergen}
+                </span>
+              ))}
+            </p>
+          )}
+        </ScanDetails>
+        {(product.description || product.origins) && (
+          <ScanDetails title="Description et origine">
+            {product.description && <p>{product.description}</p>}
+            {product.origins && (
+              <p className={product.description ? "mt-2" : undefined}>
+                <span className="font-bold">Origine :</span> {product.origins}
+              </p>
+            )}
+          </ScanDetails>
+        )}
+      </div>
+
+      {product.nutrition.length > 0 && (
+        <section aria-labelledby="scan-nutrition">
+          <h3 id="scan-nutrition" className="mb-2 text-sm font-extrabold uppercase tracking-wide text-brand-dark">
+            Valeurs nutritionnelles
+          </h3>
+          <NutritionTable rows={product.nutrition} defaultOpen={false} />
+        </section>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Informations issues d’{product.source}, données collaboratives sous licence ODbL.
+      </p>
+    </div>
+  );
+}
+
+// Rubrique repliable, comme les groupes de filtres du catalogue
+function ScanDetails({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="group px-4 py-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-extrabold [&::-webkit-details-marker]:hidden">
+        {title}
+        <ChevronDown size={18} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
+      <div className="mt-2 text-sm leading-relaxed text-foreground/80">{children}</div>
+    </details>
   );
 }

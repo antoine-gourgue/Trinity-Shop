@@ -90,11 +90,22 @@ export async function fetchCategoryTaxonomy(categoryTags: string[], init?: Reque
 // Hôtes des photos Open Food Facts autorisés par next.config.js (images.remotePatterns)
 const IMAGE_HOSTS = new Set(["images.openfoodfacts.org", "static.openfoodfacts.org", "image.openfoodfacts.org"]);
 
-export function isOpenFoodFactsImage(value: string) {
+// Et ceux de ses bases sœurs, hygiène et entretien
+const SISTER_IMAGE_HOSTS = new Set(["images.openbeautyfacts.org", "images.openproductsfacts.org"]);
+
+function hasImageHost(value: string, hosts: Set<string>) {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && IMAGE_HOSTS.has(url.hostname);
+    return url.protocol === "https:" && hosts.has(url.hostname);
   } catch {
     return false;
   }
+}
+
+export function isOpenFoodFactsImage(value: string) {
+  return hasImageHost(value, IMAGE_HOSTS);
+}
+
+export function isOpenFactsImage(value: string) {
+  return hasImageHost(value, IMAGE_HOSTS) || hasImageHost(value, SISTER_IMAGE_HOSTS);
 }

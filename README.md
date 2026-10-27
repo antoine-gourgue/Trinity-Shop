@@ -37,7 +37,7 @@ Le client choisit son magasin parmi 81 drives en France, fait ses courses dans u
 - **Prospectus magasin à vrai prix** : chaque magasin publie ses prospectus (titre, dates, produits et prix promo). Pendant ses dates, ces prix s'appliquent partout pour ses clients : catalogue, panier, paiement, commande et facture.
 - **Opérations du drive** : préparation article par article (manquants remboursés, remplaçants), arrivée du client sur le parking, remise des courses, indicateurs (temps de préparation, attente au drive, taux de sauvetage anti-gaspi).
 - **Prix fiables** : prix entiers en millièmes d'euro, et prix unitaire figé sur chaque ligne de commande : une facture ne bouge plus quand une promotion se termine.
-- **Qualité** : TypeScript strict sans aucun `any`, 380 tests Jest, 7 parcours Playwright de bout en bout sur une base jetable, CI obligatoire avant chaque mise en production.
+- **Qualité** : TypeScript strict sans aucun `any`, 389 tests Jest, 7 parcours Playwright de bout en bout sur une base jetable, CI obligatoire avant chaque mise en production.
 
 ## Sommaire
 
@@ -69,7 +69,7 @@ Le client choisit son magasin parmi 81 drives en France, fait ses courses dans u
 - **Tunnel de commande** : retrait gratuit au drive ou livraison à domicile (adresse choisie ou ajoutée à la volée), choix du créneau (8 commandes au plus par heure dans chaque drive, créneaux complets grisés), paiement par carte via Stripe.
 - **Suivi de commande** : statut, frise d'avancement, détail de la préparation (manquants, remplaçants, remboursement), facture PDF et « Racheter cette commande ».
 - **Arrivée au drive** : une fois les courses prêtes, le client touche « Je suis arrivé » (depuis sa commande ou l'e-mail « commande prête », sans se connecter grâce à un lien signé) et indique sa place sur le parking.
-- **Scanner de code-barres** : un produit du catalogue ouvre sa fiche (le chargement reste affiché jusqu'à son arrivée) ; sinon, la fiche d'Open Food Facts, d'Open Beauty Facts ou d'Open Products Facts s'affiche.
+- **Scanner de code-barres** : un produit du catalogue ouvre sa fiche (le chargement reste affiché jusqu'à son arrivée) ; sinon, sa fiche d'Open Food Facts, d'Open Beauty Facts ou d'Open Products Facts s'affiche, avec des produits proches du catalogue en stock dans le magasin (même catégorie, noms et marque les plus proches d'abord) et le lien vers leur rayon.
 - **E-mails au design du site** : bienvenue avec confirmation de l'adresse, confirmation de commande avec la facture, suivi à chaque étape, annulation avec le montant remboursé, mot de passe oublié ; et, pour les clients qui l'acceptent, rappel de panier abandonné et alerte quand des favoris passent en promotion (désinscription en un clic).
 - **Carte Trinity** (fidélité) : 1 point par euro dépensé, 100 points = un bon de 5 € à utiliser au paiement.
 - **Espace client** : magasin, commandes et factures, favoris, adresses, téléphone, informations personnelles, mot de passe et carte de fidélité.
@@ -246,7 +246,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 
 - TypeScript en mode strict, **sans aucun `any`** : ESLint interdit les `any` explicites et l'usage de valeurs typées `any` (`no-unsafe-*`), dans l'application comme dans les tests et les scripts.
 - Les données externes (corps des requêtes, réponses des bases ouvertes, fichiers JSON) sont validées avec zod avant usage.
-- **380 tests Jest** : routes API et contrôles d'accès (avec de vrais `NextRequest`), prix et prospectus, lots et anti-gaspi, commandes, paiement, préparation, réassort, scanner.
+- **389 tests Jest** : routes API et contrôles d'accès (avec de vrais `NextRequest`), prix et prospectus, lots et anti-gaspi, commandes, paiement, préparation, réassort, scanner.
 
 La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request et à chaque push sur `main` :
 
