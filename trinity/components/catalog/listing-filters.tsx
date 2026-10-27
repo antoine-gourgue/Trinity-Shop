@@ -22,6 +22,8 @@ interface ListingFiltersProps {
 // Filtres sous forme de liens : fonctionnent sans JavaScript et restent partageables
 export default function ListingFilters({ basePath, params, facets }: ListingFiltersProps) {
   const activeNutri = params.nutriscores.length > 0;
+  // Sans aucun produit noté (hygiène, entretien…), le groupe n'aurait que des options vides
+  const showNutri = activeNutri || facets.nutriScores.some((facet) => facet.count > 0);
 
   return (
     <div className="divide-y rounded-2xl border bg-white">
@@ -62,31 +64,33 @@ export default function ListingFilters({ basePath, params, facets }: ListingFilt
         })}
       </FilterGroup>
 
-      <FilterGroup title="Nutri-Score" active={activeNutri}>
-        {facets.nutriScores.map((facet) => {
-          const grade = facet.value as NutriGrade;
-          const active = params.nutriscores.includes(grade);
-          return (
-            <FilterOption
-              key={grade}
-              href={listingHref(basePath, params, { nutriscores: toggleValue(params.nutriscores, grade) })}
-              active={active}
-              count={facet.count}
-              disabled={!active && facet.count === 0}
-            >
-              <span
-                className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-black text-white",
-                  NUTRI_COLORS[grade]
-                )}
+      {showNutri && (
+        <FilterGroup title="Nutri-Score" active={activeNutri}>
+          {facets.nutriScores.map((facet) => {
+            const grade = facet.value as NutriGrade;
+            const active = params.nutriscores.includes(grade);
+            return (
+              <FilterOption
+                key={grade}
+                href={listingHref(basePath, params, { nutriscores: toggleValue(params.nutriscores, grade) })}
+                active={active}
+                count={facet.count}
+                disabled={!active && facet.count === 0}
               >
-                {grade}
-              </span>
-              Nutri-Score {grade}
-            </FilterOption>
-          );
-        })}
-      </FilterGroup>
+                <span
+                  className={cn(
+                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-black text-white",
+                    NUTRI_COLORS[grade]
+                  )}
+                >
+                  {grade}
+                </span>
+                Nutri-Score {grade}
+              </FilterOption>
+            );
+          })}
+        </FilterGroup>
+      )}
 
       {facets.brands.length > 0 && (
         <FilterGroup title="Marques" active={!!params.gamme || params.marques.length > 0} list={false}>
