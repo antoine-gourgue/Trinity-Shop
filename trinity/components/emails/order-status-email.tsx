@@ -12,7 +12,7 @@ export type OrderStatusEmailProps = {
   orderUrl: string;
   siteUrl: string;
 } & (
-  | { status: "ready" }
+  | { status: "preparing" | "ready" }
   // Montant remboursé en millièmes d'euro, null si rien n'avait été débité ; bons Carte Trinity rendus
   | { status: "cancelled"; refundedAmount: number | null; vouchersReturned: boolean }
 );
@@ -25,6 +25,14 @@ function hero(props: OrderStatusEmailProps): EmailHero {
       title: "Votre commande a été",
       highlight: "annulée",
       subtitle: "Nous sommes désolés : elle n’a pas pu être préparée. Voici ce qui se passe maintenant.",
+    };
+  }
+  if (props.status === "preparing") {
+    return {
+      label,
+      title: "Vos courses sont",
+      highlight: "en préparation",
+      subtitle: `Nous remplissons votre panier rayon par rayon pour votre créneau${props.pickupLabel ? `, ${props.pickupLabel.toLowerCase()}` : ""}.`,
     };
   }
   return props.deliveryAddress
@@ -42,18 +50,36 @@ function hero(props: OrderStatusEmailProps): EmailHero {
       };
 }
 
-// Changement de statut d'une commande : prête (retrait ou livraison) ou annulée
+function previewStatus(props: OrderStatusEmailProps) {
+  if (props.status === "cancelled") return "annulée";
+  if (props.status === "preparing") return "en préparation";
+  return props.deliveryAddress ? "en route" : "prête au drive";
+}
+
+// Ce qui attend le client après ce changement de statut
+function nextStep(props: OrderStatusEmailProps & { status: "preparing" | "ready" }) {
+  if (props.status === "preparing") {
+    return props.deliveryAddress
+      ? "Nous vous écrirons dès que vos courses partiront en livraison."
+      : "Nous vous écrirons dès que vos courses vous attendront au drive.";
+  }
+  return props.deliveryAddress
+    ? "Pensez à être présent pour réceptionner vos courses : les produits frais voyagent au froid."
+    : `Donnez le numéro de commande ${props.orderNumber} à l’accueil du drive : nous chargeons vos courses dans votre coffre.`;
+}
+
+// Changement de statut d'une commande : en préparation, prête (retrait ou livraison) ou annulée
 export function OrderStatusEmail(props: OrderStatusEmailProps) {
   const articles = `${props.articleCount} article${props.articleCount > 1 ? "s" : ""}`;
 
   return (
     <EmailLayout
-      preview={`Commande n° ${props.orderNumber} : ${props.status === "cancelled" ? "annulée" : props.deliveryAddress ? "en route" : "prête au drive"}`}
+      preview={`Commande n° ${props.orderNumber} : ${previewStatus(props)}`}
       siteUrl={props.siteUrl}
       hero={hero(props)}
       reason="Vous recevez cet e-mail pour suivre une commande passée sur Trinity."
     >
-      {props.status === "ready" ? (
+      {props.status !== "cancelled" ? (
         <>
           <Section style={{ ...emailStyles.box, marginTop: 0 }}>
             <Text style={emailStyles.strong}>{props.deliveryAddress ? "Livraison à domicile" : "Retrait au drive"}</Text>
@@ -62,11 +88,7 @@ export function OrderStatusEmail(props: OrderStatusEmailProps) {
               {props.deliveryAddress ?? "Trinity U Rennes Epitech"} · {articles}
             </Text>
           </Section>
-          <Text style={emailStyles.text}>
-            {props.deliveryAddress
-              ? "Pensez à être présent pour réceptionner vos courses : les produits frais voyagent au froid."
-              : `Donnez le numéro de commande ${props.orderNumber} à l’accueil du drive : nous chargeons vos courses dans votre coffre.`}
-          </Text>
+          <Text style={emailStyles.text}>{nextStep(props)}</Text>
         </>
       ) : (
         <>

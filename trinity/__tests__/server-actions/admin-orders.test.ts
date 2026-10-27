@@ -83,8 +83,17 @@ describe("advanceOrderStatus", () => {
         expect(after).toHaveBeenCalledTimes(1);
     });
 
-    it("sends nothing when preparation starts", async () => {
+    it("emails the customer when preparation starts", async () => {
         (prisma.order.findUnique as jest.Mock).mockResolvedValue({ status: "received" });
+        (prisma.order.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+        await advanceOrderStatus("order1");
+        expect(prisma.order.updateMany).toHaveBeenCalledWith({ where: { id: "order1", status: "received" }, data: { status: "preparing" } });
+        expect(after).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends nothing when the order is picked up or delivered", async () => {
+        (prisma.order.findUnique as jest.Mock).mockResolvedValue({ status: "ready" });
         (prisma.order.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
         await advanceOrderStatus("order1");

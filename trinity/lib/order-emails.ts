@@ -39,9 +39,9 @@ export async function sendOrderConfirmation(orderId: string) {
   }
 }
 
-export type OrderStatusEvent = { status: "ready" } | { status: "cancelled"; refund: RefundOutcome };
+export type OrderStatusEvent = { status: "preparing" | "ready" } | { status: "cancelled"; refund: RefundOutcome };
 
-// Prévient le client quand sa commande est prête (drive ou livraison) ou annulée, envoyé « au mieux »
+// Prévient le client quand sa commande passe en préparation, est prête (drive ou livraison) ou annulée, envoyé « au mieux »
 export async function sendOrderStatusEmail(orderId: string, event: OrderStatusEvent) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return;
@@ -62,10 +62,15 @@ export async function sendOrderStatusEmail(orderId: string, event: OrderStatusEv
       siteUrl: siteUrl(),
     };
     const email =
-      event.status === "ready"
+      event.status !== "cancelled"
         ? {
-            subject: data.delivery ? `Votre commande n° ${number} est en route` : `Votre commande n° ${number} est prête au drive`,
-            react: OrderStatusEmail({ ...common, status: "ready" }),
+            subject:
+              event.status === "preparing"
+                ? `Votre commande n° ${number} est en préparation`
+                : data.delivery
+                  ? `Votre commande n° ${number} est en route`
+                  : `Votre commande n° ${number} est prête au drive`,
+            react: OrderStatusEmail({ ...common, status: event.status }),
           }
         : {
             subject: `Votre commande n° ${number} a été annulée`,

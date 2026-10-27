@@ -65,6 +65,17 @@ describe("e-mails", () => {
         expect(html).toContain("+ 12 points");
     });
 
+    it("tells the customer the delivery is being prepared", () => {
+        const html = renderToStaticMarkup(
+            <OrderStatusEmail status="preparing" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
+                deliveryAddress="12 rue de Rennes, 35000 Rennes" articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} />
+        );
+
+        expect(html).toContain("en préparation");
+        expect(html).toContain("partiront en livraison");
+        expect(html).toContain("Voir ma commande");
+    });
+
     it("tells the customer the order is ready at the drive", () => {
         const html = renderToStaticMarkup(
             <OrderStatusEmail status="ready" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
