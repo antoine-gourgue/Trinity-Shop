@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Clock, Coins, CreditCard, MapPin, ShoppingBasket, Store, Truck } from "lucide-react";
+import { ArrowRight, CreditCard, ShoppingBasket, Store } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -11,11 +10,12 @@ import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import RayonTiles from "@/components/catalog/rayon-tiles";
 import ProductSection from "@/components/catalog/product-section";
 import ProductCarousel from "@/components/catalog/product-carousel";
+import OperationBanners, { type OperationBanner } from "@/components/catalog/operation-banners";
+import Prospectus, { type ProspectusItem } from "@/components/catalog/prospectus";
 import AntiGaspiCard from "@/components/anti-gaspi/anti-gaspi-card";
 import { storeOffers } from "@/lib/anti-gaspi-offers";
-import OfferShowcase, { type ShowcaseProduct } from "@/components/catalog/offer-showcase";
 import { discountPercent, formatPrice } from "@/lib/format";
-import { daysLeftLabel } from "@/lib/anti-gaspi";
+import { pickupDays, pickupHours } from "@/lib/checkout";
 import { FREE_DELIVERY_FROM } from "@/lib/delivery";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE } from "@/lib/loyalty";
 
@@ -73,143 +73,99 @@ export default async function HomePage({
   if (legacyQuery) redirect(`/produits?q=${encodeURIComponent(legacyQuery)}`);
 
   const [session, store] = await Promise.all([auth(), currentStore()]);
-  const [storeCount, productCount, favorites, promos, saveurs, nutriA, bio, matLou, promoPrices] = await Promise.all([
+  const [storeCount, favorites, saveurs, nutriA, bio, matLou, promoPrices] = await Promise.all([
     prisma.store.count(),
-    prisma.product.count({ where: VISIBLE_PRODUCT }),
     favoriteProducts(session?.user?.id),
-    productsWhere({ regularPrice: { not: null } }),
     productsWhere({ brand: { name: "u-saveurs" } }),
     productsWhere({ nutriScore: "A" }),
     productsWhere({ brand: { name: "u-bio" } }),
     productsWhere({ brand: { name: "u-mat-lou" } }),
-    // Promotions en cours, pour la carte Promos : leur nombre et les plus fortes remises
+    // Promotions en cours, pour la bannière Promos et le prospectus
     prisma.product.findMany({
       where: { ...VISIBLE_PRODUCT, regularPrice: { not: null } },
-      select: { id: true, name: true, picture: true, price: true, regularPrice: true },
+      select: { id: true, name: true, picture: true, price: true, regularPrice: true, netContent: true, promoEndsAt: true },
     }),
   ]);
-  const promoCount = promoPrices.length;
-  const topPromos: ShowcaseProduct[] = promoPrices
+  // Les plus fortes remises d'abord : les trois premières sur la bannière, les suivantes au prospectus
+  const topPromos: ProspectusItem[] = promoPrices
     .map((product) => ({ ...product, regularPrice: product.regularPrice ?? product.price, percent: discountPercent(product.price, product.regularPrice) ?? 0 }))
-    .sort((a, b) => b.percent - a.percent)
-    .slice(0, 3);
+    .sort((a, b) => b.percent - a.percent);
   // Dates courtes du magasin choisi, à prix réduit
   const antiGaspiOffers = store ? await storeOffers(store.id) : [];
   const antiGaspi = antiGaspiOffers.slice(0, SECTION_SIZE);
-  const topAntiGaspi: ShowcaseProduct[] = [...antiGaspiOffers]
-    .sort((a, b) => b.percent - a.percent)
-    .slice(0, 3)
-    .map((offer) => ({
-      id: offer.product.id,
-      name: offer.product.name,
-      picture: offer.product.picture,
-      percent: offer.percent,
-      price: offer.unitPrice,
-      regularPrice: offer.product.price,
-      note: `DLC ${daysLeftLabel(offer.days)}`,
-    }));
-  // Magasin choisi, sinon le réseau
-  const storeLabel = store ? store.name : `${storeCount} magasins Trinity en France`;
+  const topAntiGaspi = [...antiGaspiOffers].sort((a, b) => b.percent - a.percent);
+  // Premier retrait possible : le prochain jour d'ouverture, au premier créneau
+  const firstPickup = new Date(`${pickupDays()[0].date}T12:00:00`);
+  const firstHour = pickupHours()[0];
+  const pickupWeekday = firstPickup.toLocaleDateString("fr-FR", { weekday: "long" });
+  const freeDelivery = formatPrice(FREE_DELIVERY_FROM).replace(",00", "");
+
+  const banners: OperationBanner[] = [
+    {
+      href: "/produits?promo=1",
+      tone: "promo",
+      kicker: "Promos de la semaine",
+      title: `Jusqu'à −${topPromos[0]?.percent ?? 0}\u00a0%`,
+      text: `Sur ${promoPrices.length} produits en promotion`,
+      cta: "J'en profite",
+      visual: { kind: "products", products: topPromos.slice(0, 3) },
+    },
+    {
+      href: "/anti-gaspi",
+      tone: "bio",
+      kicker: store ? `Anti-gaspi · ${store.name}` : "Anti-gaspi",
+      title: `Jusqu'à −${topAntiGaspi[0]?.percent ?? 50}\u00a0%`,
+      text: !store
+        ? "Choisissez votre magasin pour voir ses dates courtes"
+        : antiGaspiOffers.length > 0
+          ? `${antiGaspiOffers.length} dates courtes dans votre magasin`
+          : "Pas de date courte dans votre magasin pour le moment",
+      cta: "Voir les offres",
+      visual: { kind: "products", products: topAntiGaspi.slice(0, 3).map((offer) => offer.product) },
+    },
+    {
+      href: "#rayons",
+      tone: "brand",
+      kicker: store ? `Drive ${store.name}` : "Drive Trinity",
+      title: "Retrait gratuit",
+      text: `${store ? store.hours : `${storeCount} magasins en France`} · Livraison offerte dès ${freeDelivery}`,
+      cta: "Faire mes courses",
+      visual: {
+        kind: "pickup",
+        weekday: pickupWeekday,
+        date: firstPickup.toLocaleDateString("fr-FR", { day: "numeric", month: "long" }),
+        hour: `${firstHour}h – ${firstHour + 1}h`,
+      },
+    },
+    {
+      href: "/legal/loyalty-program",
+      tone: "highlight",
+      kicker: "Carte Trinity",
+      title: `${formatPrice(VOUCHER_VALUE).replace(",00", "")} offerts`,
+      text: `Tous les ${POINTS_PER_VOUCHER} points cumulés, à raison d'un point par euro`,
+      cta: "Découvrir",
+      visual: { kind: "card" },
+    },
+  ];
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="relative flex flex-col overflow-hidden rounded-3xl bg-brand-dark px-6 py-8 text-white sm:px-10 sm:py-10 lg:col-span-2">
-          <Image
-            src="/assets/fruits.png"
-            alt=""
-            width={420}
-            height={420}
-            priority
-            className="pointer-events-none absolute -right-20 top-1/2 hidden w-[380px] -translate-y-1/2 rotate-12 sm:block"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-brand-dark from-45% via-brand-dark/85 to-transparent sm:block"
-          />
-          <div className="relative max-w-md">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
-              <MapPin size={14} className="text-highlight" aria-hidden />
-              {storeLabel}
-            </span>
-            <h1 className="mt-4 text-3xl font-black leading-tight sm:text-4xl">
-              Vos courses du quotidien, <span className="text-highlight">prêtes au drive</span>
-            </h1>
-            <p className="mt-3 text-white/80">
-              Plus de {Math.floor(productCount / 100) * 100} produits U, des fruits et légumes à
-              l’épicerie : commandez en ligne et récupérez vos courses en magasin.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                href="#rayons"
-                className="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-brand-dark transition-colors hover:bg-highlight"
-              >
-                Découvrir les rayons <ArrowRight size={16} aria-hidden />
-              </Link>
-              <Link
-                href="/anti-gaspi"
-                className="rounded-full border border-white/40 px-5 py-3 text-sm font-bold transition-colors hover:bg-white/10"
-              >
-                Rayon anti-gaspi
-              </Link>
-            </div>
-          </div>
-
-          {/* Le drive en trois informations utiles, en bas du bandeau (au moins 2 rem sous les boutons) */}
-          <div className="min-h-8 flex-1" aria-hidden />
-          <dl className="relative grid gap-4 rounded-2xl bg-brand-dark/85 p-4 text-sm ring-1 ring-white/10 backdrop-blur sm:grid-cols-3 sm:p-5">
-            {[
-              {
-                icon: Clock,
-                term: store ? "Drive ouvert" : "Drives Trinity",
-                detail: store ? store.hours : `${storeCount} magasins en France`,
-              },
-              { icon: Truck, term: "Retrait gratuit", detail: `Livraison offerte dès ${formatPrice(FREE_DELIVERY_FROM).replace(",00", "")}` },
-              {
-                icon: Coins,
-                term: "Carte Trinity",
-                detail: `${formatPrice(VOUCHER_VALUE).replace(",00", "")} offerts tous les ${POINTS_PER_VOUCHER} points`,
-              },
-            ].map(({ icon: Icon, term, detail }) => (
-              <div key={term} className="flex items-start gap-3">
-                <Icon size={18} className="mt-0.5 shrink-0 text-highlight" aria-hidden />
-                <div>
-                  <dt className="font-extrabold">{term}</dt>
-                  <dd className="text-white/75">{detail}</dd>
-                </div>
-              </div>
-            ))}
-          </dl>
-        </div>
-
-        {/* Les deux offres du moment, avec leurs produits : promotions du catalogue et dates courtes du magasin */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-          <OfferShowcase href="/produits?promo=1" tone="promo" title="Promos de la semaine" subtitle={`${promoCount} produits en promotion`} products={topPromos} />
-          {topAntiGaspi.length > 0 ? (
-            <OfferShowcase
-              href="/anti-gaspi"
-              tone="bio"
-              title="Anti-gaspi"
-              subtitle={`${antiGaspiOffers.length} dates courtes à ${store?.name ?? "votre magasin"}`}
-              products={topAntiGaspi}
-            />
-          ) : (
-            <Link href="/anti-gaspi" className="group flex flex-col justify-between rounded-3xl bg-bio p-5 text-white">
-              <span className="text-2xl font-black">Anti-gaspi</span>
-              <span className="mt-2 text-sm text-white/85">
-                {store ? "Pas de date courte dans votre magasin pour le moment." : "Choisissez votre magasin pour voir ses dates courtes, jusqu'à −50 %."}
-              </span>
-              <span className="mt-4 text-sm font-bold underline-offset-4 group-hover:underline">Voir le rayon anti-gaspi</span>
-            </Link>
-          )}
-        </div>
-      </section>
+      <h1 className="sr-only">{store ? `Vos courses au drive ${store.name}` : "Vos courses en ligne, prêtes au drive"}</h1>
+      <OperationBanners banners={banners} />
 
       <ProductSection
         title="Vos favoris"
         subtitle="Vos produits habituels, à remettre au panier en un clic."
         href="/user/favoris"
         products={favorites}
+      />
+
+      <Prospectus
+        label="Prospectus de la semaine"
+        scope={store ? `Drive ${store.name}` : "Tous les magasins Trinity"}
+        description={`${promoPrices.length} produits en promotion, à retirer dès ${pickupWeekday} au drive ou à vous faire livrer.`}
+        href="/produits?promo=1"
+        items={topPromos.slice(3, 8)}
       />
 
       {antiGaspi.length > 0 && (
@@ -238,12 +194,6 @@ export default async function HomePage({
         <RayonTiles />
       </section>
 
-      <ProductSection
-        title="Les promos du moment"
-        subtitle="Des remises sur une sélection de produits de tous les rayons."
-        href="/produits?promo=1"
-        products={promos}
-      />
       <ProductSection
         title="U Saveurs, le goût des régions"
         subtitle="Des recettes de terroir sélectionnées par nos équipes."

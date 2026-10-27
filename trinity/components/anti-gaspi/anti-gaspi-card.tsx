@@ -1,8 +1,8 @@
 import Link from "next/link";
 import ProductImage from "@/components/product/product-image";
 import AddAntiGaspiButton from "@/components/anti-gaspi/add-anti-gaspi-button";
-import OfferRibbon from "@/components/product/offer-ribbon";
-import { daysLeftLabel, formatBestBefore } from "@/lib/anti-gaspi";
+import DiscountFlag from "@/components/product/discount-flag";
+import { formatBestBefore } from "@/lib/anti-gaspi";
 import type { AntiGaspiOffer } from "@/lib/anti-gaspi-offers";
 import { formatBrand, formatPrice } from "@/lib/format";
 
@@ -11,8 +11,9 @@ export default function AntiGaspiCard({ offer }: { offer: AntiGaspiOffer }) {
   const { product } = offer;
   const href = `/product/${product.id}`;
   return (
-    <article className="flex h-full flex-col rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-lg sm:p-4">
-      <OfferRibbon tone="bio" label={`Anti-gaspi −${offer.percent} %`} detail={`DLC ${daysLeftLabel(offer.days)}`} />
+    <article className="relative flex h-full flex-col rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-lg sm:p-4">
+      {/* Drapeau collé au bord gauche de la carte, par-dessus la photo */}
+      <DiscountFlag percent={offer.percent} tone="bio" className="absolute -left-px top-5 z-10 sm:top-6" />
       <Link href={href} className="relative block aspect-square overflow-hidden rounded-lg bg-white">
         <ProductImage src={product.picture} alt={product.name} sizes="(min-width: 1024px) 20vw, 46vw" className="p-2" />
       </Link>
