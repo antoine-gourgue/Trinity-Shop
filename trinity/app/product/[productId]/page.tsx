@@ -24,6 +24,9 @@ import ProductCarousel from "@/components/catalog/product-carousel";
 import ProductCard from "@/components/product/productCard";
 import NutritionTable from "@/components/product/nutrition-table";
 import ProductStickyBar from "@/components/product/product-sticky-bar";
+import AddAntiGaspiButton from "@/components/anti-gaspi/add-anti-gaspi-button";
+import { productOffer } from "@/lib/anti-gaspi-offers";
+import { daysLeftLabel, formatBestBefore } from "@/lib/anti-gaspi";
 
 interface ProductPageProps {
   params: Promise<{ productId: string }>;
@@ -104,7 +107,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
       ? `Disponible dans ${storesWithStock} magasin${storesWithStock > 1 ? "s" : ""} Trinity`
       : "Rupture de stock";
   // Épuisé dans le magasin du client : les magasins les plus proches qui l'ont encore
-  const nearby = store && stock === 0 ? await nearbyStock(product.id, store) : [];
+  const [nearby, antiGaspi] = await Promise.all([
+    store && stock === 0 ? nearbyStock(product.id, store) : [],
+    // Lot à date courte du produit dans le magasin du client
+    store ? productOffer(store.id, product.id) : null,
+  ]);
   const allergens = formatAllergens(off?.allergens_tags);
   const nutrition = nutritionRows(off?.nutriments);
   const ingredients: string | undefined = off?.ingredients_text_fr || off?.ingredients_text || undefined;
@@ -248,6 +255,20 @@ export default async function ProductPage({ params }: ProductPageProps) {
             disabled={stock === 0}
             className="mt-5 w-full"
           />
+
+          {antiGaspi && (
+            <div className="mt-4 rounded-2xl border-2 border-bio/30 bg-bio/5 p-4">
+              <p className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-extrabold text-bio">Anti-gaspi : −{antiGaspi.percent} %</span>
+                <span className="text-xl font-black text-bio">{formatPrice(antiGaspi.unitPrice)}</span>
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {antiGaspi.quantity} à date courte dans votre magasin, date limite {daysLeftLabel(antiGaspi.days)} (
+                {formatBestBefore(antiGaspi.bestBefore)}).
+              </p>
+              <AddAntiGaspiButton lotId={antiGaspi.lotId} productName={product.name} size="lg" className="mt-3 w-full" />
+            </div>
+          )}
 
           <ul className="mt-6 space-y-3 border-t pt-5 text-sm">
             <li className="flex items-center gap-3">

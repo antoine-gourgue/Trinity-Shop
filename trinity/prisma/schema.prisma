@@ -98,6 +98,7 @@ model Product {
   brandId          String
   categories       CategoriesProducts[]
   stocks           StoreStock[]
+  antiGaspiLots    AntiGaspiLot[]
   cartsWithProduct ProductInCart[]      @relation("CartLines")
   substitutedIn    ProductInCart[]      @relation("Substitutes")
   promoEndsAt      DateTime? // fin de la promotion : le prix revient alors au prix barré
@@ -145,21 +146,27 @@ model Cart {
 }
 
 model ProductInCart {
-  id               String   @id @default(cuid())
-  quantity         Int
-  cart             Cart     @relation(fields: [cartId], references: [id])
-  cartId           String
-  product          Product  @relation("CartLines", fields: [productId], references: [id])
-  productId        String
+  id                String        @id @default(cuid())
+  quantity          Int
+  cart              Cart          @relation(fields: [cartId], references: [id])
+  cartId            String
+  product           Product       @relation("CartLines", fields: [productId], references: [id])
+  productId         String
   // Produit équivalent accepté si celui-ci manque à la préparation
-  allowSubstitute  Boolean  @default(true)
+  allowSubstitute   Boolean       @default(true)
   // Préparation en magasin : quantité réellement prélevée (null tant que l'article n'est pas traité)
-  preparedQuantity Int?
+  preparedQuantity  Int?
   // Produit équivalent donné pour la quantité manquante, si le client l'accepte
-  substituteId     String?
-  substitute       Product? @relation("Substitutes", fields: [substituteId], references: [id])
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  substituteId      String?
+  substitute        Product?      @relation("Substitutes", fields: [substituteId], references: [id])
+  // Offre anti-gaspi choisie par le client : unités à date courte d'un lot du magasin
+  antiGaspiLotId    String?
+  antiGaspiLot      AntiGaspiLot? @relation(fields: [antiGaspiLotId], references: [id], onDelete: SetNull)
+  // Unités servies à prix anti-gaspi et remise de la ligne (millièmes d'euro), fixées à la commande
+  antiGaspiQuantity Int           @default(0)
+  antiGaspiDiscount Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 }
 
 model Address {
@@ -179,29 +186,36 @@ model Address {
 }
 
 model Order {
-  id                  String               @id @default(cuid())
-  userId              String
-  cartId              String
-  billingAddressId    String?
-  shippingAddressId   String?
-  validated           Boolean              @default(false)
-  status              OrderStatus          @default(received)
-  stockDeducted       Boolean              @default(false) // stock décompté à la commande (commandes passées après ce suivi)
-  stripeSessionId     String?              @unique // paiement Stripe à l'origine de la commande : une session ne crée qu'une commande
-  pickupSlot          DateTime? // début du créneau de retrait au drive (créneaux d'une heure)
-  loyaltyDiscount     Int                  @default(0) // remise Carte Trinity, en millièmes d'euro
-  loyaltyPointsUsed   Int                  @default(0)
-  loyaltyPointsEarned Int                  @default(0)
-  loyaltyTransactions LoyaltyTransaction[]
+  id                   String               @id @default(cuid())
+  userId               String
+  cartId               String
+  billingAddressId     String?
+  shippingAddressId    String?
+  validated            Boolean              @default(false)
+  status               OrderStatus          @default(received)
+  stockDeducted        Boolean              @default(false) // stock décompté à la commande (commandes passées après ce suivi)
+  stripeSessionId      String?              @unique // paiement Stripe à l'origine de la commande : une session ne crée qu'une commande
+  pickupSlot           DateTime? // début du créneau de retrait au drive (créneaux d'une heure)
+  loyaltyDiscount      Int                  @default(0) // remise Carte Trinity, en millièmes d'euro
+  loyaltyPointsUsed    Int                  @default(0)
+  loyaltyPointsEarned  Int                  @default(0)
+  loyaltyTransactions  LoyaltyTransaction[]
   // Fin de la préparation en magasin, et montant alors remboursé (articles manquants, remplaçants
   // moins chers), en millièmes d'euro
-  preparedAt          DateTime?
-  preparationRefund   Int                  @default(0)
+  preparedAt           DateTime?
+  preparationRefund    Int                  @default(0)
+  // Suivi en magasin : début de la préparation, arrivée du client au drive (et sa place), remise
+  preparationStartedAt DateTime?
+  arrivedAt            DateTime?
+  parkingSpot          Int?
+  completedAt          DateTime?
+  // Remise anti-gaspi (articles à date courte), en millièmes d'euro
+  antiGaspiDiscount    Int                  @default(0)
   // Magasin qui prépare la commande (drive de retrait, ou départ de la livraison)
-  storeId             String?
-  store               Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  storeId              String?
+  store                Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   cart            Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
@@ -282,23 +296,49 @@ model RateLimit {
 // Magasin Trinity : drive de retrait et point de départ des livraisons. Le catalogue, les prix
 // et le stock sont communs à tous les magasins.
 model Store {
-  id        String       @id @default(cuid())
-  slug      String       @unique
-  name      String // « Trinity Nantes Beaujoire »
-  street    String
-  zipCode   String
-  city      String
-  region    String
-  latitude  Float
-  longitude Float
-  phone     String?
-  hours     String // horaires du drive, ex. « Lun.–sam. 8h30–20h30 »
-  users     User[]
-  orders    Order[]
-  stocks    StoreStock[]
-  createdAt DateTime     @default(now())
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  name          String // « Trinity Nantes Beaujoire »
+  street        String
+  zipCode       String
+  city          String
+  region        String
+  latitude      Float
+  longitude     Float
+  phone         String?
+  hours         String // horaires du drive, ex. « Lun.–sam. 8h30–20h30 »
+  users         User[]
+  orders        Order[]
+  stocks        StoreStock[]
+  antiGaspiLots AntiGaspiLot[]
+  createdAt     DateTime       @default(now())
 
   @@index([city])
+}
+
+// Lot à date courte déclaré par un magasin : vendu en ligne à prix réduit (la remise grandit à
+// l'approche de la date limite), puis le reste est donné ou jeté. Les unités font partie du stock.
+model AntiGaspiLot {
+  id              String          @id @default(cuid())
+  storeId         String
+  store           Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // Unités encore proposées, et unités déclarées au départ
+  quantity        Int
+  initialQuantity Int
+  // Date limite de consommation (DLC) ou de durabilité (DDM), au jour près
+  bestBefore      DateTime        @db.Date
+  soldQuantity    Int             @default(0)
+  donatedQuantity Int             @default(0)
+  wastedQuantity  Int             @default(0)
+  // Lot clos : tout est vendu, ou le reste a été donné ou jeté
+  closedAt        DateTime?
+  cartLines       ProductInCart[]
+  createdAt       DateTime        @default(now())
+
+  @@index([storeId, closedAt, bestBefore])
+  @@index([productId])
 }
 
 // Stock d'un produit dans un magasin : chaque drive a le sien, décompté par ses commandes

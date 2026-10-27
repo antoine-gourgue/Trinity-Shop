@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
-import { Boxes, ClipboardCheck, LayoutDashboard, LogOut, Menu, Package, ShoppingBag, Store, Users } from "lucide-react";
+import { Boxes, Car, ClipboardCheck, LayoutDashboard, LogOut, Menu, Package, Recycle, ShoppingBag, Store, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
@@ -14,8 +14,10 @@ const LINKS = [
   { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard, headOffice: false },
   { href: "/admin/orders", label: "Commandes", icon: ShoppingBag, headOffice: false },
   { href: "/admin/preparation", label: "Préparation", icon: ClipboardCheck, headOffice: false },
+  { href: "/admin/drive", label: "Drive", icon: Car, headOffice: false },
   { href: "/admin/products", label: "Produits", icon: Package, headOffice: true },
   { href: "/admin/stocks", label: "Stocks", icon: Boxes, headOffice: false },
+  { href: "/admin/anti-gaspi", label: "Anti-gaspi", icon: Recycle, headOffice: false },
   { href: "/admin/users", label: "Clients", icon: Users, headOffice: true },
 ];
 

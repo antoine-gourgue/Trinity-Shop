@@ -51,8 +51,11 @@ describe("setPreparedQuantity", () => {
 
         expect(requireOrderManagement).toHaveBeenCalledWith("order1");
         expect(prisma.productInCart.update).toHaveBeenCalledWith({ where: { id: "line1" }, data: { preparedQuantity: 2 } });
-        // Premier article traité : la commande passe en préparation et le client est prévenu
-        expect(prisma.order.updateMany).toHaveBeenCalledWith({ where: { id: "order1", status: "received" }, data: { status: "preparing" } });
+        // Premier article traité : la commande passe en préparation (horodatée) et le client est prévenu
+        const [[update]] = (prisma.order.updateMany as unknown as jest.Mock<unknown, [{ where: unknown; data: Record<string, unknown> }]>).mock.calls;
+        expect(update.where).toEqual({ id: "order1", status: "received" });
+        expect(update.data.status).toBe("preparing");
+        expect(update.data.preparationStartedAt).toBeInstanceOf(Date);
         expect(after).toHaveBeenCalledTimes(1);
     });
 
@@ -123,6 +126,7 @@ describe("finishPreparation", () => {
         storeId: "store-nantes",
         stripeSessionId: "cs_test_1",
         loyaltyDiscount: 0,
+        antiGaspiDiscount: 0,
         cart: {
             productsInCart: [
                 line({}),

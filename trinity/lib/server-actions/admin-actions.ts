@@ -323,19 +323,28 @@ const ORDER_REVERSAL = {
   loyaltyPointsEarned: true,
   loyaltyPointsUsed: true,
   user: { select: { loyaltyPoints: true } },
-  cart: { select: { productsInCart: { select: { productId: true, quantity: true } } } },
+  cart: { select: { productsInCart: { select: { productId: true, quantity: true, antiGaspiLotId: true, antiGaspiQuantity: true } } } },
 } satisfies Prisma.OrderSelect;
 
 // Ce que défait une annulation : points gagnés retirés et bons utilisés rendus au client,
-// articles remis en stock s'ils avaient été décomptés
+// articles remis en stock s'ils avaient été décomptés, unités anti-gaspi rendues à leur lot
 function reverseOrder(orderId: string, order: Prisma.OrderGetPayload<{ select: typeof ORDER_REVERSAL }>) {
   // Le solde ne descend pas sous zéro si le client a déjà dépensé les points gagnés
   const pointsDelta = order.loyaltyPointsUsed - order.loyaltyPointsEarned;
   const balance = Math.max(0, order.user.loyaltyPoints + pointsDelta);
+  const lots = order.cart.productsInCart.filter((line) => line.antiGaspiLotId && line.antiGaspiQuantity > 0);
   return [
     prisma.loyaltyTransaction.deleteMany({ where: { orderId } }),
     ...(pointsDelta !== 0 ? [prisma.user.update({ where: { id: order.userId }, data: { loyaltyPoints: balance } })] : []),
     ...(order.stockDeducted ? restock(order.storeId, order.cart.productsInCart) : []),
+    ...(order.stockDeducted
+      ? lots.map((line) =>
+          prisma.antiGaspiLot.updateMany({
+            where: { id: line.antiGaspiLotId ?? "" },
+            data: { quantity: { increment: line.antiGaspiQuantity }, soldQuantity: { decrement: line.antiGaspiQuantity }, closedAt: null },
+          })
+        )
+      : []),
   ];
 }
 
@@ -348,8 +357,15 @@ export async function advanceOrderStatus(orderId: string): Promise<AdminResult> 
   const next = nextOrderStatus(order.status);
   if (!next) return fail("Cette commande est déjà terminée ou annulée.");
 
-  // Mise à jour conditionnelle : deux clics simultanés ne sautent pas d'étape
-  const { count } = await prisma.order.updateMany({ where: { id: orderId, status: order.status }, data: { status: next } });
+  // Mise à jour conditionnelle : deux clics simultanés ne sautent pas d'étape. Chaque étape est
+  // horodatée pour les indicateurs (durée de préparation, attente au drive)
+  const now = new Date();
+  const timestamps = {
+    preparing: { preparationStartedAt: now },
+    ready: { preparedAt: now },
+    completed: { completedAt: now },
+  }[next];
+  const { count } = await prisma.order.updateMany({ where: { id: orderId, status: order.status }, data: { status: next, ...timestamps } });
   if (count === 0) return fail("La commande a changé entre-temps : rechargez la page.");
   // Le client est prévenu à chaque étape : préparation, courses prêtes (ou parties en livraison), puis retirées ou livrées
   after(() => sendOrderStatusEmail(orderId, { status: next }));

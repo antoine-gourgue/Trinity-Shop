@@ -73,6 +73,16 @@ export function OrderConfirmationEmail({ firstName, invoice, total, orderUrl, si
           </Column>
         </Row>
       )}
+      {invoice.antiGaspiDiscount > 0 && (
+        <Row>
+          <Column>
+            <Text style={{ ...emailStyles.muted, margin: 0 }}>Remise anti-gaspi</Text>
+          </Column>
+          <Column style={{ width: 90 }}>
+            <Text style={{ ...emailStyles.muted, margin: 0, textAlign: "right" }}>– {formatPrice(invoice.antiGaspiDiscount)}</Text>
+          </Column>
+        </Row>
+      )}
       <Row style={{ marginTop: 8 }}>
         <Column>
           <Text style={{ ...emailStyles.text, fontSize: 17, fontWeight: 900, margin: 0 }}>Total payé</Text>

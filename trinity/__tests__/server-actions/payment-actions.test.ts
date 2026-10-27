@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { checkAvailability } from "@/lib/orders/place-order";
 import { stripeClient } from "@/lib/payments/stripe";
 import { startCheckout, type StartCheckoutInput } from "@/lib/server-actions/payment-actions";
+import { cartAntiGaspi } from "@/lib/anti-gaspi-offers";
 
 jest.mock("@/lib/prisma", () => ({
     cart: { findFirst: jest.fn() },
@@ -22,6 +23,9 @@ jest.mock("@/lib/payments/stripe", () => ({
 jest.mock("@/lib/stores", () => ({
     storeForOrder: jest.fn(async () => "store1"),
 }));
+
+// Articles anti-gaspi du panier : aucun par défaut
+jest.mock("@/lib/anti-gaspi-offers", () => ({ cartAntiGaspi: jest.fn() }));
 
 jest.mock("@/lib/orders/place-order", () => ({
     ...jest.requireActual<typeof import("@/lib/orders/place-order")>("@/lib/orders/place-order"),
@@ -57,6 +61,7 @@ describe("startCheckout", () => {
         (prisma.address.findUnique as jest.Mock).mockResolvedValue({ userId: "user1" });
         (prisma.user.findUnique as jest.Mock).mockResolvedValue({ loyaltyNumber: "1234", loyaltyPoints: 250 });
         (checkAvailability as jest.Mock).mockResolvedValue(null);
+        (cartAntiGaspi as jest.Mock).mockResolvedValue({ discount: 0, allocations: [] });
         couponsCreate.mockResolvedValue({ id: "coupon1" });
         sessionsCreate.mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/cs_test_1" });
     });
@@ -89,10 +94,30 @@ describe("startCheckout", () => {
                 { quantity: 1, price_data: { currency: "eur", unit_amount: 459, product_data: { name: "Café" } } },
                 { quantity: 1, price_data: { currency: "eur", unit_amount: 590, product_data: { name: "Livraison à domicile" } } },
             ],
-            metadata: { userId: "user1", cartId: "cart1", storeId: "store1", fulfillment: "delivery", shippingAddressId: "address1", loyaltyVouchers: "1" },
+            metadata: {
+                userId: "user1",
+                cartId: "cart1",
+                storeId: "store1",
+                fulfillment: "delivery",
+                shippingAddressId: "address1",
+                loyaltyVouchers: "1",
+                antiGaspiDiscount: "0",
+            },
             success_url: "http://localhost:3000/api/payments/stripe/confirm?session_id={CHECKOUT_SESSION_ID}",
             cancel_url: `http://localhost:3000${INPUT.returnPath}`,
         });
+    });
+
+    it("adds the anti-waste discount to the loyalty vouchers in a single Stripe coupon", async () => {
+        (cartAntiGaspi as jest.Mock).mockResolvedValue({ discount: 1190, allocations: [{ productId: "p1", lotId: "lot1", units: 2, percent: 50, discount: 1190 }] });
+
+        await startCheckout(INPUT);
+
+        // Lots du drive du client, encore bons au créneau choisi
+        expect(cartAntiGaspi).toHaveBeenCalledWith("user1", "store1", expect.any(Date));
+        expect(couponsCreate).toHaveBeenCalledWith({ amount_off: 619, currency: "eur", duration: "once", name: "Bons Carte Trinity et Anti-gaspi" });
+        const [params] = sessionsCreate.mock.calls[0];
+        expect(params).toMatchObject({ metadata: { antiGaspiDiscount: "1190" } });
     });
 
     it("refuses to charge a cart that can no longer be prepared", async () => {

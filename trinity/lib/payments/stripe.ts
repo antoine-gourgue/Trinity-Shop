@@ -27,6 +27,8 @@ export const checkoutMetadataSchema = z.object({
   fulfillment: z.enum(["pickup", "delivery"]),
   shippingAddressId: z.string().min(1).optional(),
   loyaltyVouchers: z.coerce.number().int().min(0),
+  // Remise anti-gaspi déduite du paiement, en millièmes d'euro (absente des paiements plus anciens)
+  antiGaspiDiscount: z.coerce.number().int().min(0).optional(),
   returnPath: z.string().regex(/^\/cart\/paiement(\?.*)?$/),
 });
 

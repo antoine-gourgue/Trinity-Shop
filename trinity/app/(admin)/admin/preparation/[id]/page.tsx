@@ -5,6 +5,7 @@ import { backOfficePage } from "@/lib/admin/access";
 import { orderNumber } from "@/lib/account";
 import { RAYONS, findRayonForCategories } from "@/lib/rayons";
 import { orderStatusLabel } from "@/lib/order-status";
+import { formatBestBefore } from "@/lib/anti-gaspi";
 import { AdminPageHeader } from "@/components/admin/admin-ui";
 import { customerName, pickupLabel } from "@/components/admin/admin-bits";
 import PickingList, { type PickingLine } from "@/components/admin/preparation/picking-list";
@@ -45,6 +46,11 @@ export default async function PreparationPage({ params }: Props) {
           barCode: line.product.barCode.toString(),
           brand: line.product.brand.name,
         },
+        antiGaspiDiscount: line.antiGaspiDiscount,
+        antiGaspi:
+          line.antiGaspiQuantity > 0 && line.antiGaspiLot
+            ? { quantity: line.antiGaspiQuantity, bestBefore: formatBestBefore(line.antiGaspiLot.bestBefore) }
+            : null,
         rayon: match?.subCategory?.label ?? match?.rayon.shortName ?? "Autres rayons",
         rayonOrder: match ? RAYONS.indexOf(match.rayon) : RAYONS.length,
       };

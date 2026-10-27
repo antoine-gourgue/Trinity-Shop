@@ -16,6 +16,8 @@ export interface InvoiceData {
   // Livraison à domicile (null pour un retrait au drive)
   delivery: { address: string[]; fee: number } | null;
   loyalty: { discount: number; pointsUsed: number; pointsEarned: number; cardNumber: string | null };
+  // Remise anti-gaspi (articles à date courte)
+  antiGaspiDiscount: number;
   // Ajustements de la préparation (articles manquants ou remplacés), null tant qu'elle n'est pas validée
   preparation: { refund: number; changes: PreparationChange[] } | null;
   customer: { name: string; email: string; address: string[] };
@@ -229,7 +231,7 @@ export async function buildInvoicePdf(data: InvoiceData) {
 
   const fee = data.delivery?.fee ?? 0;
   const refund = data.preparation?.refund ?? 0;
-  const total = subtotal - savings - data.loyalty.discount - refund + fee;
+  const total = subtotal - savings - data.loyalty.discount - data.antiGaspiDiscount - refund + fee;
   const vat = total - fee - (total - fee) / (1 + VAT_RATE) + (fee - fee / (1 + SERVICE_VAT_RATE));
   const boxX = right - 230;
   let lineY = y - 10;
@@ -243,6 +245,7 @@ export async function buildInvoicePdf(data: InvoiceData) {
   if (data.loyalty.discount > 0) {
     totalLine(`Bons Carte Trinity (${data.loyalty.pointsUsed} pts)`, `- ${euros(data.loyalty.discount)}`, COLORS.promo);
   }
+  if (data.antiGaspiDiscount > 0) totalLine("Remise anti-gaspi", `- ${euros(data.antiGaspiDiscount)}`, COLORS.promo);
   if (refund > 0) totalLine("Remboursé à la préparation", `- ${euros(refund)}`, COLORS.promo);
   totalLine("Préparation de la commande", "Offerte", COLORS.primary);
   if (data.delivery) totalLine("Livraison à domicile", fee > 0 ? euros(fee) : "Offerte", fee > 0 ? COLORS.text : COLORS.primary);

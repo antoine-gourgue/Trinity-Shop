@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { BadgePercent, ChevronRight } from "lucide-react";
+import { BadgePercent, ChevronRight, Recycle } from "lucide-react";
 import type { RayonLink } from "@/lib/rayons";
 import SubcategoryIcon from "@/components/catalog/subcategory-icon";
 
@@ -20,6 +20,15 @@ export default function RayonsNav({ rayons }: RayonsNavProps) {
           >
             <BadgePercent size={18} aria-hidden />
             <span className="lg:sr-only xl:not-sr-only">Promos</span>
+          </Link>
+        </li>
+        <li className="flex">
+          <Link
+            href="/anti-gaspi"
+            className="flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-extrabold text-bio transition-colors hover:border-bio lg:px-2 lg:text-[13px] xl:px-3 xl:text-sm"
+          >
+            <Recycle size={18} aria-hidden />
+            <span className="lg:sr-only xl:not-sr-only">Anti-gaspi</span>
           </Link>
         </li>
         {rayons.map((rayon) => (

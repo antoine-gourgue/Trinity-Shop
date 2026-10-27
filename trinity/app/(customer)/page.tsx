@@ -10,6 +10,9 @@ import { currentStore } from "@/lib/current-store";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import RayonTiles from "@/components/catalog/rayon-tiles";
 import ProductSection from "@/components/catalog/product-section";
+import ProductCarousel from "@/components/catalog/product-carousel";
+import AntiGaspiCard from "@/components/anti-gaspi/anti-gaspi-card";
+import { storeOffers } from "@/lib/anti-gaspi-offers";
 
 // Titre et description viennent du layout racine ; l'URL canonique écarte les paramètres ajoutés (?utm_…)
 export const metadata: Metadata = { alternates: { canonical: "/" } };
@@ -77,6 +80,8 @@ export default async function HomePage({
     productsWhere({ brand: { name: "u-bio" } }),
     productsWhere({ brand: { name: "u-mat-lou" } }),
   ]);
+  // Dates courtes du magasin choisi, à prix réduit
+  const antiGaspi = store ? await storeOffers(store.id, new Date(), SECTION_SIZE) : [];
   // Magasin choisi, sinon le réseau
   const storeLabel = store ? store.name : `${storeCount} magasins Trinity en France`;
 
@@ -165,6 +170,27 @@ export default async function HomePage({
         href="/user/favoris"
         products={favorites}
       />
+
+      {antiGaspi.length > 0 && (
+        <section className="mt-12">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black md:text-2xl">Anti-gaspi dans votre magasin</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">Des dates courtes jusqu’à −50 %, trop bonnes pour être jetées.</p>
+            </div>
+            <Link href="/anti-gaspi" className="flex shrink-0 items-center gap-1 text-sm font-bold text-primary hover:underline">
+              Voir tout <ArrowRight size={16} aria-hidden />
+            </Link>
+          </div>
+          <ProductCarousel label="Anti-gaspi">
+            {antiGaspi.map((offer) => (
+              <li key={offer.lotId} className="w-[46%] shrink-0 snap-start sm:w-[31%] lg:w-[23.5%] xl:w-[19%]">
+                <AntiGaspiCard offer={offer} />
+              </li>
+            ))}
+          </ProductCarousel>
+        </section>
+      )}
 
       <section id="rayons" className="mt-10 scroll-mt-40">
         <h2 className="mb-4 text-xl font-black md:text-2xl">Nos rayons</h2>

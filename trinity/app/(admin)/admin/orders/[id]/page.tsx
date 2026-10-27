@@ -91,6 +91,11 @@ export default async function AdminOrderPage({ params }: Props) {
                     ) : (
                       <Badge tone="warning">Pas de remplacement</Badge>
                     )}
+                    {item.antiGaspiQuantity > 0 && (
+                      <Badge tone="success">
+                        Anti-gaspi ×{item.antiGaspiQuantity} · − {formatPrice(item.antiGaspiDiscount)}
+                      </Badge>
+                    )}
                     <PreparationBadge line={item} />
                   </p>
                 </div>
@@ -112,6 +117,12 @@ export default async function AdminOrderPage({ params }: Props) {
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Bons Carte Trinity</dt>
                 <dd className="font-bold tabular-nums text-promo">− {formatPrice(order.loyaltyDiscount)}</dd>
+              </div>
+            )}
+            {order.antiGaspiDiscount > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Remise anti-gaspi</dt>
+                <dd className="font-bold tabular-nums text-promo">− {formatPrice(order.antiGaspiDiscount)}</dd>
               </div>
             )}
             <div className="flex justify-between">

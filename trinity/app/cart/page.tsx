@@ -30,6 +30,7 @@ import { useLoyalty } from "@/components/cart/use-loyalty";
 import { pointsForAmount } from "@/lib/loyalty";
 import { Button } from "@/components/ui/button";
 import SubstituteToggle from "@/components/cart/substitute-toggle";
+import AntiGaspiLine from "@/components/cart/anti-gaspi-line";
 import StoreButton from "@/components/store/store-button";
 import { useStoreChoice } from "@/components/store/store-provider";
 
@@ -38,7 +39,7 @@ const OTHER_GROUP = { slug: "autres", name: "Autres produits", image: null as st
 export default function CartPage() {
     const { removeProduct, handleUpdateProductQuantity, refreshCart } = useCart();
     const { store } = useStoreChoice();
-    const { cartProducts, details, suggestions, totalItems, totalPrice, savings } = useCartSummary();
+    const { cartProducts, details, suggestions, totalItems, totalPrice, savings, antiGaspiDiscount, reloadDetails } = useCartSummary();
     const { loyalty } = useLoyalty();
     const { data: session, status } = useSession();
     const [isPending, startTransition] = useTransition();
@@ -228,6 +229,14 @@ export default function CartPage() {
                                                                 {stock === 0 ? "Épuisé dans votre magasin : retirez cet article" : `Plus que ${stock} en stock dans votre magasin`}
                                                             </p>
                                                         )}
+                                                        {info?.antiGaspi && (
+                                                            <AntiGaspiLine
+                                                                productId={product.id}
+                                                                quantity={product.quantity}
+                                                                offer={info.antiGaspi}
+                                                                onChange={reloadDetails}
+                                                            />
+                                                        )}
                                                         {info && (
                                                             <SubstituteToggle
                                                                 key={`${product.id}-${info.allowSubstitute}`}
@@ -294,7 +303,8 @@ export default function CartPage() {
                     totalItems={totalItems}
                     totalPrice={totalPrice}
                     savings={savings}
-                    pointsToEarn={loyalty ? pointsForAmount(totalPrice) : null}
+                    antiGaspiDiscount={antiGaspiDiscount}
+                    pointsToEarn={loyalty ? pointsForAmount(totalPrice - antiGaspiDiscount) : null}
                 >
                     {validateButton("w-full")}
                 </CheckoutSummary>

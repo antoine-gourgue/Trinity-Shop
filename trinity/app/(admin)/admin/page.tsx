@@ -1,7 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, CreditCard, Euro, Package, ShoppingBag, ShoppingBasket, Trophy, Users } from "lucide-react";
-import { getDashboard, LOW_STOCK, orderTotal } from "@/lib/admin/queries";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Car,
+  ClipboardCheck,
+  CreditCard,
+  Euro,
+  Package,
+  PackageX,
+  Recycle,
+  ShoppingBag,
+  ShoppingBasket,
+  Timer,
+  Trophy,
+  Users,
+} from "lucide-react";
+import { getDashboard, getOperations, LOW_STOCK, orderTotal } from "@/lib/admin/queries";
+import { formatMinutes, formatRate } from "@/lib/admin/operations";
+import SlotLoad from "@/components/admin/slot-load";
 import { formatPrice } from "@/lib/format";
 import { AdminPageHeader, EmptyState, Panel, StatCard, formatDate } from "@/components/admin/admin-ui";
 import { OrderNumber, OrderStatusBadge, ProductThumb, StockBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
@@ -14,7 +31,7 @@ export const metadata: Metadata = { title: "Tableau de bord" };
 export default async function AdminDashboardPage() {
   // Siège : tout le réseau ; compte magasin : son seul magasin
   const { store } = await backOfficePage();
-  const data = await getDashboard(store?.id);
+  const [data, ops] = await Promise.all([getDashboard(store?.id), getOperations(store?.id)]);
   const today = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
   // Fiche d'un produit : le catalogue pour le siège, son stock pour un compte magasin
   const productHref = (product: { id: string; barCode: bigint }) =>
@@ -67,6 +84,56 @@ export default async function AdminDashboardPage() {
           href="/admin/stocks?filtre=rupture"
         />
       </div>
+
+      {/* Opérations en magasin : préparation, drive, ruptures et anti-gaspi */}
+      <h2 className="mb-3 mt-8 text-lg font-black">Opérations · 30 jours</h2>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Préparation moyenne"
+          value={formatMinutes(ops.preparation.averageMinutes)}
+          hint={`${ops.preparation.prepared} commande${ops.preparation.prepared > 1 ? "s" : ""} préparée${ops.preparation.prepared > 1 ? "s" : ""} · ${formatRate(ops.preparation.onTimeRate)} prêtes à l'heure`}
+          icon={Timer}
+          href="/admin/preparation"
+        />
+        <StatCard
+          label="Articles manquants"
+          value={formatRate(ops.preparation.missingRate)}
+          hint={`${formatRate(ops.preparation.substitutionRate)} remplacés · ${formatPrice(ops.preparation.refunded)} remboursés`}
+          icon={PackageX}
+          tone={ops.preparation.missingRate && ops.preparation.missingRate > 0.05 ? "promo" : "bio"}
+        />
+        <StatCard
+          label="Attente au drive"
+          value={formatMinutes(ops.drive.averageMinutes)}
+          hint={`${ops.drive.waiting} client${ops.drive.waiting > 1 ? "s" : ""} sur le parking · ${ops.drive.handedOver} remise${ops.drive.handedOver > 1 ? "s" : ""}`}
+          icon={Car}
+          tone={ops.drive.waiting > 0 ? "highlight" : "brand"}
+          href="/admin/drive"
+        />
+        <StatCard
+          label="Anti-gaspi"
+          value={formatRate(ops.antiGaspi.rescueRate)}
+          hint={`${ops.antiGaspi.saved} unités sauvées · ${ops.antiGaspi.wasted} jetées`}
+          icon={Recycle}
+          tone="bio"
+          href="/admin/anti-gaspi"
+        />
+      </div>
+
+      <Panel
+        title="Charge des créneaux"
+        description="Commandes réservées sur les prochains jours d'ouverture"
+        className="mt-6"
+        action={
+          ops.lateOrders > 0 ? (
+            <Link href="/admin/preparation" className="flex items-center gap-1.5 rounded-full bg-promo/10 px-3 py-1 text-xs font-bold text-promo">
+              <ClipboardCheck size={14} aria-hidden /> {ops.lateOrders} en retard sur leur créneau
+            </Link>
+          ) : undefined
+        }
+      >
+        <SlotLoad days={ops.slots} capacity={ops.capacity} />
+      </Panel>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <Panel

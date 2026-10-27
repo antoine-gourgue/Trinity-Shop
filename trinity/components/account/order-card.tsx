@@ -16,6 +16,7 @@ interface OrderCardProps {
     status: OrderStatusValue;
     pickupSlot?: Date | null;
     loyaltyDiscount?: number;
+    antiGaspiDiscount?: number;
     preparationRefund?: number;
     shippingAddressId?: string | null;
     cart: { productsInCart: { quantity: number; product: { id: string; name: string; price: number; picture: string } }[] };
@@ -29,7 +30,7 @@ export default function OrderCard({ href, order }: OrderCardProps) {
   const itemsTotal = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   const delivery = !!order.shippingAddressId;
   const total =
-    Math.max(0, itemsTotal - (order.loyaltyDiscount ?? 0) - (order.preparationRefund ?? 0)) +
+    Math.max(0, itemsTotal - (order.loyaltyDiscount ?? 0) - (order.antiGaspiDiscount ?? 0) - (order.preparationRefund ?? 0)) +
     orderDeliveryFee({ shippingAddressId: order.shippingAddressId ?? null }, itemsTotal);
   const articleCount = items.reduce((acc, item) => acc + item.quantity, 0);
 

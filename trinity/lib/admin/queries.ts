@@ -2,6 +2,8 @@ import { Prisma, Role } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { RAYONS, findRayonForCategories, getRayon, rayonCategoryNames } from "@/lib/rayons";
 import { orderDeliveryFee } from "@/lib/delivery";
+import { SLOT_CAPACITY, pickupHours } from "@/lib/checkout";
+import { antiGaspiOutcome, driveWait, preparationStats, slotLoad, upcomingDays } from "@/lib/admin/operations";
 
 // Données du back-office : chaque liste est filtrée et paginée côté serveur
 
@@ -42,15 +44,17 @@ function paginate(total: number, page: number) {
 }
 
 // Total d'une commande, comme sur la facture : articles au prix catalogue, moins les bons
-// fidélité, plus les frais de livraison à domicile, moins ce qui a été remboursé à la préparation
+// fidélité et la remise anti-gaspi, plus les frais de livraison à domicile, moins ce qui a été
+// remboursé à la préparation
 export function orderTotal(order: {
   loyaltyDiscount: number;
+  antiGaspiDiscount: number;
   preparationRefund: number;
   shippingAddressId: string | null;
   cart: { productsInCart: { quantity: number; product: { price: number } }[] };
 }) {
   const items = order.cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
-  return Math.max(0, items - order.loyaltyDiscount - order.preparationRefund) + orderDeliveryFee(order, items);
+  return Math.max(0, items - order.loyaltyDiscount - order.antiGaspiDiscount - order.preparationRefund) + orderDeliveryFee(order, items);
 }
 
 export function articleCount(order: { cart: { productsInCart: { quantity: number }[] } }) {
@@ -64,6 +68,7 @@ const ORDER_SUMMARY = {
   validated: true,
   status: true,
   loyaltyDiscount: true,
+  antiGaspiDiscount: true,
   preparationRefund: true,
   shippingAddressId: true,
   store: { select: { name: true } },
@@ -494,6 +499,9 @@ export function getPreparation(orderId: string) {
               preparedQuantity: true,
               allowSubstitute: true,
               substitute: { select: { id: true, name: true, price: true, netContent: true } },
+              antiGaspiQuantity: true,
+              antiGaspiDiscount: true,
+              antiGaspiLot: { select: { bestBefore: true } },
               product: {
                 select: {
                   id: true,
@@ -512,6 +520,126 @@ export function getPreparation(orderId: string) {
       },
     },
   });
+}
+
+// ——— Indicateurs opérationnels ———
+
+// Bilan des lots anti-gaspi déclarés sur la période
+async function antiGaspiTotals(storeId: string | undefined, since: Date) {
+  const { _sum } = await prisma.antiGaspiLot.aggregate({
+    where: { ...(storeId ? { storeId } : {}), createdAt: { gte: since } },
+    _sum: { soldQuantity: true, donatedQuantity: true, wastedQuantity: true },
+  });
+  return antiGaspiOutcome({ sold: _sum.soldQuantity ?? 0, donated: _sum.donatedQuantity ?? 0, wasted: _sum.wastedQuantity ?? 0 });
+}
+
+// Préparation, drive, charge des créneaux et anti-gaspi sur 30 jours, pour un magasin ou le réseau
+export async function getOperations(storeId?: string) {
+  const now = new Date();
+  const since = addDays(now, -29);
+  const inStore = storeId ? { storeId } : {};
+  const days = upcomingDays(now, 6);
+  const firstDay = new Date(`${days[0].date}T00:00:00Z`);
+
+  const [prepared, handedOver, lateOrders, waiting, booked, storeCount, antiGaspi] = await Promise.all([
+    prisma.order.findMany({
+      where: { ...inStore, preparedAt: { gte: since }, status: { not: "cancelled" } },
+      select: {
+        preparationStartedAt: true,
+        preparedAt: true,
+        pickupSlot: true,
+        preparationRefund: true,
+        cart: { select: { productsInCart: { select: { quantity: true, preparedQuantity: true, substituteId: true, allowSubstitute: true } } } },
+      },
+    }),
+    prisma.order.findMany({ where: { ...inStore, completedAt: { gte: since }, arrivedAt: { not: null } }, select: { arrivedAt: true, completedAt: true } }),
+    // Commandes pas encore prêtes alors que leur créneau a commencé
+    prisma.order.count({ where: { ...inStore, status: { in: ["received", "preparing"] }, pickupSlot: { lt: now } } }),
+    prisma.order.count({ where: { ...inStore, status: "ready", arrivedAt: { not: null }, shippingAddressId: null } }),
+    prisma.order.groupBy({
+      by: ["pickupSlot"],
+      where: { ...inStore, status: { not: "cancelled" }, pickupSlot: { gte: new Date(firstDay.getTime() - 3 * 3_600_000) } },
+      _count: { _all: true },
+    }),
+    storeId ? Promise.resolve(1) : prisma.store.count(),
+    antiGaspiTotals(storeId, since),
+  ]);
+
+  return {
+    preparation: preparationStats(prepared.map(({ cart, ...order }) => ({ ...order, lines: cart.productsInCart }))),
+    drive: { ...driveWait(handedOver), waiting },
+    lateOrders,
+    // Capacité d'un créneau : celle d'un drive, ou de tous les drives pour le siège
+    slots: slotLoad(
+      booked.map((group) => ({ pickupSlot: group.pickupSlot, count: group._count._all })),
+      days,
+      pickupHours(),
+      SLOT_CAPACITY * storeCount
+    ),
+    capacity: SLOT_CAPACITY * storeCount,
+    antiGaspi,
+  };
+}
+
+// ——— Drive ———
+
+// Commandes prêtes à retirer : clients arrivés sur le parking d'abord (par ordre d'arrivée), puis
+// les autres par créneau
+export async function getDriveBoard(storeId?: string) {
+  const inStore = storeId ? { storeId } : {};
+  const startOfDay = addDays(new Date(), 0);
+  const [orders, handedOverToday] = await Promise.all([
+    prisma.order.findMany({
+      where: { ...inStore, status: "ready", shippingAddressId: null },
+      orderBy: [{ arrivedAt: { sort: "asc", nulls: "last" } }, { pickupSlot: { sort: "asc", nulls: "last" } }],
+      take: 100,
+      select: {
+        id: true,
+        pickupSlot: true,
+        arrivedAt: true,
+        parkingSpot: true,
+        store: { select: { name: true } },
+        user: { select: { firstName: true, lastName: true, phone: true } },
+        cart: { select: { productsInCart: { select: { quantity: true } } } },
+      },
+    }),
+    prisma.order.findMany({
+      where: { ...inStore, completedAt: { gte: startOfDay }, shippingAddressId: null },
+      select: { arrivedAt: true, completedAt: true },
+    }),
+  ]);
+  return { orders, today: driveWait(handedOverToday), handedOverToday: handedOverToday.length };
+}
+
+export type DriveBoardOrder = Awaited<ReturnType<typeof getDriveBoard>>["orders"][number];
+
+// ——— Anti-gaspi ———
+
+const LOT_SELECT = {
+  id: true,
+  quantity: true,
+  initialQuantity: true,
+  bestBefore: true,
+  soldQuantity: true,
+  donatedQuantity: true,
+  wastedQuantity: true,
+  closedAt: true,
+  store: { select: { name: true, slug: true } },
+  product: { select: { id: true, name: true, price: true, picture: true, netContent: true, barCode: true } },
+} satisfies Prisma.AntiGaspiLotSelect;
+
+export type AdminLot = Prisma.AntiGaspiLotGetPayload<{ select: typeof LOT_SELECT }>;
+
+// Lots ouverts (les dates les plus proches d'abord), lots clos sur 30 jours et bilan de la période
+export async function getAntiGaspiBoard(storeId?: string) {
+  const since = addDays(new Date(), -29);
+  const inStore = storeId ? { storeId } : {};
+  const [open, closed, totals] = await Promise.all([
+    prisma.antiGaspiLot.findMany({ where: { ...inStore, closedAt: null }, orderBy: [{ bestBefore: "asc" }, { createdAt: "asc" }], take: 200, select: LOT_SELECT }),
+    prisma.antiGaspiLot.findMany({ where: { ...inStore, closedAt: { gte: since } }, orderBy: { closedAt: "desc" }, take: 30, select: LOT_SELECT }),
+    antiGaspiTotals(storeId, since),
+  ]);
+  return { open, closed, totals };
 }
 
 // ——— Clients ———

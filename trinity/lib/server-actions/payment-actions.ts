@@ -11,6 +11,7 @@ import { cartTotal, checkAvailability } from "@/lib/orders/place-order";
 import { orderFailureMessage } from "@/lib/orders/order-messages";
 import { stripeClient, toCents, type CheckoutMetadata } from "@/lib/payments/stripe";
 import { storeForOrder } from "@/lib/stores";
+import { cartAntiGaspi } from "@/lib/anti-gaspi-offers";
 
 const startCheckoutSchema = z.object({
   pickupSlot: z.string(),
@@ -67,14 +68,19 @@ export async function startCheckout(input: StartCheckoutInput): Promise<StartChe
   if (unavailable) return fail(orderFailureMessage(unavailable.code, unavailable.code === "out_of_stock" ? unavailable.products : []));
 
   const total = cartTotal(cart.productsInCart);
+  // Articles anti-gaspi du magasin encore bons au retrait
+  const antiGaspi = await cartAntiGaspi(userId, storeId, pickupSlot);
   if (loyaltyVouchers > 0) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { loyaltyNumber: true, loyaltyPoints: true } });
-    if (!user?.loyaltyNumber || loyaltyVouchers > maxVouchers(user.loyaltyPoints, total)) {
+    if (!user?.loyaltyNumber || loyaltyVouchers > maxVouchers(user.loyaltyPoints, total - antiGaspi.discount)) {
       return fail(orderFailureMessage("not_enough_points"));
     }
   }
   const fee = fulfillment === "delivery" ? deliveryFee(total) : 0;
-  const discount = loyaltyVouchers * VOUCHER_VALUE;
+  const loyaltyDiscount = loyaltyVouchers * VOUCHER_VALUE;
+  // Stripe n'applique qu'une réduction par paiement : bons Carte Trinity et anti-gaspi réunis
+  const discount = loyaltyDiscount + antiGaspi.discount;
+  const discountName = [loyaltyDiscount > 0 && "Bons Carte Trinity", antiGaspi.discount > 0 && "Anti-gaspi"].filter(Boolean).join(" et ");
   // Photos montrées par Stripe seulement si le site est servi en HTTPS (pas en local)
   const withImages = siteUrl().startsWith("https://");
 
@@ -86,13 +92,14 @@ export async function startCheckout(input: StartCheckoutInput): Promise<StartChe
     fulfillment,
     ...(fulfillment === "delivery" && shippingAddressId ? { shippingAddressId } : {}),
     loyaltyVouchers,
+    antiGaspiDiscount: antiGaspi.discount,
     returnPath,
   };
 
   try {
     const coupon =
       discount > 0
-        ? await stripe.coupons.create({ amount_off: toCents(discount), currency: "eur", duration: "once", name: "Bons Carte Trinity" })
+        ? await stripe.coupons.create({ amount_off: toCents(discount), currency: "eur", duration: "once", name: discountName })
         : null;
 
     const checkout = await stripe.checkout.sessions.create({
@@ -113,7 +120,7 @@ export async function startCheckout(input: StartCheckoutInput): Promise<StartChe
           : []),
       ],
       ...(coupon && { discounts: [{ coupon: coupon.id }] }),
-      metadata: { ...metadata, loyaltyVouchers: String(metadata.loyaltyVouchers) },
+      metadata: { ...metadata, loyaltyVouchers: String(metadata.loyaltyVouchers), antiGaspiDiscount: String(antiGaspi.discount) },
       success_url: `${siteUrl()}/api/payments/stripe/confirm?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl()}${returnPath}`,
     });

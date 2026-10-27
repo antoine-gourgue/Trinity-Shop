@@ -7,6 +7,7 @@ import { OrderStatusEmail, type OrderStatusEmailProps } from "@/components/email
 import type { RefundOutcome } from "@/lib/payments/refund";
 
 import { emailSender } from "@/lib/email-sender";
+import { arrivalUrl } from "@/lib/drive-links";
 
 // E-mail de confirmation avec la facture en pièce jointe, envoyé « au mieux » :
 // sans clé Resend ou en cas d'échec, la commande reste valide
@@ -41,22 +42,26 @@ export async function sendOrderConfirmation(orderId: string) {
 
 export type OrderStatusEvent = { status: "preparing" | "ready" | "completed" } | { status: "cancelled"; refund: RefundOutcome };
 
-type StatusEmailBase = Omit<OrderStatusEmailProps, "status" | "refundedAmount" | "vouchersReturned" | "pointsEarned" | "preparation"> & {
+type StatusEmailBase = Omit<
+  OrderStatusEmailProps,
+  "status" | "refundedAmount" | "vouchersReturned" | "pointsEarned" | "preparation" | "arrivalUrl"
+> & {
   pointsEarned: number;
   vouchersReturned: boolean;
   preparation: InvoiceData["preparation"];
+  arrivalUrl: string | null;
 };
 
 // Objet et contenu de l'e-mail pour chaque changement de statut
 function statusEmail(event: OrderStatusEvent, number: string, delivery: boolean, base: StatusEmailBase) {
-  const { pointsEarned, vouchersReturned, preparation, ...common } = base;
+  const { pointsEarned, vouchersReturned, preparation, arrivalUrl, ...common } = base;
   switch (event.status) {
     case "preparing":
       return { subject: `Votre commande n° ${number} est en préparation`, react: OrderStatusEmail({ ...common, status: "preparing" }) };
     case "ready":
       return {
         subject: delivery ? `Votre commande n° ${number} est en route` : `Votre commande n° ${number} est prête au drive`,
-        react: OrderStatusEmail({ ...common, status: "ready", preparation }),
+        react: OrderStatusEmail({ ...common, status: "ready", preparation, arrivalUrl }),
       };
     case "completed":
       return {
@@ -102,6 +107,7 @@ export async function sendOrderStatusEmail(orderId: string, event: OrderStatusEv
       pointsEarned: data.loyalty.pointsEarned,
       vouchersReturned: data.loyalty.pointsUsed > 0,
       preparation: data.preparation,
+      arrivalUrl: data.delivery ? null : arrivalUrl(orderId),
     });
 
     const { error } = await new Resend(apiKey).emails.send({ from: emailSender(), to: [invoice.email], ...email });

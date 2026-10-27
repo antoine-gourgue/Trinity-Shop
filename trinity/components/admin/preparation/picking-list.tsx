@@ -26,6 +26,9 @@ export interface PickingLine {
   substitute: { id: string; name: string; price: number; netContent: string | null } | null;
   product: { name: string; price: number; picture: string; netContent: string | null; barCode: string; brand: string };
   rayon: string;
+  // Unités vendues à prix anti-gaspi : à prendre dans le lot à date courte
+  antiGaspiDiscount: number;
+  antiGaspi: { quantity: number; bestBefore: string } | null;
 }
 
 interface PickingListProps {
@@ -152,7 +155,7 @@ function PickingItem({
   const [options, setOptions] = useState<SubstituteOption[] | null>(null);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const treated = line.preparedQuantity !== null;
-  const { prepared, missing, substitute } = lineOutcome(line);
+  const { prepared, missing, substitute, refund } = lineOutcome(line);
 
   const prepare = (quantity: number) => run(line.id, () => setPreparedQuantity(line.id, quantity));
   const loadOptions = async () => {
@@ -179,6 +182,11 @@ function PickingItem({
           <p className="mt-1 text-xs font-semibold text-muted-foreground">
             {line.allowSubstitute ? "Remplacement accepté" : "Remplacement refusé"}
           </p>
+          {line.antiGaspi && (
+            <p className="mt-1.5 inline-flex rounded-full bg-bio/10 px-2.5 py-0.5 text-xs font-bold text-bio">
+              Anti-gaspi : prendre {line.antiGaspi.quantity} à date courte (jusqu&apos;au {line.antiGaspi.bestBefore})
+            </p>
+          )}
         </div>
         <span className="shrink-0 rounded-full bg-brand-dark px-3 py-1 text-sm font-black text-white">×{line.quantity}</span>
       </div>
@@ -259,7 +267,7 @@ function PickingItem({
             </p>
           ) : (
             <p className="text-muted-foreground">
-              {missing} manquant{missing > 1 ? "s" : ""}, remboursé{missing > 1 ? "s" : ""} au client ({formatPrice(missing * line.product.price)})
+              {missing} manquant{missing > 1 ? "s" : ""}, remboursé{missing > 1 ? "s" : ""} au client ({formatPrice(refund)})
               {!line.allowSubstitute && " · remplacement refusé par le client"}
             </p>
           )}

@@ -4,6 +4,7 @@ import { SLOT_CAPACITY } from "@/lib/checkout";
 import { storeStockMap } from "@/lib/stock";
 import { orderNumber } from "@/lib/account";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
+import { allocateAntiGaspi } from "@/lib/anti-gaspi";
 
 // Passage d'une commande, partagé par l'API (paiement simulé) et la confirmation d'un paiement Stripe
 
@@ -18,6 +19,9 @@ export interface PlaceOrderInput {
   delivery: { shippingAddressId?: string } | null;
   loyaltyVouchers: number;
   stripeSessionId?: string;
+  // Remise anti-gaspi déjà déduite du paiement Stripe : elle reste acquise au client même si un autre
+  // a pris les dernières unités du lot entre-temps
+  paidAntiGaspiDiscount?: number;
 }
 
 export type PlaceOrderError =
@@ -38,7 +42,14 @@ class PlaceOrderFailure extends Error {
   }
 }
 
-const CART_ITEMS = { productsInCart: { include: { product: { select: { price: true, name: true } } } } } as const;
+const CART_ITEMS = {
+  productsInCart: {
+    include: {
+      product: { select: { price: true, name: true } },
+      antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true } },
+    },
+  },
+} as const;
 
 // Adresse de livraison, si elle appartient bien au client
 async function deliveryAddress(userId: string, requested?: string) {
@@ -105,12 +116,39 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       });
       const hasCard = !!user?.loyaltyNumber;
 
-      if (requestedVouchers > 0 && (!hasCard || requestedVouchers > maxVouchers(user.loyaltyPoints, total))) {
+      // Articles anti-gaspi : unités réservées dans leur lot ; si un autre client a pris les dernières,
+      // la ligne repasse au prix normal
+      const antiGaspi = allocateAntiGaspi(
+        cart.productsInCart.map((item) => ({ productId: item.productId, quantity: item.quantity, price: item.product.price, lot: item.antiGaspiLot })),
+        storeId,
+        pickupSlot
+      );
+      const served: typeof antiGaspi.allocations = [];
+      for (const allocation of antiGaspi.allocations) {
+        const { count } = await prisma.antiGaspiLot.updateMany({
+          where: { id: allocation.lotId, closedAt: null, quantity: { gte: allocation.units } },
+          data: { quantity: { decrement: allocation.units }, soldQuantity: { increment: allocation.units } },
+        });
+        if (count === 0) continue;
+        served.push(allocation);
+        await prisma.antiGaspiLot.updateMany({ where: { id: allocation.lotId, quantity: 0, closedAt: null }, data: { closedAt: new Date() } });
+        const line = cart.productsInCart.find((item) => item.productId === allocation.productId);
+        if (line) {
+          await prisma.productInCart.update({
+            where: { id: line.id },
+            data: { antiGaspiQuantity: allocation.units, antiGaspiDiscount: allocation.discount },
+          });
+        }
+      }
+      const antiGaspiDiscount = input.paidAntiGaspiDiscount ?? served.reduce((sum, allocation) => sum + allocation.discount, 0);
+      const itemsDue = total - antiGaspiDiscount;
+
+      if (requestedVouchers > 0 && (!hasCard || requestedVouchers > maxVouchers(user.loyaltyPoints, itemsDue))) {
         throw new PlaceOrderFailure({ code: "not_enough_points" });
       }
       const loyaltyDiscount = requestedVouchers * VOUCHER_VALUE;
       const loyaltyPointsUsed = requestedVouchers * POINTS_PER_VOUCHER;
-      const loyaltyPointsEarned = hasCard ? pointsForAmount(total - loyaltyDiscount) : 0;
+      const loyaltyPointsEarned = hasCard ? pointsForAmount(itemsDue - loyaltyDiscount) : 0;
 
       if (await slotIsFull(prisma, storeId, pickupSlot)) throw new PlaceOrderFailure({ code: "slot_full" });
 
@@ -137,6 +175,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
           loyaltyDiscount,
           loyaltyPointsUsed,
           loyaltyPointsEarned,
+          antiGaspiDiscount,
           validated: true,
           stockDeducted: true,
           ...(stripeSessionId && { stripeSessionId }),

@@ -51,6 +51,7 @@ export async function loadInvoice(orderId: string) {
       pointsEarned: order.loyaltyPointsEarned,
       cardNumber: order.user.loyaltyNumber,
     },
+    antiGaspiDiscount: order.antiGaspiDiscount,
     preparation,
     customer: {
       name: `${order.user.firstName} ${order.user.lastName}`,
@@ -72,6 +73,6 @@ export async function loadInvoice(orderId: string) {
     userId: order.userId,
     firstName: order.user.firstName,
     email: order.user.email,
-    total: Math.max(0, itemsTotal - order.loyaltyDiscount - order.preparationRefund) + deliveryFee,
+    total: Math.max(0, itemsTotal - order.loyaltyDiscount - order.antiGaspiDiscount - order.preparationRefund) + deliveryFee,
   };
 }

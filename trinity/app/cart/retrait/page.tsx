@@ -89,7 +89,7 @@ export default function RetraitPage() {
     const router = useRouter();
     const { data: session, status } = useSession();
     const userId = session?.user?.id;
-    const { cartProducts, totalItems, totalPrice, savings } = useCartSummary();
+    const { cartProducts, totalItems, totalPrice, savings, antiGaspiDiscount } = useCartSummary();
     const { loyalty } = useLoyalty();
     const { store } = useStoreChoice();
 
@@ -363,8 +363,9 @@ export default function RetraitPage() {
                     totalItems={totalItems}
                     totalPrice={totalPrice}
                     savings={savings}
+                    antiGaspiDiscount={antiGaspiDiscount}
                     slotLabel={slot ? formatSlot(slot) : null}
-                    pointsToEarn={loyalty ? pointsForAmount(totalPrice) : null}
+                    pointsToEarn={loyalty ? pointsForAmount(totalPrice - antiGaspiDiscount) : null}
                     fulfillment={{ mode, fee, address: selectedAddress ? formatAddressLine(selectedAddress) : null }}
                 >
                     <button

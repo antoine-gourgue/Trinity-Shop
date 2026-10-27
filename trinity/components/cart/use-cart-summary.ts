@@ -12,6 +12,8 @@ export function useCartSummary() {
   const storeSlug = useStoreChoice().store?.slug;
   const [details, setDetails] = useState<Record<string, CartItemDetails>>({});
   const [suggestions, setSuggestions] = useState<CartSuggestion[]>([]);
+  // Relecture demandée après un changement qui ne touche pas la liste des produits (offre anti-gaspi)
+  const [version, setVersion] = useState(0);
 
   const productIdsKey = cartProducts.map((p) => p.id).sort().join(",");
 
@@ -22,7 +24,7 @@ export function useCartSummary() {
       setDetails(details);
       setSuggestions(suggestions);
     });
-  }, [productIdsKey, storeSlug]);
+  }, [productIdsKey, storeSlug, version]);
 
   const totalItems = cartProducts.reduce((acc, product) => acc + product.quantity, 0);
   const totalPrice = cartProducts.reduce((acc, product) => acc + product.price * product.quantity, 0);
@@ -31,5 +33,20 @@ export function useCartSummary() {
     return regular && regular > product.price ? acc + (regular - product.price) * product.quantity : acc;
   }, 0);
 
-  return { cartProducts, details, suggestions, totalItems, totalPrice, savings };
+  // Remise anti-gaspi estimée : unités à date courte servies en premier (confirmée au paiement selon le créneau)
+  const antiGaspiDiscount = cartProducts.reduce((acc, product) => {
+    const offer = details[product.id]?.antiGaspi;
+    return offer?.active ? acc + Math.min(product.quantity, offer.lotQuantity) * offer.unitDiscount : acc;
+  }, 0);
+
+  return {
+    cartProducts,
+    details,
+    suggestions,
+    totalItems,
+    totalPrice,
+    savings,
+    antiGaspiDiscount,
+    reloadDetails: () => setVersion((current) => current + 1),
+  };
 }

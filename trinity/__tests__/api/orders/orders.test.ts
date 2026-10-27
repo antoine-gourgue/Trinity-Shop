@@ -187,7 +187,14 @@ describe("POST /api/orders", () => {
 
         expect(prisma.cart.findUnique).toHaveBeenCalledWith({
             where: { id: "cart456" },
-            include: { productsInCart: { include: { product: { select: { price: true, name: true } } } } },
+            include: {
+                productsInCart: {
+                    include: {
+                        product: { select: { price: true, name: true } },
+                        antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true } },
+                    },
+                },
+            },
         });
 
         // Le stock du drive n'est décompté que s'il reste assez d'articles
@@ -207,6 +214,7 @@ describe("POST /api/orders", () => {
                 loyaltyDiscount: 0,
                 loyaltyPointsUsed: 0,
                 loyaltyPointsEarned: 0,
+                antiGaspiDiscount: 0,
                 validated: true,
                 stockDeducted: true,
             },

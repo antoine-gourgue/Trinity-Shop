@@ -82,6 +82,12 @@ describe("cancelOrder", () => {
 });
 
 describe("advanceOrderStatus", () => {
+    // Mise à jour envoyée : étape suivante et horodatage de l'étape
+    const update = () => {
+        const [[call]] = (prisma.order.updateMany as unknown as jest.Mock<unknown, [{ where: unknown; data: Record<string, unknown> }]>).mock.calls;
+        return call;
+    };
+
     afterEach(() => {
         jest.clearAllMocks();
     });
@@ -91,7 +97,9 @@ describe("advanceOrderStatus", () => {
         (prisma.order.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
         await expect(advanceOrderStatus("order1")).resolves.toEqual({ ok: true });
-        expect(prisma.order.updateMany).toHaveBeenCalledWith({ where: { id: "order1", status: "preparing" }, data: { status: "ready" } });
+        expect(update().where).toEqual({ id: "order1", status: "preparing" });
+        expect(update().data.status).toBe("ready");
+        expect(update().data.preparedAt).toBeInstanceOf(Date);
         expect(after).toHaveBeenCalledTimes(1);
     });
 
@@ -100,7 +108,9 @@ describe("advanceOrderStatus", () => {
         (prisma.order.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
         await advanceOrderStatus("order1");
-        expect(prisma.order.updateMany).toHaveBeenCalledWith({ where: { id: "order1", status: "received" }, data: { status: "preparing" } });
+        expect(update().where).toEqual({ id: "order1", status: "received" });
+        expect(update().data.status).toBe("preparing");
+        expect(update().data.preparationStartedAt).toBeInstanceOf(Date);
         expect(after).toHaveBeenCalledTimes(1);
     });
 
@@ -109,7 +119,9 @@ describe("advanceOrderStatus", () => {
         (prisma.order.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
         await advanceOrderStatus("order1");
-        expect(prisma.order.updateMany).toHaveBeenCalledWith({ where: { id: "order1", status: "ready" }, data: { status: "completed" } });
+        expect(update().where).toEqual({ id: "order1", status: "ready" });
+        expect(update().data.status).toBe("completed");
+        expect(update().data.completedAt).toBeInstanceOf(Date);
         expect(after).toHaveBeenCalledTimes(1);
     });
 

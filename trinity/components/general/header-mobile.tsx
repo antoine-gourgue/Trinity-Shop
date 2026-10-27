@@ -5,20 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import {
-  BadgePercent,
-  ChevronRight,
-  Heart,
-  Home,
-  LayoutGrid,
-  LogOut,
-  Package,
-  ScanBarcode,
-  ShieldCheck,
-  ShoppingBasket,
-  User,
-  UserPlus,
-} from "lucide-react";
+import { BadgePercent, ChevronRight, Heart, Home, LayoutGrid, LogOut, Package, Recycle, ScanBarcode, ShieldCheck, ShoppingBasket, User, UserPlus } from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -95,6 +82,14 @@ export default function HeaderMobile({ rayons }: HeaderMobileProps) {
           >
             <BadgePercent size={22} aria-hidden />
             Toutes les promos
+          </Link>
+          <Link
+            href="/anti-gaspi"
+            onClick={close}
+            className="mb-3 flex items-center gap-3 rounded-xl bg-bio px-4 py-3 font-extrabold text-white"
+          >
+            <Recycle size={22} aria-hidden />
+            Anti-gaspi : dates courtes à prix réduit
           </Link>
           <ul className="grid grid-cols-2 gap-3">
             {rayons.map((rayon) => (

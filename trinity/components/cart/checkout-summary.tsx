@@ -12,6 +12,8 @@ interface CheckoutSummaryProps {
   savings: number;
   slotLabel?: string | null;
   loyaltyDiscount?: number;
+  // Remise anti-gaspi (articles à date courte)
+  antiGaspiDiscount?: number;
   // Points Carte Trinity que la commande rapportera (null : pas de carte)
   pointsToEarn?: number | null;
   // Mode choisi ; sans précision, la commande est un retrait au drive
@@ -26,13 +28,14 @@ export default function CheckoutSummary({
   savings,
   slotLabel,
   loyaltyDiscount = 0,
+  antiGaspiDiscount = 0,
   pointsToEarn,
   fulfillment = { mode: "pickup", fee: 0 },
   children,
 }: CheckoutSummaryProps) {
   const { store } = useStoreChoice();
   const delivery = fulfillment.mode === "delivery";
-  const total = totalPrice - loyaltyDiscount + fulfillment.fee;
+  const total = totalPrice - antiGaspiDiscount - loyaltyDiscount + fulfillment.fee;
 
   return (
     <aside className="space-y-4 lg:sticky lg:top-[140px]">
@@ -50,6 +53,12 @@ export default function CheckoutSummary({
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Remises promotions</dt>
               <dd className="font-bold text-promo">− {formatPrice(savings)}</dd>
+            </div>
+          )}
+          {antiGaspiDiscount > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Remise anti-gaspi</dt>
+              <dd className="font-bold text-bio">− {formatPrice(antiGaspiDiscount)}</dd>
             </div>
           )}
           {loyaltyDiscount > 0 && (

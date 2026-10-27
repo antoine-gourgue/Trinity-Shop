@@ -10,6 +10,8 @@ export interface PreparationLine {
   product: { name: string; price: number };
   // Produit équivalent donné pour la quantité manquante
   substitute: { name: string; price: number } | null;
+  // Remise anti-gaspi de la ligne : le client a payé moins que le prix catalogue
+  antiGaspiDiscount?: number;
 }
 
 export interface PreparationChange {
@@ -21,13 +23,16 @@ export interface PreparationChange {
   refund: number;
 }
 
-// Résultat d'une ligne : un remplaçant est facturé au prix le plus bas des deux produits,
-// un article manquant sans remplaçant est remboursé
+// Résultat d'une ligne : un remplaçant est facturé au prix le plus bas des deux, un article manquant
+// sans remplaçant est remboursé, toujours sur la base du prix payé (remise anti-gaspi déduite)
 export function lineOutcome(line: PreparationLine) {
   const prepared = Math.min(line.quantity, Math.max(0, line.preparedQuantity ?? line.quantity));
   const missing = line.quantity - prepared;
   const substitute = missing > 0 && line.allowSubstitute ? line.substitute : null;
-  const refund = substitute ? missing * Math.max(0, line.product.price - substitute.price) : missing * line.product.price;
+  const paidUnit = line.product.price - (line.antiGaspiDiscount ?? 0) / line.quantity;
+  const owed = substitute ? missing * Math.max(0, paidUnit - substitute.price) : missing * paidUnit;
+  // Arrondi au centime (prix en millièmes d'euro)
+  const refund = Math.round(owed / 10) * 10;
   return { prepared, missing, substitute, refund };
 }
 

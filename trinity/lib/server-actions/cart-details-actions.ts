@@ -6,6 +6,7 @@ import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { findRayonForCategories, rayonCategoryNames, RAYONS } from "@/lib/rayons";
 import { currentStore } from "@/lib/current-store";
 import { storeStockMap } from "@/lib/stock";
+import { formatBestBefore, lotPricing } from "@/lib/anti-gaspi";
 
 export interface CartItemDetails {
   brand: string | null;
@@ -16,6 +17,9 @@ export interface CartItemDetails {
   stock: number | null;
   // Produit équivalent accepté en cas de rupture à la préparation
   allowSubstitute: boolean;
+  // Offre anti-gaspi choisie : remise par unité, unités du lot et date limite ; inactive si le lot
+  // n'est plus en vente dans le magasin du client (épuisé, date passée, autre magasin)
+  antiGaspi: { percent: number; unitDiscount: number; lotQuantity: number; bestBefore: string; active: boolean } | null;
 }
 
 export interface CartSuggestion {
@@ -54,10 +58,34 @@ export async function getCartDetails(productIds: string[]) {
   const items = session?.user?.id
     ? await prisma.productInCart.findMany({
         where: { productId: { in: productIds }, cart: { userId: session.user.id, archived: false } },
-        select: { productId: true, allowSubstitute: true },
+        select: {
+          productId: true,
+          allowSubstitute: true,
+          product: { select: { price: true } },
+          antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true } },
+        },
       })
     : [];
   const substitutes = new Map(items.map((item) => [item.productId, item.allowSubstitute]));
+  const antiGaspi = new Map(
+    items.flatMap((item) => {
+      if (!item.antiGaspiLot) return [];
+      const lot = item.antiGaspiLot;
+      const pricing = lot.storeId === store?.id ? lotPricing(lot, item.product.price) : null;
+      return [
+        [
+          item.productId,
+          {
+            percent: pricing?.percent ?? 0,
+            unitDiscount: pricing?.unitDiscount ?? 0,
+            lotQuantity: lot.quantity,
+            bestBefore: formatBestBefore(lot.bestBefore),
+            active: !!pricing,
+          },
+        ] as const,
+      ];
+    })
+  );
 
   const details: Record<string, CartItemDetails> = {};
   const rayonSlugs = new Set<string>();
@@ -71,6 +99,7 @@ export async function getCartDetails(productIds: string[]) {
       rayonSlug: match?.rayon.slug ?? null,
       stock: stock ? (stock.get(product.id) ?? 0) : null,
       allowSubstitute: substitutes.get(product.id) ?? true,
+      antiGaspi: antiGaspi.get(product.id) ?? null,
     };
   }
 

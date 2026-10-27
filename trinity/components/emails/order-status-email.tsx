@@ -17,7 +17,12 @@ export type OrderStatusEmailProps = {
 } & (
   | { status: "preparing" }
   // Articles manquants ou remplacés à la préparation, et montant remboursé en millièmes d'euro
-  | { status: "ready"; preparation?: { refund: number; changes: PreparationChange[] } | null }
+  | {
+      status: "ready";
+      preparation?: { refund: number; changes: PreparationChange[] } | null;
+      // Lien « Je suis arrivé » pour un retrait au drive
+      arrivalUrl?: string | null;
+    }
   // Points Carte Trinity gagnés avec cette commande
   | { status: "completed"; pointsEarned: number }
   // Montant remboursé en millièmes d'euro, null si rien n'avait été débité ; bons Carte Trinity rendus
@@ -78,7 +83,7 @@ function nextStep(props: OrderStatusEmailProps & { status: "preparing" | "ready"
   }
   return props.deliveryAddress
     ? "Pensez à être présent pour réceptionner vos courses : les produits frais voyagent au froid."
-    : `Donnez le numéro de commande ${props.orderNumber} à l’accueil du drive : nous chargeons vos courses dans votre coffre.`;
+    : "Garez-vous sur une place drive numérotée, puis touchez « Je suis arrivé » : un équipier vous apporte vos courses et les charge dans votre coffre.";
 }
 
 // Retrait ou livraison : créneau, lieu et nombre d'articles
@@ -188,9 +193,22 @@ export function OrderStatusEmail(props: OrderStatusEmailProps) {
       <Body {...props} />
 
       <Section style={{ textAlign: "center", margin: "22px 0 10px" }}>
-        <Button href={finished ? props.siteUrl : props.orderUrl} style={emailStyles.button}>
-          {finished ? "Refaire mes courses" : "Voir ma commande"}
-        </Button>
+        {props.status === "ready" && props.arrivalUrl ? (
+          <>
+            <Button href={props.arrivalUrl} style={emailStyles.button}>
+              Je suis arrivé au drive
+            </Button>
+            <Text style={{ ...emailStyles.muted, textAlign: "center", margin: "12px 0 0" }}>
+              <Link href={props.orderUrl} style={emailStyles.link}>
+                Voir ma commande
+              </Link>
+            </Text>
+          </>
+        ) : (
+          <Button href={finished ? props.siteUrl : props.orderUrl} style={emailStyles.button}>
+            {finished ? "Refaire mes courses" : "Voir ma commande"}
+          </Button>
+        )}
       </Section>
       {props.status === "cancelled" && (
         <Text style={{ ...emailStyles.muted, textAlign: "center" }}>Une question ? Contactez-nous depuis la page « Nous contacter » du site.</Text>

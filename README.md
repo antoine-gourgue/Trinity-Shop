@@ -52,9 +52,11 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 - **Stock par magasin** : chaque drive a son stock, décompté par ses commandes et rendu à l'annulation. La fiche produit, le panier, le rachat et l'ajout des favoris suivent le magasin choisi ; un produit épuisé dans ce magasin indique les magasins les plus proches qui l'ont encore.
 - **Fiche produit** : photo officielle du fabricant, prix et prix au kilo, promotion (avec sa date de fin), ingrédients avec allergènes mis en évidence, tableau nutritionnel, Nutri-Score, produits similaires.
 - **Favoris** : un cœur sur chaque produit et dans l'en-tête (avec leur nombre), la page « Mes favoris » avec « Tout ajouter au panier » pour refaire ses courses habituelles en un clic, et une rangée « Vos favoris » sur l'accueil.
-- **Panier** conservé sur le compte, qui signale les ruptures de stock ; pour chaque article, le client accepte ou non un produit de remplacement.
+- **Anti-gaspi** : un rayon des produits à date courte du magasin choisi (aussi en rangée sur l'accueil et sur la fiche produit). Le prix baisse tout seul à l'approche de la date limite : −20 % à J-5 et J-4, −30 % à J-3, −40 % à J-2, −50 % la veille. La remise s'applique au paiement si la date tient jusqu'au créneau choisi.
+- **Panier** conservé sur le compte, qui signale les ruptures de stock ; pour chaque article, le client accepte ou non un produit de remplacement, et voit l'offre anti-gaspi choisie.
 - **Tunnel de commande** : retrait gratuit au drive du magasin choisi ou livraison à domicile depuis ce magasin (adresse choisie ou ajoutée à la volée), choix du créneau (8 commandes au plus par heure dans chaque drive, créneaux complets grisés), puis paiement par carte via Stripe. Le stock est décompté à la commande.
 - **Suivi de commande** : statut (reçue, en préparation, prête, retirée ou livrée, annulée) et frise d'avancement, et « Racheter cette commande ».
+- **Arrivée au drive** : une fois les courses prêtes, le client touche « Je suis arrivé » (depuis sa commande ou l'e-mail « commande prête », sans avoir à se connecter grâce à un lien signé) et indique sa place sur le parking ; un équipier lui apporte ses courses.
 - **E-mails au design du site** : bienvenue avec confirmation de l'adresse, confirmation de commande avec la facture PDF, suivi à chaque étape (en préparation, prête au drive ou en route, retirée ou livrée), annulation avec le montant remboursé, mot de passe oublié.
 - **E-mails commerciaux** : rappel de panier abandonné (un seul par panier) et alerte quand des favoris passent en promotion (une seule par promotion), envoyés seulement vers une adresse confirmée, chacun avec sa désinscription en un clic et son réglage dans l'espace client.
 - **Carte Trinity** (fidélité) : 1 point par euro dépensé, 100 points = un bon de 5 € à utiliser au paiement.
@@ -66,11 +68,14 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 
 ### Back-office (`/admin`)
 
-Deux types de comptes : le **siège** (rôle administrateur) gère tout le réseau ; chaque **magasin** a son compte (`magasin-<slug>@trinity.antoinegourgue.dev`), qui arrive directement sur le back-office de son seul magasin (tableau de bord, commandes, préparation, stocks) et n'a accès ni à la boutique, ni au catalogue, ni aux clients. Les droits sont vérifiés côté serveur sur chaque commande et chaque stock.
+Deux types de comptes : le **siège** (rôle administrateur) gère tout le réseau ; chaque **magasin** a son compte (`magasin-<slug>@trinity.antoinegourgue.dev`), qui arrive directement sur le back-office de son seul magasin (tableau de bord, commandes, préparation, drive, stocks, anti-gaspi) et n'a accès ni à la boutique, ni au catalogue, ni aux clients. Les droits sont vérifiés côté serveur sur chaque commande et chaque stock.
 
 - **Tableau de bord** : chiffre d'affaires, commandes, clients et inscriptions sur la période, ruptures et stocks faibles, avec graphiques ; tout le réseau pour le siège, son magasin pour un compte magasin.
+- **Indicateurs opérationnels** (tableau de bord, 30 jours) : durée moyenne de préparation et part des commandes prêtes avant leur créneau, taux d'articles manquants et de remplacement, montant remboursé, attente moyenne au drive, taux de sauvetage anti-gaspi, commandes en retard, et grille de charge des créneaux (jours × heures) sur les prochains jours d'ouverture.
 - **Commandes** : recherche, filtres par statut, livraison et magasin, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (paiement par carte remboursé, articles remis en stock, points de fidélité rétablis, client prévenu par e-mail) ou supprime une commande annulée.
 - **Préparation** : file des commandes à préparer, classées par créneau, avec leur avancement. L'écran du préparateur liste les articles rayon par rayon ; chacun est prélevé, prélevé en partie ou signalé manquant. Si le client a accepté les remplacements, un produit équivalent en stock dans le magasin (même catégorie, prix le plus proche) peut remplacer ce qui manque. À la validation, la différence est remboursée sur la carte (remboursement partiel Stripe), le stock du magasin est corrigé, la commande passe « prête » et le client reçoit le détail des changements par e-mail ; sa facture et sa page de commande les reprennent.
+- **Drive** : les clients arrivés sur le parking, par ordre d'arrivée, avec leur place et leur temps d'attente (la page se met à jour seule), puis les commandes prêtes qui attendent leur client ; « Remis au client » termine la commande et envoie le remerciement.
+- **Anti-gaspi** : le magasin déclare ses lots à date courte (produit cherché par nom ou code-barres, quantité dans la limite du stock, date limite). Les lots passent en vente en ligne 5 jours avant la date ; à la date, le reste est donné ou jeté et quitte le stock. Le bilan (unités vendues, données, jetées, taux de sauvetage) suit sur 30 jours.
 - **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, promotions avec date de fin, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
 - **Stocks** : stock de chaque magasin (ou de tout le réseau), filtres stock faible et rupture, modification directe ; un nouveau produit reçoit un stock initial dans chaque magasin.
 - **Clients** : rôles et suppression.
@@ -215,6 +220,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 - **Livraison** : 5,90 €, offerte dès 60 € d'articles ; le retrait au drive est gratuit. Une commande livrée est une commande qui a une adresse de livraison.
 - **Créneaux** : d'une heure, de 9 h à 13 h et de 14 h à 20 h, sur les six prochains jours d'ouverture à partir du lendemain (fermé le dimanche).
 - **Préparation** : un article manquant est remboursé ; un remplaçant est facturé au prix le plus bas des deux produits (un remplaçant plus cher ne coûte rien de plus). Le remboursement ne dépasse jamais ce que le client a payé pour ses articles, bons fidélité déduits.
+- **Anti-gaspi** : les unités à date courte d'un lot sont servies en premier sur la ligne du panier qui a choisi l'offre ; elles sont réservées dans le lot à la commande et lui reviennent à l'annulation. Une remise déjà payée par carte reste acquise même si un autre client a pris les dernières unités entre-temps. Un article anti-gaspi manquant à la préparation est remboursé au prix payé.
 - **Fidélité** : 1 point par euro d'articles ; chaque tranche de 100 points donne un bon de 5 €. Les points d'une commande supprimée sont rendus.
 - **Accès** : l'identité vient toujours de la session, jamais d'un identifiant envoyé par le navigateur ; le rôle administrateur est relu en base à chaque contrôle.
 
@@ -227,7 +233,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request et à chaque push sur `main` :
 
 1. **Lint, types, tests** : `npm run lint`, `tsc --noEmit`, puis Jest ;
-2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : choix du magasin, compte magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation (article prélevé, article manquant) et annulation par l'équipe. La base de production n'est jamais utilisée.
+2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : choix du magasin, compte magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation (article prélevé, article manquant) et annulation par l'équipe ; lot anti-gaspi déclaré par un magasin, acheté, préparé, puis arrivée du client au drive et remise de ses courses. La base de production n'est jamais utilisée.
 
 ## Déploiement
 

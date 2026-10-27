@@ -15,6 +15,8 @@ import { formatPickupDate } from "@/lib/checkout";
 import { orderDeliveryFee } from "@/lib/delivery";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 import { lineOutcome } from "@/lib/orders/preparation";
+import { canCheckIn } from "@/lib/drive";
+import DriveCheckIn from "@/components/account/drive-check-in";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +89,16 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                 <OrderProgress status={order.status} delivery={!!order.shippingAddressId} />
             </div>
 
+            {/* Courses prêtes au drive : le client signale son arrivée et sa place */}
+            {canCheckIn(order) && (
+                <DriveCheckIn
+                    orderId={order.id}
+                    storeName={order.store?.name ?? "Trinity"}
+                    arrivedAt={order.arrivedAt?.toISOString() ?? null}
+                    parkingSpot={order.parkingSpot}
+                />
+            )}
+
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <AccountCard title={`${articleCount} article${articleCount > 1 ? "s" : ""}`}>
                     <ul className="divide-y">
@@ -113,6 +125,11 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                     <p className="mt-0.5 text-sm text-muted-foreground">
                                         {item.quantity} × {formatPrice(item.product.price)}
                                     </p>
+                                    {item.antiGaspiQuantity > 0 && (
+                                        <p className="mt-1.5 inline-flex rounded-full bg-bio/10 px-2.5 py-0.5 text-xs font-bold text-bio">
+                                            Anti-gaspi : {item.antiGaspiQuantity} à date courte · − {formatPrice(item.antiGaspiDiscount)}
+                                        </p>
+                                    )}
                                     <PreparationNote line={item} />
                                 </div>
                                 <span className="shrink-0 font-black tabular-nums">
@@ -138,6 +155,12 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                     <dd className="font-bold text-promo">− {formatPrice(order.loyaltyDiscount)}</dd>
                                 </div>
                             )}
+                            {order.antiGaspiDiscount > 0 && (
+                                <div className="flex justify-between">
+                                    <dt className="text-muted-foreground">Remise anti-gaspi</dt>
+                                    <dd className="font-bold text-promo">− {formatPrice(order.antiGaspiDiscount)}</dd>
+                                </div>
+                            )}
                             {order.preparationRefund > 0 && (
                                 <div className="flex justify-between">
                                     <dt className="text-muted-foreground">Remboursé à la préparation</dt>
@@ -157,7 +180,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                         </dl>
                         <div className="mt-4 flex items-end justify-between border-t pt-4">
                             <span className="font-extrabold">Total</span>
-                            <Price value={Math.max(0, totalAmount - order.loyaltyDiscount - order.preparationRefund) + fee} size="lg" />
+                            <Price value={Math.max(0, totalAmount - order.loyaltyDiscount - order.antiGaspiDiscount - order.preparationRefund) + fee} size="lg" />
                         </div>
                         {order.loyaltyPointsEarned > 0 && (
                             <p className="mt-3 rounded-xl bg-highlight/25 px-3 py-2 text-center text-sm font-bold text-brand-dark">

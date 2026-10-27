@@ -39,7 +39,10 @@ async function orderLine(lineId: string) {
 // Premier article traité : la commande passe « en préparation » et le client est prévenu
 async function startPreparation(order: { id: string; status: OrderStatus }) {
   if (order.status !== "received") return;
-  const { count } = await prisma.order.updateMany({ where: { id: order.id, status: "received" }, data: { status: "preparing" } });
+  const { count } = await prisma.order.updateMany({
+    where: { id: order.id, status: "received" },
+    data: { status: "preparing", preparationStartedAt: new Date() },
+  });
   if (count > 0) after(() => sendOrderStatusEmail(order.id, { status: "preparing" }));
 }
 
@@ -144,6 +147,7 @@ export async function finishPreparation(orderId: string): Promise<PreparationRes
       storeId: true,
       stripeSessionId: true,
       loyaltyDiscount: true,
+      antiGaspiDiscount: true,
       cart: {
         select: {
           productsInCart: {
@@ -153,6 +157,7 @@ export async function finishPreparation(orderId: string): Promise<PreparationRes
               preparedQuantity: true,
               allowSubstitute: true,
               substituteId: true,
+              antiGaspiDiscount: true,
               product: { select: { name: true, price: true } },
               substitute: { select: { name: true, price: true } },
             },
@@ -167,8 +172,8 @@ export async function finishPreparation(orderId: string): Promise<PreparationRes
   const lines = order.cart.productsInCart;
   const summary = preparationSummary(lines);
   if (!summary.done) return fail(`Il reste ${summary.pending} article${summary.pending > 1 ? "s" : ""} à traiter.`);
-  // Jamais plus que ce que le client a payé pour ses articles (les bons fidélité en moins)
-  const paid = lines.reduce((total, line) => total + line.product.price * line.quantity, 0) - order.loyaltyDiscount;
+  // Jamais plus que ce que le client a payé pour ses articles (bons fidélité et remise anti-gaspi en moins)
+  const paid = lines.reduce((total, line) => total + line.product.price * line.quantity, 0) - order.loyaltyDiscount - order.antiGaspiDiscount;
   const refund = Math.min(summary.refund, Math.max(0, paid));
 
   try {

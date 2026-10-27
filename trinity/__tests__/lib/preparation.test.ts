@@ -32,6 +32,11 @@ describe("lineOutcome", () => {
         expect(outcome).toMatchObject({ substitute: null, refund: 6000 });
     });
 
+    it("refunds a missing anti-waste item at the price actually paid", () => {
+        // 3 yaourts à 2,00 €, dont 2 à −40 % : 1,60 € de remise sur la ligne, soit 1,47 € payé par unité en moyenne
+        expect(lineOutcome(line({ preparedQuantity: 2, antiGaspiDiscount: 1600 }))).toMatchObject({ missing: 1, refund: 1470 });
+    });
+
     it("treats an untouched line as fully picked", () => {
         expect(lineOutcome(line({ preparedQuantity: null }))).toMatchObject({ prepared: 3, missing: 0 });
     });

@@ -23,6 +23,7 @@ const SAMPLE_INVOICE: InvoiceData = {
     store: { name: "Trinity Nantes Beaujoire", address: ["2 route de Saint-Joseph", "44300 Nantes"], phone: null },
     delivery: { address: ["12 rue de la Paix", "35000 Rennes"], fee: 5900 },
     loyalty: { discount: 5000, pointsUsed: 100, pointsEarned: 12, cardNumber: "2911 0000 0042" },
+    antiGaspiDiscount: 0,
     preparation: null,
     customer: { name: "Antoine Gourgue", email: "antoine@example.com", address: ["12 rue de la Paix", "35000 Rennes", "France"] },
     items: [
@@ -96,6 +97,18 @@ describe("e-mails", () => {
         // Drive du magasin qui a préparé la commande
         expect(html).toContain("Elles vous attendent au drive Trinity Nantes Beaujoire");
         expect(html).toContain("2 route de Saint-Joseph, 44300 Nantes");
+    });
+
+    it("asks the customer to tap « Je suis arrivé » once at the drive", () => {
+        const html = renderToStaticMarkup(
+            <OrderStatusEmail store={NANTES} status="ready" firstName="Antoine" orderNumber="M482MY2J" pickupLabel={null}
+                deliveryAddress={null} articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE}
+                arrivalUrl={`${SITE}/drive/arrivee/o1?s=signature`} />
+        );
+
+        expect(html).toContain("Je suis arrivé au drive");
+        expect(html).toContain(`${SITE}/drive/arrivee/o1?s=signature`);
+        expect(html).toContain("Voir ma commande");
     });
 
     it("details the missing and substituted items when the order is ready", () => {

@@ -56,6 +56,7 @@ export async function fulfillCheckoutSession(stripe: RefundClient, session: Paid
       delivery: metadata.fulfillment === "delivery" ? { shippingAddressId: metadata.shippingAddressId } : null,
       loyaltyVouchers: metadata.loyaltyVouchers,
       stripeSessionId: session.id,
+      paidAntiGaspiDiscount: metadata.antiGaspiDiscount,
     });
     if (result.ok) return { ok: true, orderId: result.order.id, userId: result.order.userId, created: true };
 

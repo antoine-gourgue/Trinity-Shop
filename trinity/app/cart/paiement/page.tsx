@@ -19,6 +19,7 @@ import { getMyAddresses } from "@/lib/server-actions/checkout-actions";
 import { deliveryFee, formatAddressLine } from "@/lib/delivery";
 import { formatPrice } from "@/lib/format";
 import { getPaymentMode, startCheckout } from "@/lib/server-actions/payment-actions";
+import { getAntiGaspiQuote } from "@/lib/server-actions/anti-gaspi-actions";
 import { orderFailureMessage, type PaymentFailure } from "@/lib/orders/order-messages";
 
 // Motifs renvoyés par la page de retour Stripe quand le paiement n'a pas abouti
@@ -83,10 +84,19 @@ function PaiementContent() {
     const returnedFailure = paymentFailure(searchParams.get("paiement"));
     // Adresse de livraison choisie à l'étape précédente, relue pour l'afficher
     const [address, setAddress] = useState<Awaited<ReturnType<typeof getMyAddresses>>[number] | null>(null);
+    // Remise anti-gaspi calculée par le serveur pour le créneau choisi (le lot doit être bon au retrait)
+    const [antiGaspiDiscount, setAntiGaspiDiscount] = useState(0);
+    const slotKey = slot ? slotParam(slot) : null;
+    const quantitiesKey = cartProducts.map((p) => `${p.id}:${p.quantity}`).join(",");
 
     useEffect(() => {
         getPaymentMode().then(setPaymentMode);
     }, []);
+
+    useEffect(() => {
+        if (status !== "authenticated" || !slotKey) return;
+        getAntiGaspiQuote(slotKey).then((quote) => setAntiGaspiDiscount(quote.discount));
+    }, [status, slotKey, quantitiesKey]);
 
     // Retour de Stripe sans commande : le motif est expliqué (remboursement compris le cas échéant)
     useEffect(() => {
@@ -116,11 +126,11 @@ function PaiementContent() {
     }, [userId, cartProducts.length]);
 
     // Bons Carte Trinity : jamais plus que le solde ni que le montant de la commande
-    const availableVouchers = loyalty ? maxVouchers(loyalty.points, totalPrice) : 0;
+    const availableVouchers = loyalty ? maxVouchers(loyalty.points, totalPrice - antiGaspiDiscount) : 0;
     const usedVouchers = Math.min(vouchers, availableVouchers);
     const loyaltyDiscount = usedVouchers * VOUCHER_VALUE;
     const fee = delivery ? deliveryFee(totalPrice) : 0;
-    const amountToPay = totalPrice - loyaltyDiscount + fee;
+    const amountToPay = totalPrice - antiGaspiDiscount - loyaltyDiscount + fee;
 
     // Paiement par carte : redirection vers la page de paiement Stripe ; sans Stripe, paiement simulé
     const handlePayment = async () => {
@@ -375,6 +385,7 @@ function PaiementContent() {
                     savings={savings}
                     slotLabel={formatSlot(slot)}
                     loyaltyDiscount={loyaltyDiscount}
+                    antiGaspiDiscount={antiGaspiDiscount}
                     fulfillment={{ mode: fulfillment.mode, fee, address: address ? formatAddressLine(address) : null }}
                     pointsToEarn={loyalty ? pointsForAmount(amountToPay) : null}
                 >
