@@ -9,6 +9,7 @@ import { orderDeliveryFee } from "@/lib/delivery";
 import { AdminPageHeader, Badge, Panel, formatDate } from "@/components/admin/admin-ui";
 import { OrderStatusBadge, ProductThumb, customerName, pickupLabel } from "@/components/admin/admin-bits";
 import { AdvanceOrderButton, CancelOrderButton, DeleteOrderButton, InvoiceButton } from "@/components/admin/order-actions";
+import { backOfficePage } from "@/lib/admin/access";
 import { canCancelOrder, nextOrderStatus, orderStatusLabel } from "@/lib/order-status";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +21,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function AdminOrderPage({ params }: Props) {
+  const { store } = await backOfficePage();
   const order = await getAdminOrder((await params).id);
-  if (!order) notFound();
+  // Une commande d'un autre magasin n'existe pas pour un compte magasin
+  if (!order || (store && order.storeId !== store.id)) notFound();
 
   const number = orderNumber(order.id);
   const items = order.cart.productsInCart;
@@ -47,7 +50,10 @@ export default async function AdminOrderPage({ params }: Props) {
             {next && <AdvanceOrderButton orderId={order.id} nextLabel={orderStatusLabel(next, !!shipping)} />}
             <InvoiceButton orderId={order.id} label />
             {canCancelOrder(order.status) && <CancelOrderButton orderId={order.id} number={number} label />}
-            {order.status === "cancelled" && <DeleteOrderButton orderId={order.id} number={number} label redirectTo="/admin/orders" />}
+            {/* Suppression réservée au siège */}
+            {order.status === "cancelled" && !store && (
+              <DeleteOrderButton orderId={order.id} number={number} label redirectTo="/admin/orders" />
+            )}
           </>
         }
       />
@@ -59,7 +65,10 @@ export default async function AdminOrderPage({ params }: Props) {
               <li key={item.id} className="flex items-center gap-4 px-5 py-3">
                 <ProductThumb src={item.product.picture} alt="" />
                 <div className="min-w-0 flex-1">
-                  <Link href={`/admin/products/${item.product.id}`} className="line-clamp-2 font-semibold hover:text-primary hover:underline">
+                  <Link
+                    href={store ? `/admin/stocks?q=${item.product.barCode.toString()}` : `/admin/products/${item.product.id}`}
+                    className="line-clamp-2 font-semibold hover:text-primary hover:underline"
+                  >
                     {item.product.name}
                   </Link>
                   <p className="text-xs text-muted-foreground">

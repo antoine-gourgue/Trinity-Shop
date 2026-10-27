@@ -7,6 +7,7 @@ import { AdminPageHeader, AdminPagination, AdminTable, Badge, EmptyState, Panel,
 import { AdminFilterTabs, AdminSearch } from "@/components/admin/admin-toolbar";
 import { customerName } from "@/components/admin/admin-bits";
 import { DeleteCustomerButton, EditCustomerButton } from "@/components/admin/customer-actions";
+import { headOfficePage } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Clients" };
@@ -15,6 +16,7 @@ const ROLE_BADGES = {
   Admin: <Badge tone="dark">Administrateur</Badge>,
   Seller: <Badge tone="warning">Vendeur</Badge>,
   Customer: <Badge tone="brand">Client</Badge>,
+  StoreManager: <Badge tone="dark">Magasin</Badge>,
 } as const;
 
 export default async function AdminUsersPage({
@@ -22,6 +24,8 @@ export default async function AdminUsersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Catalogue et clients : réservés au siège
+  await headOfficePage();
   const params = parseAdminParams(await searchParams);
   const [{ users, total, page, pageCount, counts }, session] = await Promise.all([getAdminUsers(params), auth()]);
   const href = (p: number) => adminHref("/admin/users", { q: params.q, filtre: params.filter, page: p });

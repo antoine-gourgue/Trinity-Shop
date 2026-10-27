@@ -5,8 +5,11 @@ import {
     canAccessAddress,
     canAccessOrder,
     canAccessUser,
+    backOfficeAccess,
     isAdmin,
     requireAdmin,
+    requireOrderManagement,
+    requireStockManagement,
     requireUserAccess,
 } from "@/services/auth/guards";
 
@@ -15,6 +18,7 @@ jest.mock("@/lib/prisma", () => ({
     order: { findUnique: jest.fn() },
     cart: { findUnique: jest.fn() },
     address: { findUnique: jest.fn() },
+    storeStock: { findUnique: jest.fn() },
 }));
 
 // Session de l'utilisateur « alice » ; son rôle est relu en base
@@ -74,5 +78,55 @@ describe("guards", () => {
         (auth as jest.Mock).mockResolvedValue({ user: { id: "alice", role: "Admin" } });
         (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: "alice", role: "Customer" });
         expect(await isAdmin()).toBe(false);
+    });
+
+    describe("comptes magasin", () => {
+        const BAYONNE = { id: "store-bayonne", slug: "bayonne", name: "Trinity Bayonne" };
+
+        // Compte du magasin de Bayonne : le rôle et le magasin sont relus en base
+        function signInAsStore() {
+            (auth as jest.Mock).mockResolvedValue({ user: { id: "bayonne-team" } });
+            (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: "bayonne-team", role: "StoreManager", storeId: BAYONNE.id, store: BAYONNE });
+        }
+
+        it("opens the back-office of its own store only", async () => {
+            signInAsStore();
+            await expect(backOfficeAccess()).resolves.toEqual({ userId: "bayonne-team", store: BAYONNE });
+            expect(await isAdmin()).toBe(false);
+        });
+
+        it("manages the orders and stock of its store, not those of another one", async () => {
+            signInAsStore();
+            (prisma.order.findUnique as jest.Mock).mockResolvedValue({ storeId: "store-bayonne" });
+            await expect(requireOrderManagement("order1")).resolves.toMatchObject({ store: BAYONNE });
+
+            (prisma.order.findUnique as jest.Mock).mockResolvedValue({ storeId: "store-pau" });
+            await expect(requireOrderManagement("order2")).rejects.toBeInstanceOf(AccessDeniedError);
+
+            (prisma.storeStock.findUnique as jest.Mock).mockResolvedValue({ storeId: "store-pau" });
+            await expect(requireStockManagement("stock1")).rejects.toBeInstanceOf(AccessDeniedError);
+        });
+
+        it("reaches the invoice of its store's orders", async () => {
+            signInAsStore();
+            (prisma.order.findUnique as jest.Mock).mockResolvedValue({ userId: "jane", storeId: "store-bayonne" });
+            expect(await canAccessOrder("order1")).toBe(true);
+
+            (prisma.order.findUnique as jest.Mock).mockResolvedValue({ userId: "jane", storeId: "store-pau" });
+            expect(await canAccessOrder("order2")).toBe(false);
+        });
+
+        it("keeps customers out of the back-office", async () => {
+            signInAs("alice");
+            await expect(backOfficeAccess()).resolves.toBeNull();
+            await expect(requireOrderManagement("order1")).rejects.toBeInstanceOf(AccessDeniedError);
+        });
+
+        it("gives the head office every store", async () => {
+            signInAs("root", "Admin");
+            await expect(backOfficeAccess()).resolves.toEqual({ userId: "root", store: null });
+            await expect(requireOrderManagement("order1")).resolves.toEqual({ userId: "root", store: null });
+            expect(prisma.order.findUnique).not.toHaveBeenCalled();
+        });
     });
 });

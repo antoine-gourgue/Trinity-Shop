@@ -83,10 +83,16 @@ function addDays(date: Date, days: number) {
 
 const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
-export async function getDashboard() {
+// Activité du réseau (siège), ou d'un seul magasin pour un compte magasin : ses commandes, ses
+// clients (ceux qui l'ont choisi) et ses stocks
+export async function getDashboard(storeId?: string) {
   const now = new Date();
   const since = addDays(now, -29);
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const inStore = storeId ? { storeId } : {};
+  const customers: Prisma.UserWhereInput = { role: Role.Customer, ...inStore };
+  // Stock des produits en ligne seulement : un produit masqué n'est plus vendu
+  const onSale: Prisma.StoreStockWhereInput = { product: { hidden: false }, ...inStore };
 
   const [
     recentOrders,
@@ -96,25 +102,23 @@ export async function getDashboard() {
     newCustomers,
     signups,
     loyaltyCards,
-    visibleProducts,
-    hiddenProducts,
+    ruptureCount,
     lowStockCount,
     lowStocks,
     soldItems,
   ] = await Promise.all([
-    prisma.order.findMany({ select: ORDER_SUMMARY, orderBy: { createdAt: "desc" }, take: 5 }),
+    prisma.order.findMany({ where: inStore, select: ORDER_SUMMARY, orderBy: { createdAt: "desc" }, take: 5 }),
     // Les commandes annulées ne comptent ni dans le chiffre d'affaires ni dans les ventes
-    prisma.order.findMany({ where: { createdAt: { gte: since }, status: { not: "cancelled" } }, select: ORDER_SUMMARY }),
-    prisma.order.count({ where: { status: { not: "cancelled" } } }),
-    prisma.user.count({ where: { role: Role.Customer } }),
-    prisma.user.count({ where: { role: Role.Customer, createdAt: { gte: since } } }),
-    prisma.user.findMany({ where: { createdAt: { gte: sixMonthsAgo } }, select: { createdAt: true } }),
-    prisma.user.count({ where: { loyaltyNumber: { not: null } } }),
-    prisma.product.count({ where: { hidden: false } }),
-    prisma.product.count({ where: { hidden: true } }),
-    prisma.storeStock.count({ where: { quantity: { lt: LOW_STOCK }, product: { hidden: false } } }),
+    prisma.order.findMany({ where: { ...inStore, createdAt: { gte: since }, status: { not: "cancelled" } }, select: ORDER_SUMMARY }),
+    prisma.order.count({ where: { ...inStore, status: { not: "cancelled" } } }),
+    prisma.user.count({ where: customers }),
+    prisma.user.count({ where: { ...customers, createdAt: { gte: since } } }),
+    prisma.user.findMany({ where: { ...customers, createdAt: { gte: sixMonthsAgo } }, select: { createdAt: true } }),
+    prisma.user.count({ where: { ...customers, loyaltyNumber: { not: null } } }),
+    prisma.storeStock.count({ where: { ...onSale, quantity: 0 } }),
+    prisma.storeStock.count({ where: { ...onSale, quantity: { gt: 0, lt: LOW_STOCK } } }),
     prisma.storeStock.findMany({
-      where: { quantity: { lt: LOW_STOCK }, product: { hidden: false } },
+      where: { ...onSale, quantity: { lt: LOW_STOCK } },
       orderBy: { quantity: "asc" },
       take: 6,
       select: {
@@ -127,7 +131,7 @@ export async function getDashboard() {
     // Articles des paniers commandés, pour le classement des meilleures ventes
     prisma.productInCart.groupBy({
       by: ["productId"],
-      where: { cart: { orders: { some: { status: { not: "cancelled" } } } } },
+      where: { cart: { orders: { some: { ...inStore, status: { not: "cancelled" } } } } },
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 5,
@@ -174,8 +178,7 @@ export async function getDashboard() {
     customerCount,
     newCustomers,
     loyaltyCards,
-    visibleProducts,
-    hiddenProducts,
+    ruptureCount,
     lowStockCount,
     lowStocks,
     recentOrders,

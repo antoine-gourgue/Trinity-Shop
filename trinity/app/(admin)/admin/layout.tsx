@@ -12,16 +12,18 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  // Rôle relu en base : un compte rétrogradé perd l'accès immédiatement
+  // Rôle relu en base : un compte rétrogradé perd l'accès immédiatement. Le siège (administrateur)
+  // voit tout le réseau ; un compte magasin, le back-office de son seul magasin.
   const session = await auth();
   const user = session?.user?.id
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { firstName: true, lastName: true, email: true, role: true },
+        select: { firstName: true, lastName: true, email: true, role: true, store: { select: { name: true } } },
       })
     : null;
+  const allowed = user?.role === "Admin" || (user?.role === "StoreManager" && !!user.store);
 
-  if (user?.role !== "Admin") {
+  if (!user || !allowed) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
         <div className="w-full max-w-md rounded-3xl border bg-white p-8 text-center">
@@ -57,7 +59,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen bg-muted/50">
-      <AdminNav name={`${user.firstName} ${user.lastName}`.trim()} email={user.email} />
+      <AdminNav
+        name={`${user.firstName} ${user.lastName}`.trim()}
+        email={user.email}
+        store={user.role === "StoreManager" ? (user.store?.name ?? null) : null}
+      />
       <main className="lg:pl-64">
         <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8">{children}</div>
       </main>

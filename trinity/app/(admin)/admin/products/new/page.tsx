@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { getProductFormOptions } from "@/lib/admin/queries";
 import { AdminPageHeader } from "@/components/admin/admin-ui";
 import NewProductForm from "@/components/admin/new-product-form";
+import { headOfficePage } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Nouveau produit" };
 
 export default async function AdminNewProductPage() {
+  // Catalogue et clients : réservés au siège
+  await headOfficePage();
   const { categoryNames, brandNames } = await getProductFormOptions();
 
   return (

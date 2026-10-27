@@ -9,6 +9,7 @@ import { AdminFilterTabs, AdminSearch, AdminSelectFilter } from "@/components/ad
 import { OrderNumber, OrderStatusBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
 import { CancelOrderButton, DeleteOrderButton, InvoiceButton } from "@/components/admin/order-actions";
 import { canCancelOrder } from "@/lib/order-status";
+import { backOfficePage } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Commandes" };
@@ -18,18 +19,24 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const params = parseAdminParams(await searchParams);
+  const { store } = await backOfficePage();
+  // Un compte magasin ne voit que les commandes de son magasin, quel que soit le lien suivi
+  const requested = parseAdminParams(await searchParams);
+  const params = store ? { ...requested, magasin: store.slug } : requested;
   const { orders, total, page, pageCount, counts, stores } = await getAdminOrders(params);
   const href = (p: number) => adminHref("/admin/orders", { q: params.q, filtre: params.filter, magasin: params.magasin, page: p });
 
   return (
     <div>
-      <AdminPageHeader title="Commandes" description="Commandes des drives Trinity, du plus récent au plus ancien." />
+      <AdminPageHeader
+        title="Commandes"
+        description={`${store ? `Commandes de ${store.name}` : "Commandes des drives Trinity"}, du plus récent au plus ancien.`}
+      />
 
       <div className="mb-4 flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row">
           <AdminSearch placeholder="N° de commande, nom ou e-mail du client" />
-          <AdminSelectFilter label="Tous les magasins" param="magasin" options={stores} value={params.magasin} />
+          {!store && <AdminSelectFilter label="Tous les magasins" param="magasin" options={stores} value={params.magasin} />}
         </div>
         <AdminFilterTabs filters={ORDER_FILTERS} active={params.filter} counts={counts} />
       </div>
@@ -68,7 +75,7 @@ export default async function AdminOrdersPage({
                         {order.shippingAddressId ? "Livraison" : "Drive"}
                       </span>
                       <span className="block">{pickupLabel(order.pickupSlot)}</span>
-                      {order.store && <span className="block text-xs text-muted-foreground">{order.store.name}</span>}
+                      {order.store && !store && <span className="block text-xs text-muted-foreground">{order.store.name}</span>}
                     </Td>
                     <Td className="text-right tabular-nums">{articleCount(order)}</Td>
                     <Td className="text-right font-black tabular-nums">{formatPrice(orderTotal(order))}</Td>
@@ -87,7 +94,8 @@ export default async function AdminOrdersPage({
                         </Link>
                         <InvoiceButton orderId={order.id} />
                         {canCancelOrder(order.status) && <CancelOrderButton orderId={order.id} number={orderNumber(order.id)} />}
-                        {order.status === "cancelled" && <DeleteOrderButton orderId={order.id} number={orderNumber(order.id)} />}
+                        {/* Suppression réservée au siège */}
+                        {order.status === "cancelled" && !store && <DeleteOrderButton orderId={order.id} number={orderNumber(order.id)} />}
                       </div>
                     </Td>
                   </tr>

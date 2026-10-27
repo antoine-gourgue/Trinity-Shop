@@ -15,7 +15,13 @@ jest.mock("@/lib/prisma", () => ({
 }));
 jest.mock("next/server", () => ({ after: jest.fn() }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
-jest.mock("@/services/auth/guards", () => ({ requireAdmin: jest.fn(), currentAccess: jest.fn() }));
+// Siège ou magasin de la commande : accès accordé, les règles sont testées dans guards.test.ts
+jest.mock("@/services/auth/guards", () => ({
+    requireAdmin: jest.fn(),
+    requireOrderManagement: jest.fn(),
+    requireStockManagement: jest.fn(),
+    currentAccess: jest.fn(),
+}));
 jest.mock("@/lib/payments/refund", () => ({ refundOrderPayment: jest.fn() }));
 jest.mock("@/lib/order-emails", () => ({ sendOrderStatusEmail: jest.fn() }));
 

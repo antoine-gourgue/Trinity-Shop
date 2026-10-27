@@ -10,6 +10,7 @@ import { NetworkStockBadge, ProductThumb } from "@/components/admin/admin-bits";
 import { DeleteProductButton } from "@/components/admin/product-actions";
 import ProductForm from "@/components/admin/product-form";
 import { promoLastDay } from "@/lib/promotions";
+import { headOfficePage } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function AdminProductPage({ params }: Props) {
+  // Catalogue et clients : réservés au siège
+  await headOfficePage();
   const data = await getAdminProduct((await params).id);
   if (!data) notFound();
   const { product, categoryNames, brandNames, orderedCount } = data;

@@ -3,7 +3,7 @@ import { faker } from "@faker-js/faker";
 import bcrypt from "bcrypt";
 import { randomBytes } from "node:crypto";
 import productsDataJson from "../data/complete_products.json";
-import { HISTORIC_STORE_SLUG, STORES } from "./stores-data";
+import { HISTORIC_STORE_SLUG, STORES, storeAccountEmail } from "./stores-data";
 import { storeQuantity } from "./store-stock";
 
 const prisma = new PrismaClient();
@@ -70,6 +70,24 @@ async function main() {
     console.log(`🚀 Ajout des ${STORES.length} magasins...`);
     await prisma.store.createMany({ data: STORES });
     const historicStore = await prisma.store.findUniqueOrThrow({ where: { slug: HISTORIC_STORE_SLUG }, select: { id: true } });
+
+    // Compte de chaque magasin, avec le mot de passe de l'administrateur (base de démonstration ou de CI)
+    const storeAccountPassword = await hashPassword(adminPassword);
+    const createdStores = await prisma.store.findMany({ select: { id: true, slug: true, name: true } });
+    await prisma.user.createMany({
+      data: createdStores.map((store) => ({
+        email: storeAccountEmail(store.slug),
+        firstName: "Équipe",
+        lastName: store.name,
+        password: storeAccountPassword,
+        role: Role.StoreManager,
+        storeId: store.id,
+        emailVerified: new Date(),
+        cartReminders: false,
+        favoritePromos: false,
+      })),
+    });
+    console.log(`✅ ${createdStores.length} comptes magasin créés`);
 
     console.log("🚀 Ajout de l'utilisateur admin...");
     const adminEmail = "admin@trinity.fr";

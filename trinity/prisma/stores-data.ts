@@ -17,6 +17,11 @@ export interface StoreData {
 // Magasin des commandes passées avant le choix du magasin
 export const HISTORIC_STORE_SLUG = "rennes-epitech";
 
+// Identifiant du compte d'un magasin (back-office limité à ce magasin)
+export function storeAccountEmail(slug: string) {
+  return `magasin-${slug}@trinity.antoinegourgue.dev`;
+}
+
 const WEEK = "Lun.–sam. 8h30–20h30";
 const WEEK_SUNDAY = "Lun.–sam. 8h30–20h, dim. 9h–12h30";
 const LATE = "Lun.–sam. 8h–21h, dim. 9h–13h";

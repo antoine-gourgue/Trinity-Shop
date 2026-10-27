@@ -12,7 +12,7 @@ import { isBarcode } from "@/lib/barcode";
 import { fetchCategoryTaxonomy, fetchOpenFoodFactsProduct, isOpenFoodFactsImage, type CategoryTaxonomy } from "@/lib/open-food-facts";
 import { getProductFormOptions } from "@/lib/admin/queries";
 import { buildProductProposal, type ProductProposal } from "@/lib/admin/product-proposal";
-import { currentAccess, requireAdmin } from "@/services/auth/guards";
+import { currentAccess, requireAdmin, requireOrderManagement, requireStockManagement } from "@/services/auth/guards";
 import { refundOrderPayment, type RefundOutcome } from "@/lib/payments/refund";
 import { sendOrderStatusEmail } from "@/lib/order-emails";
 
@@ -246,7 +246,8 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
 
 // Stock d'un produit dans un magasin
 export async function updateStockQuantity(stockId: string, quantity: number): Promise<AdminResult> {
-  await requireAdmin();
+  // Siège, ou compte du magasin de ce stock
+  await requireStockManagement(stockId);
   if (!Number.isInteger(quantity) || quantity < 0 || quantity > 100000) {
     return fail("Indiquez une quantité entière entre 0 et 100 000.");
   }
@@ -340,7 +341,8 @@ function reverseOrder(orderId: string, order: Prisma.OrderGetPayload<{ select: t
 
 // Fait passer la commande à l'étape suivante (reçue → en préparation → prête → retirée ou livrée)
 export async function advanceOrderStatus(orderId: string): Promise<AdminResult> {
-  await requireAdmin();
+  // Siège, ou compte du magasin qui prépare la commande
+  await requireOrderManagement(orderId);
   const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
   if (!order) return fail("Commande introuvable.");
   const next = nextOrderStatus(order.status);
@@ -369,7 +371,7 @@ const REFUND_FAILED = "Le remboursement Stripe a échoué : la commande n'a pas 
 
 // Annule la commande sans l'effacer : elle reste visible, marquée « Annulée »
 export async function cancelOrder(orderId: string): Promise<AdminResult> {
-  await requireAdmin();
+  await requireOrderManagement(orderId);
   const order = await prisma.order.findUnique({ where: { id: orderId }, select: ORDER_REVERSAL });
   if (!order) return fail("Commande introuvable.");
   if (!canCancelOrder(order.status)) return fail("Une commande terminée ou déjà annulée ne peut pas être annulée.");

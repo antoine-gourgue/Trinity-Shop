@@ -6,19 +6,25 @@ import { formatPrice } from "@/lib/format";
 import { AdminPageHeader, EmptyState, Panel, StatCard, formatDate } from "@/components/admin/admin-ui";
 import { OrderNumber, OrderStatusBadge, ProductThumb, StockBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
 import { RevenueChart, SignupsChart } from "@/components/admin/dashboard-charts";
+import { backOfficePage } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Tableau de bord" };
 
 export default async function AdminDashboardPage() {
-  const data = await getDashboard();
+  // Siège : tout le réseau ; compte magasin : son seul magasin
+  const { store } = await backOfficePage();
+  const data = await getDashboard(store?.id);
   const today = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  // Fiche d'un produit : le catalogue pour le siège, son stock pour un compte magasin
+  const productHref = (product: { id: string; barCode: bigint }) =>
+    store ? `/admin/stocks?q=${product.barCode.toString()}` : `/admin/products/${product.id}`;
 
   return (
     <div>
       <AdminPageHeader
         title="Tableau de bord"
-        description={`Activité des drives Trinity · ${today}`}
+        description={`${store ? `Activité de ${store.name}` : "Activité des drives Trinity"} · ${today}`}
         actions={
           <Link
             href="/admin/orders"
@@ -45,20 +51,20 @@ export default async function AdminDashboardPage() {
           href="/admin/orders"
         />
         <StatCard
-          label="Clients"
+          label={store ? "Clients du magasin" : "Clients"}
           value={data.customerCount}
           hint={`${data.newCustomers} nouveau${data.newCustomers > 1 ? "x" : ""} sur 30 jours · ${data.loyaltyCards} Carte${data.loyaltyCards > 1 ? "s" : ""} Trinity`}
           icon={Users}
           tone="bio"
-          href="/admin/users"
+          href={store ? undefined : "/admin/users"}
         />
         <StatCard
-          label="Stocks faibles"
-          value={data.lowStockCount}
-          hint={`${data.visibleProducts} produits en ligne · ${data.hiddenProducts} masqués`}
+          label={store ? "Ruptures" : "Ruptures (réseau)"}
+          value={data.ruptureCount}
+          hint={`${data.lowStockCount} stock${data.lowStockCount > 1 ? "s" : ""} faible${data.lowStockCount > 1 ? "s" : ""} (moins de ${LOW_STOCK} unités)`}
           icon={AlertTriangle}
-          tone={data.lowStockCount > 0 ? "promo" : "muted"}
-          href="/admin/stocks?filtre=faible"
+          tone={data.ruptureCount > 0 ? "promo" : "muted"}
+          href="/admin/stocks?filtre=rupture"
         />
       </div>
 
@@ -71,7 +77,7 @@ export default async function AdminDashboardPage() {
           <RevenueChart data={data.revenueByDay} />
         </Panel>
 
-        <Panel title="Inscriptions" description="Nouveaux comptes par mois">
+        <Panel title="Inscriptions" description={store ? "Nouveaux clients du magasin par mois" : "Nouveaux comptes par mois"}>
           <SignupsChart data={data.signupsByMonth} />
           <div className="mt-4 flex items-center gap-3 rounded-2xl bg-secondary p-3 text-sm">
             <CreditCard size={18} className="shrink-0 text-primary" aria-hidden />
@@ -137,12 +143,14 @@ export default async function AdminDashboardPage() {
                 <li key={stock.id} className="flex items-center gap-3 px-5 py-3">
                   <ProductThumb src={stock.product.picture} alt="" size="sm" />
                   <span className="min-w-0 flex-1">
-                    <Link href={`/admin/products/${stock.product.id}`} className="block truncate text-sm font-semibold hover:text-primary hover:underline">
+                    <Link href={productHref(stock.product)} className="block truncate text-sm font-semibold hover:text-primary hover:underline">
                       {stock.product.name}
                     </Link>
-                    <Link href={`/admin/stocks?magasin=${stock.store.slug}&filtre=faible`} className="block truncate text-xs text-muted-foreground hover:underline">
-                      {stock.store.name}
-                    </Link>
+                    {!store && (
+                      <Link href={`/admin/stocks?magasin=${stock.store.slug}&filtre=faible`} className="block truncate text-xs text-muted-foreground hover:underline">
+                        {stock.store.name}
+                      </Link>
+                    )}
                   </span>
                   <StockBadge quantity={stock.quantity} low={LOW_STOCK} />
                 </li>
@@ -166,7 +174,7 @@ export default async function AdminDashboardPage() {
                   </span>
                 </span>
                 <span className="min-w-0">
-                  <Link href={`/admin/products/${product.id}`} className="line-clamp-2 text-sm font-semibold hover:text-primary hover:underline">
+                  <Link href={productHref(product)} className="line-clamp-2 text-sm font-semibold hover:text-primary hover:underline">
                     {product.name}
                   </Link>
                   <span className="text-xs text-muted-foreground">

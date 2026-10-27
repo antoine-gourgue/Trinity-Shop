@@ -7,6 +7,7 @@ import { AdminPageHeader, AdminPagination, AdminTable, Badge, EmptyState, Panel,
 import { AdminFilterTabs, AdminSearch, AdminSelectFilter } from "@/components/admin/admin-toolbar";
 import { ProductThumb, StockBadge } from "@/components/admin/admin-bits";
 import StockEditor from "@/components/admin/stock-editor";
+import { backOfficePage } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Stocks" };
@@ -18,7 +19,10 @@ export default async function AdminStocksPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const params = parseAdminParams(await searchParams);
+  const { store } = await backOfficePage();
+  // Un compte magasin ne voit et n'ajuste que le stock de son magasin
+  const requested = parseAdminParams(await searchParams);
+  const params = store ? { ...requested, magasin: store.slug } : requested;
   const data = await getAdminStocks(params);
   const href = (p: number) => adminHref("/admin/stocks", { q: params.q, filtre: params.filter, magasin: params.magasin, page: p });
   const filterHref = (filtre: string) => adminHref("/admin/stocks", { filtre, magasin: params.magasin });
@@ -29,7 +33,11 @@ export default async function AdminStocksPage({
     <div>
       <AdminPageHeader
         title="Stocks"
-        description="Stock de chaque magasin, décompté par ses commandes. Choisissez un magasin, puis ajustez ses quantités dans la liste."
+        description={
+          store
+            ? `Stock de ${store.name}, décompté par ses commandes. Ajustez les quantités directement dans la liste.`
+            : "Stock de chaque magasin, décompté par ses commandes. Choisissez un magasin, puis ajustez ses quantités dans la liste."
+        }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
@@ -60,7 +68,7 @@ export default async function AdminStocksPage({
       <div className="mb-4 flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row">
           <AdminSearch placeholder="Nom, marque ou code-barres" />
-          <AdminSelectFilter label="Tous les magasins" param="magasin" options={data.stores} value={params.magasin} />
+          {!store && <AdminSelectFilter label="Tous les magasins" param="magasin" options={data.stores} value={params.magasin} />}
         </div>
         <AdminFilterTabs filters={STOCK_FILTERS} active={params.filter} counts={data.counts} />
       </div>
@@ -85,9 +93,14 @@ export default async function AdminStocksPage({
                       <div className="flex items-center gap-3">
                         <ProductThumb src={stock.product.picture} alt="" />
                         <div className="min-w-0 max-w-sm">
-                          <Link href={`/admin/products/${stock.product.id}`} className="line-clamp-2 font-semibold hover:text-primary hover:underline">
-                            {stock.product.name}
-                          </Link>
+                          {/* Fiche produit (catalogue) réservée au siège */}
+                          {store ? (
+                            <p className="line-clamp-2 font-semibold">{stock.product.name}</p>
+                          ) : (
+                            <Link href={`/admin/products/${stock.product.id}`} className="line-clamp-2 font-semibold hover:text-primary hover:underline">
+                              {stock.product.name}
+                            </Link>
+                          )}
                           <p className="truncate text-xs text-muted-foreground">
                             {formatBrand(stock.product.brand.name)} · {stock.product.barCode.toString()}
                           </p>
@@ -112,14 +125,16 @@ export default async function AdminStocksPage({
                           quantity={stock.quantity}
                           productName={`${stock.product.name} (${stock.store.name})`}
                         />
-                        <Link
-                          href={`/admin/products/${stock.product.id}`}
-                          aria-label={`Modifier ${stock.product.name}`}
-                          title="Modifier le produit"
-                          className="flex h-9 w-9 items-center justify-center rounded-full border bg-white text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                        >
-                          <Pencil size={16} aria-hidden />
-                        </Link>
+                        {!store && (
+                          <Link
+                            href={`/admin/products/${stock.product.id}`}
+                            aria-label={`Modifier ${stock.product.name}`}
+                            title="Modifier le produit"
+                            className="flex h-9 w-9 items-center justify-center rounded-full border bg-white text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                          >
+                            <Pencil size={16} aria-hidden />
+                          </Link>
+                        )}
                       </div>
                     </Td>
                   </tr>

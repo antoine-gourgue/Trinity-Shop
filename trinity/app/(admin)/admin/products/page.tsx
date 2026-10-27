@@ -8,6 +8,7 @@ import { AdminPageHeader, AdminPagination, AdminTable, Badge, EmptyState, Panel,
 import { AdminFilterTabs, AdminSearch, AdminSelectFilter } from "@/components/admin/admin-toolbar";
 import { NetworkStockBadge, ProductThumb } from "@/components/admin/admin-bits";
 import { DeleteProductButton, VisibilityButton } from "@/components/admin/product-actions";
+import { headOfficePage } from "@/lib/admin/access";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Produits" };
@@ -20,6 +21,8 @@ export default async function AdminProductsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Catalogue et clients : réservés au siège
+  await headOfficePage();
   const params = parseAdminParams(await searchParams);
   const { products, total, page, pageCount, counts, rayons } = await getAdminProducts(params);
   const href = (p: number) => adminHref("/admin/products", { q: params.q, filtre: params.filter, rayon: params.rayon, page: p });

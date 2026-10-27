@@ -64,9 +64,11 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 - **Application installable** (PWA) et pages d'information : FAQ, programme de fidélité, contact, mentions légales, confidentialité, cookies.
 - **Référencement** : sitemap, robots.txt, URL canoniques, Open Graph et données structurées schema.org sur les fiches produit.
 
-### Back-office (`/admin`, rôle administrateur)
+### Back-office (`/admin`)
 
-- **Tableau de bord** : chiffre d'affaires, commandes et inscriptions sur la période, avec graphiques.
+Deux types de comptes : le **siège** (rôle administrateur) gère tout le réseau ; chaque **magasin** a son compte (`magasin-<slug>@trinity.antoinegourgue.dev`), qui arrive directement sur le back-office de son seul magasin (tableau de bord, commandes, stocks) et n'a accès ni à la boutique, ni au catalogue, ni aux clients. Les droits sont vérifiés côté serveur sur chaque commande et chaque stock.
+
+- **Tableau de bord** : chiffre d'affaires, commandes, clients et inscriptions sur la période, ruptures et stocks faibles, avec graphiques ; tout le réseau pour le siège, son magasin pour un compte magasin.
 - **Commandes** : recherche, filtres par statut, livraison et magasin, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (paiement par carte remboursé, articles remis en stock, points de fidélité rétablis, client prévenu par e-mail) ou supprime une commande annulée.
 - **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, promotions avec date de fin, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
 - **Stocks** : stock de chaque magasin (ou de tout le réseau), filtres stock faible et rupture, modification directe ; un nouveau produit reçoit un stock initial dans chaque magasin.
@@ -139,7 +141,7 @@ Lancer le serveur de développement sur [http://localhost:3000](http://localhost
 npm run dev
 ```
 
-Le seed crée les 81 magasins, le catalogue et le stock de chaque magasin, 100 comptes clients fictifs (au mot de passe aléatoire) et le compte administrateur `admin@trinity.fr`, dont le mot de passe est celui de `SEED_ADMIN_PASSWORD`.
+Le seed crée les 81 magasins et leurs comptes (mot de passe : `SEED_ADMIN_PASSWORD`), le catalogue et le stock de chaque magasin, 100 comptes clients fictifs (au mot de passe aléatoire) et le compte administrateur `admin@trinity.fr`, dont le mot de passe est celui de `SEED_ADMIN_PASSWORD`.
 
 > Prisma lit `.env`, pas `.env.local`. Pour lancer une commande Prisma avec les variables de `.env.local` : `set -a; source .env.local; set +a; npx prisma db push`.
 
@@ -201,6 +203,7 @@ Les scripts, dans `prisma/` et `scripts/`, sont relançables et proposent presqu
 | `prisma/apply-pricing.ts` | Calcule des prix et promotions réalistes et déterministes |
 | `prisma/hide-products.ts` | Masque les produits listés dans `hidden-products.json` |
 | `prisma/replace-photos.ts` | Remplace des photos par la version officielle |
+| `prisma/create-store-accounts.ts` | Crée ou met à jour le compte de chaque magasin, avec le mot de passe commun lu dans `STORE_ACCOUNT_PASSWORD` (jamais écrit dans le dépôt) |
 | `prisma/sync-stores.ts` | Enregistre les magasins de `prisma/stores-data.ts` (création ou mise à jour) et rattache au magasin historique de Rennes les commandes passées avant le choix du magasin |
 
 Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : un fichier au mauvais format arrête le script avant toute écriture.
@@ -222,7 +225,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request et à chaque push sur `main` :
 
 1. **Lint, types, tests** : `npm run lint`, `tsc --noEmit`, puis Jest ;
-2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : choix du magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation et annulation par l'équipe. La base de production n'est jamais utilisée.
+2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : choix du magasin, compte magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation et annulation par l'équipe. La base de production n'est jamais utilisée.
 
 ## Déploiement
 

@@ -74,7 +74,8 @@ model User {
   favorites           Favorite[]
   cartReminders       Boolean              @default(true) // accepte les rappels de panier abandonné
   favoritePromos      Boolean              @default(true) // accepte les alertes quand un favori passe en promotion
-  // Magasin choisi par le client : drive de retrait et point de départ des livraisons
+  // Magasin choisi par le client : drive de retrait et point de départ des livraisons.
+  // Pour un compte magasin (StoreManager), le magasin qu'il gère.
   storeId             String?
   store               Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull)
 
@@ -207,9 +208,10 @@ enum AddressType {
 }
 
 enum Role {
-  Admin
+  Admin // siège : back-office de tout le réseau
   Seller
   Customer
+  StoreManager // compte d'un magasin : back-office de ce seul magasin (User.storeId)
 }
 
 enum nutriScore {
