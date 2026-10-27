@@ -82,8 +82,20 @@ describe("e-mails", () => {
                 deliveryAddress={null} articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} />
         );
 
-        expect(html).toContain("prêtes au drive !");
+        expect(html).toContain("prêtes au drive");
         expect(html).toContain("M482MY2J");
+    });
+
+    it("thanks the customer for picking up the order", () => {
+        const html = renderToStaticMarkup(
+            <OrderStatusEmail status="completed" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
+                deliveryAddress={null} articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} pointsEarned={13} />
+        );
+
+        expect(html).toContain("visite au drive");
+        expect(html).toContain("Retirée au drive");
+        expect(html).toContain("13 points");
+        expect(html).toContain("Refaire mes courses");
     });
 
     it("explains the refund of a cancelled order", () => {

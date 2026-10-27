@@ -3,7 +3,7 @@ import { buildInvoicePdf } from "@/lib/invoice-pdf";
 import { loadInvoice } from "@/lib/invoice-data";
 import { siteUrl } from "@/lib/site-url";
 import { OrderConfirmationEmail } from "@/components/emails/order-confirmation-email";
-import { OrderStatusEmail } from "@/components/emails/order-status-email";
+import { OrderStatusEmail, type OrderStatusEmailProps } from "@/components/emails/order-status-email";
 import type { RefundOutcome } from "@/lib/payments/refund";
 
 import { emailSender } from "@/lib/email-sender";
@@ -39,9 +39,43 @@ export async function sendOrderConfirmation(orderId: string) {
   }
 }
 
-export type OrderStatusEvent = { status: "preparing" | "ready" } | { status: "cancelled"; refund: RefundOutcome };
+export type OrderStatusEvent = { status: "preparing" | "ready" | "completed" } | { status: "cancelled"; refund: RefundOutcome };
 
-// Prévient le client quand sa commande passe en préparation, est prête (drive ou livraison) ou annulée, envoyé « au mieux »
+type StatusEmailBase = Omit<OrderStatusEmailProps, "status" | "refundedAmount" | "vouchersReturned" | "pointsEarned"> & {
+  pointsEarned: number;
+  vouchersReturned: boolean;
+};
+
+// Objet et contenu de l'e-mail pour chaque changement de statut
+function statusEmail(event: OrderStatusEvent, number: string, delivery: boolean, base: StatusEmailBase) {
+  const { pointsEarned, vouchersReturned, ...common } = base;
+  switch (event.status) {
+    case "preparing":
+      return { subject: `Votre commande n° ${number} est en préparation`, react: OrderStatusEmail({ ...common, status: "preparing" }) };
+    case "ready":
+      return {
+        subject: delivery ? `Votre commande n° ${number} est en route` : `Votre commande n° ${number} est prête au drive`,
+        react: OrderStatusEmail({ ...common, status: "ready" }),
+      };
+    case "completed":
+      return {
+        subject: `Merci pour votre commande n° ${number}`,
+        react: OrderStatusEmail({ ...common, status: "completed", pointsEarned }),
+      };
+    case "cancelled":
+      return {
+        subject: `Votre commande n° ${number} a été annulée`,
+        react: OrderStatusEmail({
+          ...common,
+          status: "cancelled",
+          refundedAmount: event.refund.refunded ? event.refund.amount : null,
+          vouchersReturned,
+        }),
+      };
+  }
+}
+
+// Prévient le client à chaque étape de sa commande (préparation, prête, retirée ou livrée) et en cas d'annulation, envoyé « au mieux »
 export async function sendOrderStatusEmail(orderId: string, event: OrderStatusEvent) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return;
@@ -61,26 +95,11 @@ export async function sendOrderStatusEmail(orderId: string, event: OrderStatusEv
       orderUrl: `${siteUrl()}/user/${invoice.userId}/order/${orderId}`,
       siteUrl: siteUrl(),
     };
-    const email =
-      event.status !== "cancelled"
-        ? {
-            subject:
-              event.status === "preparing"
-                ? `Votre commande n° ${number} est en préparation`
-                : data.delivery
-                  ? `Votre commande n° ${number} est en route`
-                  : `Votre commande n° ${number} est prête au drive`,
-            react: OrderStatusEmail({ ...common, status: event.status }),
-          }
-        : {
-            subject: `Votre commande n° ${number} a été annulée`,
-            react: OrderStatusEmail({
-              ...common,
-              status: "cancelled",
-              refundedAmount: event.refund.refunded ? event.refund.amount : null,
-              vouchersReturned: data.loyalty.pointsUsed > 0,
-            }),
-          };
+    const email = statusEmail(event, number, Boolean(data.delivery), {
+      ...common,
+      pointsEarned: data.loyalty.pointsEarned,
+      vouchersReturned: data.loyalty.pointsUsed > 0,
+    });
 
     const { error } = await new Resend(apiKey).emails.send({ from: emailSender(), to: [invoice.email], ...email });
     if (error) console.error("E-mail de suivi non envoyé :", error);

@@ -346,8 +346,8 @@ export async function advanceOrderStatus(orderId: string): Promise<AdminResult> 
   // Mise à jour conditionnelle : deux clics simultanés ne sautent pas d'étape
   const { count } = await prisma.order.updateMany({ where: { id: orderId, status: order.status }, data: { status: next } });
   if (count === 0) return fail("La commande a changé entre-temps : rechargez la page.");
-  // Le client est prévenu quand la préparation commence, puis quand ses courses sont prêtes au drive ou parties en livraison
-  if (next === "preparing" || next === "ready") after(() => sendOrderStatusEmail(orderId, { status: next }));
+  // Le client est prévenu à chaque étape : préparation, courses prêtes (ou parties en livraison), puis retirées ou livrées
+  after(() => sendOrderStatusEmail(orderId, { status: next }));
   revalidatePath("/admin", "layout");
   return { ok: true };
 }

@@ -26,10 +26,21 @@ export const ORDER_STATUS_TONES = {
   cancelled: "danger",
 } as const satisfies Record<OrderStatus, string>;
 
+// Étape suivante de chaque statut (dans l'ordre de ORDER_STEPS), null une fois la commande terminée ou annulée
+const NEXT_STEP = {
+  received: "preparing",
+  preparing: "ready",
+  ready: "completed",
+  completed: null,
+  cancelled: null,
+} as const satisfies Record<OrderStatus, OrderStatus | null>;
+
+// Statut que l'on atteint en faisant avancer une commande
+export type AdvancedOrderStatus = NonNullable<(typeof NEXT_STEP)[OrderStatus]>;
+
 // Étape suivante de la préparation, ou null si la commande est terminée ou annulée
-export function nextOrderStatus(status: OrderStatus): OrderStatus | null {
-  const index = ORDER_STEPS.indexOf(status);
-  return index >= 0 && index < ORDER_STEPS.length - 1 ? ORDER_STEPS[index + 1] : null;
+export function nextOrderStatus(status: OrderStatus): AdvancedOrderStatus | null {
+  return NEXT_STEP[status];
 }
 
 export function canCancelOrder(status: OrderStatus) {

@@ -92,11 +92,19 @@ describe("advanceOrderStatus", () => {
         expect(after).toHaveBeenCalledTimes(1);
     });
 
-    it("sends nothing when the order is picked up or delivered", async () => {
+    it("thanks the customer once the order is picked up or delivered", async () => {
         (prisma.order.findUnique as jest.Mock).mockResolvedValue({ status: "ready" });
         (prisma.order.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
         await advanceOrderStatus("order1");
+        expect(prisma.order.updateMany).toHaveBeenCalledWith({ where: { id: "order1", status: "ready" }, data: { status: "completed" } });
+        expect(after).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends nothing when the order is already finished", async () => {
+        (prisma.order.findUnique as jest.Mock).mockResolvedValue({ status: "completed" });
+
+        await expect(advanceOrderStatus("order1")).resolves.toEqual({ ok: false, error: "Cette commande est déjà terminée ou annulée." });
         expect(after).not.toHaveBeenCalled();
     });
 });
