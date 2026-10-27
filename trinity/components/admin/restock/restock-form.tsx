@@ -116,7 +116,12 @@ export default function RestockForm({ stores, defaultStoreId }: RestockFormProps
                 aria-label="Rechercher un produit"
                 className={cn(inputClass, "pl-10")}
               />
-              {searching && <Loader2 size={16} className="absolute right-10 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />}
+              {/* Position et rotation sur deux éléments : animate-spin remplacerait le centrage (même propriété transform) */}
+              {searching && (
+                <span className="absolute right-10 top-1/2 flex -translate-y-1/2" aria-hidden>
+                  <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                </span>
+              )}
             </div>
             {stores && !storeId && query.trim().length >= 2 && (
               <p className="mt-2 text-xs text-muted-foreground">Choisissez le magasin pour voir son stock de chaque produit.</p>
