@@ -31,8 +31,15 @@ test("un réassort à date courte passe en anti-gaspi, le magasin prépare la co
 
   // Le client l'ajoute depuis le rayon anti-gaspi et paie avec la remise
   await signUp(page);
-  await page.goto("/anti-gaspi");
-  await page.getByRole("button", { name: `Ajouter ${productName} au panier à prix anti-gaspi` }).click();
+  // Rayon paginé, dates les plus proches d'abord : l'offre (à deux jours) n'est pas forcément en page 1
+  const offer = page.getByRole("button", { name: `Ajouter ${productName} au panier à prix anti-gaspi` });
+  for (let pageNumber = 1; ; pageNumber++) {
+    await page.goto(pageNumber > 1 ? `/anti-gaspi?page=${pageNumber}` : "/anti-gaspi");
+    if (await offer.count()) break;
+    const next = page.getByRole("link", { name: "Suivant" });
+    if (!(await next.count())) throw new Error(`Offre anti-gaspi introuvable : ${productName}`);
+  }
+  await offer.click();
   await expect(page.getByText("Ajouté à prix anti-gaspi").first()).toBeVisible();
   await page.goto("/cart");
   // Remise selon la date du lot le plus proche du produit (−40 % à deux jours, plus la veille)
