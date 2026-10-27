@@ -29,16 +29,18 @@ export default function RestockForm({ stores, defaultStoreId }: RestockFormProps
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Recherche après une courte pause dans la saisie
+  // Recherche après une courte pause dans la saisie. Rien à chercher (champ vidé, produit choisi) :
+  // l'indicateur s'arrête aussi, même si une recherche en attente vient d'être abandonnée
   useEffect(() => {
     if (product || query.trim().length < 2) {
       setOptions([]);
+      setSearching(false);
       return;
     }
     let cancelled = false;
     setSearching(true);
     const timer = setTimeout(async () => {
-      const found = await searchRestockProducts(query, storeId || null);
+      const found = await searchRestockProducts(query, storeId || null).catch(() => []);
       if (!cancelled) {
         setOptions(found);
         setSearching(false);
