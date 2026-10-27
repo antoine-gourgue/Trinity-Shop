@@ -45,10 +45,11 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 
 ### Côté client
 
-- **Choix du magasin** : à la première visite, une fenêtre propose les 81 magasins Trinity, avec une recherche par ville, code postal ou nom (sans tenir compte des accents) un tri par distance (« Autour de moi », ou autour du magasin actuel) et une carte des magasins (Leaflet, OpenStreetMap), synchronisée avec la liste. Le magasin est gardé dans un cookie, puis sur le compte du client connecté : il le retrouve sur tous ses appareils et peut en changer depuis le haut de chaque page. Le catalogue, les prix et le stock sont communs à tous les magasins.
+- **Choix du magasin** : à la première visite, une fenêtre propose les 81 magasins Trinity, avec une recherche par ville, code postal ou nom (sans tenir compte des accents) un tri par distance (« Autour de moi », ou autour du magasin actuel) et une carte des magasins (Leaflet, OpenStreetMap), synchronisée avec la liste. Le magasin est gardé dans un cookie, puis sur le compte du client connecté : il le retrouve sur tous ses appareils et peut en changer depuis le haut de chaque page. Le catalogue et les prix sont communs à tous les magasins ; chacun a son propre stock.
 - **Catalogue par rayons** avec sous-rayons, pagination et filtres combinables : promotions, bio, tranche de prix, Nutri-Score, marques (avec recherche quand la liste est longue) et gamme (marque U ou marques nationales).
 - **Tri** par prix, par nom ou par prix au kilo ou au litre, calculé à partir de la contenance du produit.
 - **Recherche** tolérante aux accents, avec des suggestions pendant la frappe : rayons correspondants et premiers produits, avec navigation au clavier.
+- **Stock par magasin** : chaque drive a son stock, décompté par ses commandes et rendu à l'annulation. La fiche produit, le panier, le rachat et l'ajout des favoris suivent le magasin choisi ; un produit épuisé dans ce magasin indique les magasins les plus proches qui l'ont encore.
 - **Fiche produit** : photo officielle du fabricant, prix et prix au kilo, promotion (avec sa date de fin), ingrédients avec allergènes mis en évidence, tableau nutritionnel, Nutri-Score, produits similaires.
 - **Favoris** : un cœur sur chaque produit et dans l'en-tête (avec leur nombre), la page « Mes favoris » avec « Tout ajouter au panier » pour refaire ses courses habituelles en un clic, et une rangée « Vos favoris » sur l'accueil.
 - **Panier** conservé sur le compte, qui signale les ruptures de stock ; pour chaque article, le client accepte ou non un produit de remplacement.
@@ -68,7 +69,7 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 - **Tableau de bord** : chiffre d'affaires, commandes et inscriptions sur la période, avec graphiques.
 - **Commandes** : recherche, filtres par statut, livraison et magasin, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (paiement par carte remboursé, articles remis en stock, points de fidélité rétablis, client prévenu par e-mail) ou supprime une commande annulée.
 - **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, promotions avec date de fin, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
-- **Stocks** : modification directe, filtre des ruptures.
+- **Stocks** : stock de chaque magasin (ou de tout le réseau), filtres stock faible et rupture, modification directe ; un nouveau produit reçoit un stock initial dans chaque magasin.
 - **Clients** : rôles et suppression.
 
 ## Stack technique
@@ -138,7 +139,7 @@ Lancer le serveur de développement sur [http://localhost:3000](http://localhost
 npm run dev
 ```
 
-Le seed crée les 81 magasins, le catalogue, 100 comptes clients fictifs (au mot de passe aléatoire) et le compte administrateur `admin@trinity.fr`, dont le mot de passe est celui de `SEED_ADMIN_PASSWORD`.
+Le seed crée les 81 magasins, le catalogue et le stock de chaque magasin, 100 comptes clients fictifs (au mot de passe aléatoire) et le compte administrateur `admin@trinity.fr`, dont le mot de passe est celui de `SEED_ADMIN_PASSWORD`.
 
 > Prisma lit `.env`, pas `.env.local`. Pour lancer une commande Prisma avec les variables de `.env.local` : `set -a; source .env.local; set +a; npx prisma db push`.
 
@@ -200,6 +201,7 @@ Les scripts, dans `prisma/` et `scripts/`, sont relançables et proposent presqu
 | `prisma/apply-pricing.ts` | Calcule des prix et promotions réalistes et déterministes |
 | `prisma/hide-products.ts` | Masque les produits listés dans `hidden-products.json` |
 | `prisma/replace-photos.ts` | Remplace des photos par la version officielle |
+| `prisma/split-stock-by-store.ts` | Crée le stock de chaque magasin à partir de l'ancien stock unique (répartition déterministe de `prisma/store-stock.ts`) |
 | `prisma/sync-stores.ts` | Enregistre les magasins de `prisma/stores-data.ts` (création ou mise à jour) et rattache au magasin historique de Rennes les commandes passées avant le choix du magasin |
 
 Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : un fichier au mauvais format arrête le script avant toute écriture.

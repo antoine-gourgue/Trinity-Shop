@@ -27,6 +27,7 @@ export interface ProductFormValues {
   nutriScore: string | null;
   categories: string[];
   hidden: boolean;
+  // Stock initial par magasin, saisi seulement à la création
   stock: string;
   // Dernier jour de la promotion (AAAA-MM-JJ), vide sans date de fin
   promoEndsAt: string;
@@ -96,7 +97,6 @@ export default function ProductForm({
       nutriScore: (values.nutriScore as ProductInput["nutriScore"]) ?? null,
       categories: values.categories,
       hidden: values.hidden,
-      stock: Number(values.stock),
       promoEndsAt: values.regularPrice.trim() && values.promoEndsAt ? values.promoEndsAt : null,
     };
     if (!Number.isFinite(input.price) || (input.regularPrice !== null && !Number.isFinite(input.regularPrice))) {
@@ -106,7 +106,9 @@ export default function ProductForm({
     const failure = { ok: false as const, error: "L'enregistrement a échoué. Réessayez." };
     startTransition(async () => {
       if ("barCode" in target) {
-        const created = await createProduct({ ...input, barCode: target.barCode, picture: target.picture }).catch(() => failure);
+        const created = await createProduct({ ...input, stock: Number(values.stock), barCode: target.barCode, picture: target.picture }).catch(
+          () => failure
+        );
         if (!created.ok) {
           setError(created.error);
           return;
@@ -165,7 +167,7 @@ export default function ProductForm({
       </section>
 
       <section className="rounded-3xl border bg-white p-5 md:p-6">
-        <h2 className="mb-4 font-extrabold">Prix et stock</h2>
+        <h2 className="mb-4 font-extrabold">{creating ? "Prix et stock" : "Prix"}</h2>
         <div className="grid gap-4 md:grid-cols-3">
           <Field label="Prix de vente (€)" htmlFor="price">
             <input id="price" inputMode="decimal" value={values.price} onChange={(e) => set("price", e.target.value)} className={INPUT} required />
@@ -190,18 +192,20 @@ export default function ProductForm({
               className={`${INPUT} disabled:cursor-not-allowed disabled:opacity-50`}
             />
           </Field>
-          <Field label={creating ? "Stock initial (unités)" : "Stock (unités)"} htmlFor="stock">
-            <input
-              id="stock"
-              type="number"
-              min={0}
-              step={1}
-              value={values.stock}
-              onChange={(e) => set("stock", e.target.value)}
-              className={INPUT}
-              required
-            />
-          </Field>
+          {creating && (
+            <Field label="Stock initial par magasin (unités)" htmlFor="stock" hint="Créé dans chaque magasin, puis ajustable magasin par magasin dans Stocks.">
+              <input
+                id="stock"
+                type="number"
+                min={0}
+                step={1}
+                value={values.stock}
+                onChange={(e) => set("stock", e.target.value)}
+                className={INPUT}
+                required
+              />
+            </Field>
+          )}
         </div>
       </section>
 

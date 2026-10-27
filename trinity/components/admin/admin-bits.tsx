@@ -28,3 +28,17 @@ export function StockBadge({ quantity, low }: { quantity: number; low: number })
   if (quantity < low) return <Badge tone="warning">{quantity} · faible</Badge>;
   return <Badge tone="success">{quantity}</Badge>;
 }
+
+// Stock d'un produit sur tout le réseau : unités, et magasins où il manque
+export function NetworkStockBadge({ units, stores, ruptures }: { units: number; stores: number; ruptures: number }) {
+  if (stores === 0) return <Badge tone="danger">Aucun stock</Badge>;
+  if (units === 0) return <Badge tone="danger">Rupture partout</Badge>;
+  if (ruptures > 0) {
+    return (
+      <Badge tone="warning">
+        {units} u. · rupture dans {ruptures} magasin{ruptures > 1 ? "s" : ""}
+      </Badge>
+    );
+  }
+  return <Badge tone="success">{units} u.</Badge>;
+}

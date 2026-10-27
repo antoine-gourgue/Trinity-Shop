@@ -4,7 +4,7 @@ import { AlertTriangle, Boxes, PackageX, Pencil } from "lucide-react";
 import { LOW_STOCK, STOCK_FILTERS, getAdminStocks, parseAdminParams } from "@/lib/admin/queries";
 import { formatBrand } from "@/lib/format";
 import { AdminPageHeader, AdminPagination, AdminTable, Badge, EmptyState, Panel, StatCard, Td, Th, adminHref, formatDate } from "@/components/admin/admin-ui";
-import { AdminFilterTabs, AdminSearch } from "@/components/admin/admin-toolbar";
+import { AdminFilterTabs, AdminSearch, AdminSelectFilter } from "@/components/admin/admin-toolbar";
 import { ProductThumb, StockBadge } from "@/components/admin/admin-bits";
 import StockEditor from "@/components/admin/stock-editor";
 
@@ -20,21 +20,32 @@ export default async function AdminStocksPage({
 }) {
   const params = parseAdminParams(await searchParams);
   const data = await getAdminStocks(params);
-  const href = (p: number) => adminHref("/admin/stocks", { q: params.q, filtre: params.filter, page: p });
+  const href = (p: number) => adminHref("/admin/stocks", { q: params.q, filtre: params.filter, magasin: params.magasin, page: p });
+  const filterHref = (filtre: string) => adminHref("/admin/stocks", { filtre, magasin: params.magasin });
+  // Sans magasin choisi : une ligne par magasin et par produit, avec le nom du magasin
+  const allStores = !params.magasin;
 
   return (
     <div>
-      <AdminPageHeader title="Stocks" description="Quantités disponibles au drive. Ajustez-les directement dans la liste." />
+      <AdminPageHeader
+        title="Stocks"
+        description="Stock de chaque magasin, décompté par ses commandes. Choisissez un magasin, puis ajustez ses quantités dans la liste."
+      />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Unités en stock" value={units.format(data.units)} hint={`${units.format(data.counts.tous)} références`} icon={Boxes} />
+        <StatCard
+          label={allStores ? "Unités en stock (réseau)" : "Unités en stock"}
+          value={units.format(data.units)}
+          hint={`${units.format(data.counts.tous)} ${allStores ? "stocks de magasin" : "références"}`}
+          icon={Boxes}
+        />
         <StatCard
           label="Stock faible"
           value={data.counts.faible}
           hint={`Moins de ${LOW_STOCK} unités`}
           icon={AlertTriangle}
           tone={data.counts.faible ? "highlight" : "muted"}
-          href="/admin/stocks?filtre=faible"
+          href={filterHref("faible")}
         />
         <StatCard
           label="En rupture"
@@ -42,12 +53,15 @@ export default async function AdminStocksPage({
           hint="À réapprovisionner en priorité"
           icon={PackageX}
           tone={data.counts.rupture ? "promo" : "muted"}
-          href="/admin/stocks?filtre=rupture"
+          href={filterHref("rupture")}
         />
       </div>
 
       <div className="mb-4 flex flex-col gap-3">
-        <AdminSearch placeholder="Nom, marque ou code-barres" />
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <AdminSearch placeholder="Nom, marque ou code-barres" />
+          <AdminSelectFilter label="Tous les magasins" param="magasin" options={data.stores} value={params.magasin} />
+        </div>
         <AdminFilterTabs filters={STOCK_FILTERS} active={params.filter} counts={data.counts} />
       </div>
 
@@ -58,6 +72,7 @@ export default async function AdminStocksPage({
               <thead>
                 <tr>
                   <Th>Produit</Th>
+                  {allStores && <Th>Magasin</Th>}
                   <Th>Disponible</Th>
                   <Th>Mis à jour</Th>
                   <Th className="text-right">Ajuster le stock</Th>
@@ -84,13 +99,19 @@ export default async function AdminStocksPage({
                         </div>
                       </div>
                     </Td>
+                    {allStores && <Td className="whitespace-nowrap text-sm">{stock.store.name}</Td>}
                     <Td>
                       <StockBadge quantity={stock.quantity} low={LOW_STOCK} />
                     </Td>
                     <Td className="whitespace-nowrap text-muted-foreground">{formatDate(stock.updatedAt, true)}</Td>
                     <Td>
                       <div className="flex items-center justify-end gap-2">
-                        <StockEditor key={`${stock.id}-${stock.quantity}`} stockId={stock.id} quantity={stock.quantity} productName={stock.product.name} />
+                        <StockEditor
+                          key={`${stock.id}-${stock.quantity}`}
+                          stockId={stock.id}
+                          quantity={stock.quantity}
+                          productName={`${stock.product.name} (${stock.store.name})`}
+                        />
                         <Link
                           href={`/admin/products/${stock.product.id}`}
                           aria-label={`Modifier ${stock.product.name}`}
@@ -105,7 +126,13 @@ export default async function AdminStocksPage({
                 ))}
               </tbody>
             </AdminTable>
-            <AdminPagination page={data.page} pageCount={data.pageCount} total={data.total} href={href} unit={["référence", "références"]} />
+            <AdminPagination
+              page={data.page}
+              pageCount={data.pageCount}
+              total={data.total}
+              href={href}
+              unit={allStores ? ["stock", "stocks"] : ["référence", "références"]}
+            />
           </>
         ) : (
           <EmptyState

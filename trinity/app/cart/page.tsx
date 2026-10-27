@@ -106,7 +106,10 @@ export default function CartPage() {
     }
 
     // Articles dont la quantité dépasse le stock : la commande serait refusée au paiement
-    const shortItems = cartProducts.filter((p) => details[p.id] && p.quantity > details[p.id].stock);
+    const shortItems = cartProducts.filter((p) => {
+        const stock = details[p.id]?.stock;
+        return stock != null && p.quantity > stock;
+    });
 
     const validateButton = (className?: string) =>
         shortItems.length > 0 ? (
@@ -188,7 +191,8 @@ export default function CartPage() {
                                         const info = details[product.id];
                                         const discount = discountPercent(product.price, info?.regularPrice);
                                         const unitPrice = formatUnitPrice(product.price, info?.netContent);
-                                        const stock = info?.stock;
+                                        // Stock du magasin choisi (inconnu sans magasin : vérifié au paiement)
+                                        const stock = info?.stock ?? undefined;
                                         const atStockLimit = stock !== undefined && product.quantity >= stock;
                                         return (
                                             <li
@@ -221,7 +225,7 @@ export default function CartPage() {
                                                         </p>
                                                         {stock !== undefined && product.quantity > stock && (
                                                             <p className="mt-1 text-xs font-bold text-destructive">
-                                                                {stock === 0 ? "Épuisé : retirez cet article" : `Plus que ${stock} en stock`}
+                                                                {stock === 0 ? "Épuisé dans votre magasin : retirez cet article" : `Plus que ${stock} en stock dans votre magasin`}
                                                             </p>
                                                         )}
                                                         {info && (

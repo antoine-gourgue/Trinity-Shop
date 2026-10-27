@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import { randomBytes } from "node:crypto";
 import productsDataJson from "../data/complete_products.json";
 import { HISTORIC_STORE_SLUG, STORES } from "./stores-data";
+import { storeQuantity } from "./store-stock";
 
 const prisma = new PrismaClient();
 
@@ -52,6 +53,7 @@ async function main() {
     console.log("🔄 Suppression des anciennes données...");
     await prisma.productInCart.deleteMany();
     await prisma.order.deleteMany();
+    await prisma.storeStock.deleteMany();
     await prisma.stock.deleteMany();
     await prisma.session.deleteMany();
     await prisma.verificationToken.deleteMany();
@@ -207,17 +209,21 @@ async function main() {
       console.log(`✅ Produit ajouté : ${createdProduct.name}`);
     }
 
-    console.log("\n🚀 Ajout du stock pour chaque produit...");
-    for (const prodCreated of createdProducts) {
-      const quantity = Math.floor(Math.random() * 500) + 1;
-      await prisma.stock.create({
-        data: {
-          productId: prodCreated.id,
-          quantity,
-        },
-      });
-      console.log(`✅ Stock créé pour ${prodCreated.name} => ${quantity}`);
+    console.log("\n🚀 Ajout du stock de chaque magasin...");
+    const stores = await prisma.store.findMany({ select: { id: true, slug: true } });
+    const stocks = createdProducts.flatMap((prodCreated) => {
+      // Stock de référence du produit, réparti ensuite entre les magasins
+      const reference = Math.floor(Math.random() * 500) + 1;
+      return stores.map((store) => ({
+        storeId: store.id,
+        productId: prodCreated.id,
+        quantity: storeQuantity(reference, store.slug, prodCreated.id, store.slug === HISTORIC_STORE_SLUG),
+      }));
+    });
+    for (let start = 0; start < stocks.length; start += 5000) {
+      await prisma.storeStock.createMany({ data: stocks.slice(start, start + 5000) });
     }
+    console.log(`✅ ${stocks.length} stocks créés (${createdProducts.length} produits × ${stores.length} magasins)`);
 
     // ✅ Création des paniers et des commandes
     console.log("🚀 Création des Carts et Orders...");

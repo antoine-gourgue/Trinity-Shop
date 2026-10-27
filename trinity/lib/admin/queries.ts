@@ -112,12 +112,17 @@ export async function getDashboard() {
     prisma.user.count({ where: { loyaltyNumber: { not: null } } }),
     prisma.product.count({ where: { hidden: false } }),
     prisma.product.count({ where: { hidden: true } }),
-    prisma.stock.count({ where: { quantity: { lt: LOW_STOCK }, product: { hidden: false } } }),
-    prisma.stock.findMany({
+    prisma.storeStock.count({ where: { quantity: { lt: LOW_STOCK }, product: { hidden: false } } }),
+    prisma.storeStock.findMany({
       where: { quantity: { lt: LOW_STOCK }, product: { hidden: false } },
       orderBy: { quantity: "asc" },
       take: 6,
-      select: { id: true, quantity: true, product: { select: { id: true, name: true, picture: true, barCode: true } } },
+      select: {
+        id: true,
+        quantity: true,
+        store: { select: { name: true, slug: true } },
+        product: { select: { id: true, name: true, picture: true, barCode: true } },
+      },
     }),
     // Articles des paniers commandés, pour le classement des meilleures ventes
     prisma.productInCart.groupBy({
@@ -262,6 +267,15 @@ export function getAdminOrder(id: string) {
   });
 }
 
+// Stock d'un produit sur le réseau : unités, magasins qui le proposent et magasins en rupture
+function stockSummary(stocks: { quantity: number }[]) {
+  return {
+    units: stocks.reduce((total, stock) => total + stock.quantity, 0),
+    stores: stocks.length,
+    ruptures: stocks.filter((stock) => stock.quantity === 0).length,
+  };
+}
+
 // ——— Produits ———
 
 export const PRODUCT_FILTERS = [
@@ -269,7 +283,7 @@ export const PRODUCT_FILTERS = [
   { value: "en-ligne", label: "En ligne" },
   { value: "masques", label: "Masqués" },
   { value: "promo", label: "En promotion" },
-  { value: "stock-faible", label: "Stock faible" },
+  { value: "rupture", label: "Rupture en magasin" },
 ] as const;
 
 function productFilters(): Record<string, Prisma.ProductWhereInput> {
@@ -277,7 +291,7 @@ function productFilters(): Record<string, Prisma.ProductWhereInput> {
     "en-ligne": { hidden: false },
     masques: { hidden: true },
     promo: { regularPrice: { not: null } },
-    "stock-faible": { stock: { quantity: { lt: LOW_STOCK } } },
+    rupture: { stocks: { some: { quantity: 0 } } },
   };
 }
 
@@ -323,15 +337,15 @@ export async function getAdminProducts(params: AdminListParams) {
       nutriScore: true,
       hidden: true,
       brand: { select: { name: true } },
-      stock: { select: { quantity: true } },
+      stocks: { select: { quantity: true } },
       categories: { select: { categoryName: true } },
     },
   });
 
   return {
-    products: products.map(({ categories, ...product }) => {
+    products: products.map(({ categories, stocks, ...product }) => {
       const match = findRayonForCategories(categories.map((c) => c.categoryName));
-      return { ...product, rayon: match?.subCategory?.label ?? match?.rayon.shortName ?? null };
+      return { ...product, stock: stockSummary(stocks), rayon: match?.subCategory?.label ?? match?.rayon.shortName ?? null };
     }),
     ...page,
     counts: Object.fromEntries(PRODUCT_FILTERS.map((f, i) => [f.value, counts[i]])),
@@ -354,14 +368,17 @@ export async function getAdminProduct(id: string) {
       where: { id },
       include: {
         brand: { select: { name: true } },
-        stock: { select: { id: true, quantity: true, updatedAt: true } },
+        stocks: { select: { quantity: true, updatedAt: true } },
         categories: { select: { categoryName: true } },
       },
     }),
     getProductFormOptions(),
     prisma.productInCart.count({ where: { productId: id, cart: { orders: { some: {} } } } }),
   ]);
-  return product ? { product, ...options, orderedCount } : null;
+  if (!product) return null;
+  const { stocks, ...rest } = product;
+  const lastUpdate = stocks.reduce<Date | null>((latest, stock) => (!latest || stock.updatedAt > latest ? stock.updatedAt : latest), null);
+  return { product: { ...rest, stock: { ...stockSummary(stocks), lastUpdate } }, ...options, orderedCount };
 }
 
 // ——— Stocks ———
@@ -372,13 +389,14 @@ export const STOCK_FILTERS = [
   { value: "rupture", label: "En rupture" },
 ] as const;
 
+// Stock de chaque magasin : un magasin choisi, ou tout le réseau (une ligne par magasin et par produit)
 export async function getAdminStocks(params: AdminListParams) {
-  const filters: Record<string, Prisma.StockWhereInput> = {
+  const filters: Record<string, Prisma.StoreStockWhereInput> = {
     faible: { quantity: { gt: 0, lt: LOW_STOCK } },
     rupture: { quantity: 0 },
   };
   const q = params.q;
-  const base: Prisma.StockWhereInput = q
+  const search: Prisma.StoreStockWhereInput = q
     ? /^\d{6,14}$/.test(q)
       ? { product: { barCode: BigInt(q) } }
       : {
@@ -388,23 +406,29 @@ export async function getAdminStocks(params: AdminListParams) {
           ],
         }
     : {};
-  const where: Prisma.StockWhereInput = { AND: [base, filters[params.filter] ?? {}] };
+  const base: Prisma.StoreStockWhereInput = { AND: [search, params.magasin ? { store: { slug: params.magasin } } : {}] };
+  const where: Prisma.StoreStockWhereInput = { AND: [base, filters[params.filter] ?? {}] };
 
-  const [total, counts, units] = await Promise.all([
-    prisma.stock.count({ where }),
-    Promise.all(STOCK_FILTERS.map((f) => prisma.stock.count({ where: { AND: [base, filters[f.value] ?? {}] } }))),
-    prisma.stock.aggregate({ _sum: { quantity: true } }),
+  const [total, counts, units, stores] = await Promise.all([
+    prisma.storeStock.count({ where }),
+    Promise.all(STOCK_FILTERS.map((f) => prisma.storeStock.count({ where: { AND: [base, filters[f.value] ?? {}] } }))),
+    prisma.storeStock.aggregate({ where: base, _sum: { quantity: true } }),
+    prisma.store.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   const page = paginate(total, params.page);
-  const stocks = await prisma.stock.findMany({
+  const stocks = await prisma.storeStock.findMany({
     where,
-    orderBy: params.filter === "tous" ? [{ product: { name: "asc" } }] : [{ quantity: "asc" }, { product: { name: "asc" } }],
+    orderBy:
+      params.filter === "tous"
+        ? [{ product: { name: "asc" } }, { store: { name: "asc" } }]
+        : [{ quantity: "asc" }, { product: { name: "asc" } }, { store: { name: "asc" } }],
     skip: page.skip,
     take: page.take,
     select: {
       id: true,
       quantity: true,
       updatedAt: true,
+      store: { select: { name: true } },
       product: { select: { id: true, name: true, picture: true, barCode: true, hidden: true, brand: { select: { name: true } } } },
     },
   });
@@ -413,6 +437,7 @@ export async function getAdminStocks(params: AdminListParams) {
     ...page,
     counts: Object.fromEntries(STOCK_FILTERS.map((f, i) => [f.value, counts[i]])),
     units: units._sum.quantity ?? 0,
+    stores: stores.map((store) => ({ value: store.slug, label: store.name })),
   };
 }
 

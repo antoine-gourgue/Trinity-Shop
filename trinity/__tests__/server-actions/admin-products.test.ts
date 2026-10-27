@@ -10,6 +10,7 @@ import { createProduct, lookupProductBarcode, type NewProductInput } from "@/lib
 
 jest.mock("@/lib/prisma", () => ({
     product: { findUnique: jest.fn(), create: jest.fn() },
+    store: { findMany: jest.fn(async () => [{ id: "store-rennes" }, { id: "store-nantes" }]) },
     category: { findMany: jest.fn() },
     brand: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
     categoriesProducts: { groupBy: jest.fn() },
@@ -261,7 +262,7 @@ describe("createProduct", () => {
         (prisma.product.create as jest.Mock).mockResolvedValue({ id: "prod1" });
     });
 
-    it("creates the product with its new brand, its categories and its initial stock", async () => {
+    it("creates the product with its new brand, its categories and its initial stock in every store", async () => {
         const result = await createProduct(input);
 
         expect(result).toEqual({ ok: true, id: "prod1" });
@@ -286,7 +287,14 @@ describe("createProduct", () => {
                 hidden: false,
                 // Seules les catégories connues du site sont rattachées
                 categories: { create: [{ category: { connect: { name: "Produits à tartiner sucrés" } } }] },
-                stock: { create: { quantity: 120 } },
+                stocks: {
+                    createMany: {
+                        data: [
+                            { storeId: "store-rennes", quantity: 120 },
+                            { storeId: "store-nantes", quantity: 120 },
+                        ],
+                    },
+                },
             },
             select: { id: true },
         });

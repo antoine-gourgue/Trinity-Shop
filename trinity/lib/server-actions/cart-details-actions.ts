@@ -4,14 +4,16 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { findRayonForCategories, rayonCategoryNames, RAYONS } from "@/lib/rayons";
+import { currentStore } from "@/lib/current-store";
+import { storeStockMap } from "@/lib/stock";
 
 export interface CartItemDetails {
   brand: string | null;
   netContent: string | null;
   regularPrice: number | null;
   rayonSlug: string | null;
-  // Quantité disponible en stock (0 si le produit n'a pas de stock)
-  stock: number;
+  // Quantité disponible dans le magasin du client (0 s'il n'y est pas), null sans magasin choisi
+  stock: number | null;
   // Produit équivalent accepté en cas de rupture à la préparation
   allowSubstitute: boolean;
 }
@@ -42,9 +44,10 @@ export async function getCartDetails(productIds: string[]) {
       netContent: true,
       brand: { select: { name: true } },
       categories: { select: { categoryName: true } },
-      stock: { select: { quantity: true } },
     },
   });
+  const store = await currentStore();
+  const stock = store ? await storeStockMap(store.id, productIds) : null;
 
   // Préférences de remplacement des articles du panier actif du client
   const session = await auth();
@@ -66,7 +69,7 @@ export async function getCartDetails(productIds: string[]) {
       netContent: product.netContent,
       regularPrice: product.regularPrice,
       rayonSlug: match?.rayon.slug ?? null,
-      stock: product.stock?.quantity ?? 0,
+      stock: stock ? (stock.get(product.id) ?? 0) : null,
       allowSubstitute: substitutes.get(product.id) ?? true,
     };
   }

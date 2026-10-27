@@ -1,15 +1,19 @@
 import {NextRequest, NextResponse} from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
 import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
+import { STOCK_FIELDS } from "@/lib/stock";
 
-// Nouvelle quantité en stock (0 = rupture)
+// Nouvelle quantité d'un produit dans un magasin (0 = rupture)
 const stockUpdateSchema = z.object({
     quantity: optionalField(z.number().int().min(0)),
+    storeId: optionalField(z.string().min(1)),
 });
 
+// Stock du produit dans chaque magasin
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const isLoggedIn = await isUserLoggedIn()
     if (!isLoggedIn) {
@@ -23,20 +27,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!id) {
         return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
     }
+
     try {
-        const getStockByProductId = await prisma.stock.findUnique({
-            where: { productId: String(id) },
+        const stocks = await prisma.storeStock.findMany({
+            where: { productId: id },
+            select: STOCK_FIELDS,
+            orderBy: { store: { name: "asc" } },
         });
-        if (!getStockByProductId) {
+        if (stocks.length === 0) {
             return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
         }
-        return NextResponse.json({ data: getStockByProductId });
+        return NextResponse.json({ data: stocks });
     } catch (error) {
         console.error('Error fetching stock by ID:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
 
+// Supprime le stock du produit dans tous les magasins
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const isLoggedIn = await isUserLoggedIn()
     if (!isLoggedIn) {
@@ -54,19 +62,20 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!id) {
         return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
     }
+
     try {
-        const deleteStockByProductId = await prisma.stock.delete({
-            where: { productId: String(id) },
-        });
-        if (!deleteStockByProductId) {
+        const { count } = await prisma.storeStock.deleteMany({ where: { productId: id } });
+        if (count === 0) {
             return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
         }
-        return NextResponse.json({ message: 'Stock deleted'  });
+        return NextResponse.json({ message: 'Stock deleted' });
     } catch (error) {
         console.error('Error deleting stock:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+// Met à jour le stock du produit dans un magasin
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const isLoggedIn = await isUserLoggedIn()
     if (!isLoggedIn) {
@@ -84,23 +93,27 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!id) {
         return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
     }
+
     try {
-        const { quantity } = (await readJsonBody(request, stockUpdateSchema)) ?? {};
-        if (quantity === undefined) {
+        const { quantity, storeId } = (await readJsonBody(request, stockUpdateSchema)) ?? {};
+        if (quantity === undefined || !storeId) {
             return NextResponse.json(
-                { error: 'Missing required fields: quantity' },
+                { error: 'Missing required fields: quantity, storeId' },
                 { status: 400 }
             );
         }
-        const updateStockByProductId = await prisma.stock.update({
-            where: { productId: String(id) },
-            data: {
-                quantity,
-            },
+        const updated = await prisma.storeStock.update({
+            where: { storeId_productId: { storeId, productId: id } },
+            data: { quantity },
+            select: STOCK_FIELDS,
         });
 
-        return NextResponse.json({ data: updateStockByProductId });
+        return NextResponse.json({ data: updated });
     } catch (error) {
+        // Le produit n'a pas de stock dans ce magasin
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+            return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
+        }
         console.error('Error updating stock:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }

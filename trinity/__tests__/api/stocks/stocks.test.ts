@@ -1,24 +1,27 @@
 /**
  * @jest-environment node
  */
-import { GET as getAllStocks, POST as createStock } from '@/app/api/stocks/route';
-import { GET as getStockById, PUT as updateStock, DELETE as deleteStock } from '@/app/api/stocks/[id]/route';
+import { Prisma } from '@prisma/client';
+import { GET as getStoreStocks, POST as createStock } from '@/app/api/stocks/route';
+import { GET as getProductStocks, PUT as updateStock, DELETE as deleteStock } from '@/app/api/stocks/[id]/route';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
+import { isAdmin } from "@/services/auth/guards";
+import { STOCK_FIELDS } from '@/lib/stock';
 import { buildRequest } from '@/test-utils/requests';
 
 jest.mock('@/lib/prisma', () => ({
-    stock: {
+    storeStock: {
         findMany: jest.fn(),
-        findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
-        delete: jest.fn(),
+        deleteMany: jest.fn(),
     },
 }));
 
 jest.mock('next/server', () => ({
+    ...jest.requireActual<typeof import('next/server')>('next/server'),
     NextResponse: {
         json: jest.fn(),
     },
@@ -31,355 +34,188 @@ jest.mock('@/services/auth/IsUserLoggedIn', () => ({
 // Contrôles d'accès simulés : autorisés par défaut, chaque test peut les refuser
 jest.mock("@/services/auth/guards", () => ({
     isAdmin: jest.fn().mockResolvedValue(true),
-    canAccessUser: jest.fn().mockResolvedValue(true),
-    canAccessOrder: jest.fn().mockResolvedValue(true),
-    canAccessCart: jest.fn().mockResolvedValue(true),
 }));
 
+const NANTES_MILK = { id: 's1', productId: 'milk', quantity: 12, store: { slug: 'nantes-beaujoire', name: 'Trinity Nantes Beaujoire' } };
+const params = (id: string) => ({ params: Promise.resolve({ id }) });
+
 describe('API: /api/stocks', () => {
+    beforeEach(() => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (isAdmin as jest.Mock).mockResolvedValue(true);
+    });
+
     afterEach(() => {
         jest.clearAllMocks();
     });
 
     describe('GET', () => {
-        it('should return all stocks successfully', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const mockStocks = [{ productId: '1', quantity: 100 }];
-            (prisma.stock.findMany as jest.Mock).mockResolvedValue(mockStocks);
+        it("returns the stock of the requested store", async () => {
+            (prisma.storeStock.findMany as jest.Mock).mockResolvedValue([NANTES_MILK]);
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
+            await getStoreStocks(buildRequest('/api/stocks?magasin=nantes-beaujoire'));
 
-            await getAllStocks();
-
-            expect(prisma.stock.findMany).toHaveBeenCalledTimes(1);
-            expect(jsonMock).toHaveBeenCalledWith({ data: mockStocks });
+            expect(prisma.storeStock.findMany).toHaveBeenCalledWith({ where: { store: { slug: 'nantes-beaujoire' } }, select: STOCK_FIELDS });
+            expect(NextResponse.json).toHaveBeenCalledWith({ data: [NANTES_MILK] });
         });
 
-        it('should return 500 on database error', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const mockError = new Error('Database error');
-            (prisma.stock.findMany as jest.Mock).mockRejectedValueOnce(mockError);
+        it("asks for a store instead of listing the whole network", async () => {
+            await getStoreStocks(buildRequest('/api/stocks'));
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-
-            await getAllStocks();
-
-            expect(prisma.stock.findMany).toHaveBeenCalledTimes(1);
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Internal Server Error' },
-                { status: 500 }
-            );
+            expect(prisma.storeStock.findMany).not.toHaveBeenCalled();
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Store required: /api/stocks?magasin=<slug>' }, { status: 400 });
         });
 
-        it('should return 401 if user is not logged in', async () => {
+        it('returns 401 if the user is not logged in', async () => {
             (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
-            const jsonMock = jest.spyOn(NextResponse, 'json');
 
-            await getAllStocks();
+            await getStoreStocks(buildRequest('/api/stocks?magasin=nantes-beaujoire'));
 
-            expect(prisma.stock.findMany).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Unauthorized' }, { status: 401 });
+        });
+
+        it('returns 500 on database error', async () => {
+            (prisma.storeStock.findMany as jest.Mock).mockRejectedValue(new Error('Database error'));
+            jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+            await getStoreStocks(buildRequest('/api/stocks?magasin=nantes-beaujoire'));
+
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Internal Server Error' }, { status: 500 });
         });
     });
 
     describe('POST', () => {
-        it('should create a stock with valid data', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const mockStock = { productId: '1', quantity: 100 };
-            (prisma.stock.create as jest.Mock).mockResolvedValue(mockStock);
+        it('creates the stock of a product in a store', async () => {
+            (prisma.storeStock.create as jest.Mock).mockResolvedValue(NANTES_MILK);
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks', { method: 'POST', body: { quantity: 100, productId: '1' } });
+            await createStock(buildRequest('/api/stocks', { method: 'POST', body: { quantity: 12, productId: 'milk', storeId: 'store-nantes' } }));
 
-            await createStock(req);
-
-            expect(prisma.stock.create).toHaveBeenCalledWith({
-                data: { quantity: 100, productId: '1' },
+            expect(prisma.storeStock.create).toHaveBeenCalledWith({
+                data: { quantity: 12, productId: 'milk', storeId: 'store-nantes' },
+                select: STOCK_FIELDS,
             });
-            expect(jsonMock).toHaveBeenCalledWith({ data: mockStock }, { status: 201 });
+            expect(NextResponse.json).toHaveBeenCalledWith({ data: NANTES_MILK }, { status: 201 });
         });
 
-        it('should return 400 if required fields are missing', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks', { method: 'POST', body: { quantity: 100 } });
+        it('requires the store', async () => {
+            await createStock(buildRequest('/api/stocks', { method: 'POST', body: { quantity: 12, productId: 'milk' } }));
 
-            await createStock(req);
-
-            expect(prisma.stock.create).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'All fields (quantity, productId) are required' },
+            expect(prisma.storeStock.create).not.toHaveBeenCalled();
+            expect(NextResponse.json).toHaveBeenCalledWith(
+                { error: 'All fields (quantity, productId, storeId) are required' },
                 { status: 400 }
             );
         });
 
-        it('should return 500 on database error', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            (prisma.stock.create as jest.Mock).mockRejectedValue(new Error('Database error'));
+        it('is reserved to administrators', async () => {
+            (isAdmin as jest.Mock).mockResolvedValue(false);
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks', { method: 'POST', body: { quantity: 100, productId: '1' } });
+            await createStock(buildRequest('/api/stocks', { method: 'POST', body: { quantity: 12, productId: 'milk', storeId: 'store-nantes' } }));
 
-            await createStock(req);
-
-            expect(prisma.stock.create).toHaveBeenCalledTimes(1);
-            expect(jsonMock).toHaveBeenCalledWith({ error: 'Internal Server Error' }, { status: 500 });
-        });
-
-        it('should return 401 if user is not logged in', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
-            const req = buildRequest('/api/stocks', { method: 'POST' });
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-
-            await createStock(req);
-
-            expect(prisma.stock.create).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+            expect(prisma.storeStock.create).not.toHaveBeenCalled();
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Forbidden' }, { status: 403 });
         });
     });
 });
 
 describe('API: /api/stocks/[id]', () => {
+    beforeEach(() => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (isAdmin as jest.Mock).mockResolvedValue(true);
+    });
+
     afterEach(() => {
         jest.clearAllMocks();
     });
 
     describe('GET', () => {
-        it('should return a stock by product ID', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const mockStock = { productId: '1', quantity: 100 };
-            (prisma.stock.findUnique as jest.Mock).mockResolvedValue(mockStock);
+        it('returns the stock of the product in every store', async () => {
+            (prisma.storeStock.findMany as jest.Mock).mockResolvedValue([NANTES_MILK]);
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/1');
-            const params = { id: '1' };
+            await getProductStocks(buildRequest('/api/stocks/milk'), params('milk'));
 
-            await getStockById(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.findUnique).toHaveBeenCalledWith({ where: { productId: '1' } });
-            expect(jsonMock).toHaveBeenCalledWith({ data: mockStock });
+            expect(prisma.storeStock.findMany).toHaveBeenCalledWith({
+                where: { productId: 'milk' },
+                select: STOCK_FIELDS,
+                orderBy: { store: { name: 'asc' } },
+            });
+            expect(NextResponse.json).toHaveBeenCalledWith({ data: [NANTES_MILK] });
         });
 
-        it('should return 404 if stock is not found', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            (prisma.stock.findUnique as jest.Mock).mockResolvedValue(null);
+        it('returns 404 for a product without stock', async () => {
+            (prisma.storeStock.findMany as jest.Mock).mockResolvedValue([]);
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/1');
-            const params = { id: '1' };
+            await getProductStocks(buildRequest('/api/stocks/milk'), params('milk'));
 
-            await getStockById(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.findUnique).toHaveBeenCalledWith({ where: { productId: '1' } });
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Stock not found' },
-                { status: 404 }
-            );
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Stock not found' }, { status: 404 });
         });
 
-        it('should return 400 if product ID is missing', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/');
-            const params = { id: '' }; // identifiant absent
-
-            await getStockById(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.findUnique).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Product ID is required' },
-                { status: 400 }
-            );
-        });
-
-        it('should return 500 on database error', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            (prisma.stock.findUnique as jest.Mock).mockRejectedValue(new Error('Database error'));
-
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/1');
-            const params = { id: '1' };
-
-            await getStockById(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.findUnique).toHaveBeenCalledWith({ where: { productId: '1' } });
-            expect(jsonMock).toHaveBeenCalledWith({ error: 'Internal Server Error' }, { status: 500 });
-        });
-
-        it('should return 401 if user is not logged in', async () => {
+        it('returns 401 if the user is not logged in', async () => {
             (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
-            const req = buildRequest('/api/stocks/1');
-            const jsonMock = jest.spyOn(NextResponse, 'json');
 
-            await getStockById(req, { params: Promise.resolve({ id: '1' }) });
+            await getProductStocks(buildRequest('/api/stocks/milk'), params('milk'));
 
-            expect(prisma.stock.findUnique).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Unauthorized' }, { status: 401 });
         });
     });
 
     describe('PUT', () => {
-        it('should update a stock by product ID', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const mockStock = { productId: '1', quantity: 200 };
-            (prisma.stock.update as jest.Mock).mockResolvedValue(mockStock);
+        it('updates the stock of the product in one store', async () => {
+            (prisma.storeStock.update as jest.Mock).mockResolvedValue({ ...NANTES_MILK, quantity: 40 });
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/1', { method: 'PUT', body: { quantity: 200 } });
-            const params = { id: '1' };
+            await updateStock(buildRequest('/api/stocks/milk', { method: 'PUT', body: { quantity: 40, storeId: 'store-nantes' } }), params('milk'));
 
-            await updateStock(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.update).toHaveBeenCalledWith({
-                where: { productId: '1' },
-                data: { quantity: 200 },
+            expect(prisma.storeStock.update).toHaveBeenCalledWith({
+                where: { storeId_productId: { storeId: 'store-nantes', productId: 'milk' } },
+                data: { quantity: 40 },
+                select: STOCK_FIELDS,
             });
-            expect(jsonMock).toHaveBeenCalledWith({ data: mockStock });
+            expect(NextResponse.json).toHaveBeenCalledWith({ data: { ...NANTES_MILK, quantity: 40 } });
         });
 
-        it('should return 400 if quantity is missing', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/1', { method: 'PUT', body: {} });
-            const params = { id: '1' };
+        it('requires the quantity and the store', async () => {
+            await updateStock(buildRequest('/api/stocks/milk', { method: 'PUT', body: { quantity: 40 } }), params('milk'));
 
-            await updateStock(req, { params: Promise.resolve(params) });
+            expect(prisma.storeStock.update).not.toHaveBeenCalled();
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Missing required fields: quantity, storeId' }, { status: 400 });
+        });
 
-            expect(prisma.stock.update).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Missing required fields: quantity' },
-                { status: 400 }
+        it('returns 404 when the product has no stock in that store', async () => {
+            (prisma.storeStock.update as jest.Mock).mockRejectedValue(
+                new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: 'test' })
             );
-        });
 
-        it('should return 400 if product ID is missing', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/', { method: 'PUT', body: { quantity: 200 } });
-            const params = { id: '' }; // identifiant absent
+            await updateStock(buildRequest('/api/stocks/milk', { method: 'PUT', body: { quantity: 40, storeId: 'store-nantes' } }), params('milk'));
 
-            await updateStock(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.update).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Product ID is required' },
-                { status: 400 }
-            );
-        });
-
-        it('should return 500 on database error', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            (prisma.stock.update as jest.Mock).mockRejectedValue(new Error('Database error'));
-
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/1', { method: 'PUT', body: { quantity: 200 } });
-            const params = { id: '1' };
-
-            await updateStock(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.update).toHaveBeenCalledTimes(1);
-            expect(jsonMock).toHaveBeenCalledWith({ error: 'Internal Server Error' }, { status: 500 });
-        });
-
-        it('should return 401 if user is not logged in', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
-            const req = buildRequest('/api/stocks/1', { method: 'PUT' });
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-
-            await updateStock(req, { params: Promise.resolve({ id: '1' }) });
-
-            expect(prisma.stock.update).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Stock not found' }, { status: 404 });
         });
     });
 
     describe('DELETE', () => {
-        it('should delete a stock by product ID', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const mockStock = { productId: '1', quantity: 100 };
-            (prisma.stock.delete as jest.Mock).mockResolvedValue(mockStock);
+        it('removes the stock of the product in every store', async () => {
+            (prisma.storeStock.deleteMany as jest.Mock).mockResolvedValue({ count: 81 });
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/1', { method: 'DELETE' });
-            const params = { id: '1' };
+            await deleteStock(buildRequest('/api/stocks/milk', { method: 'DELETE' }), params('milk'));
 
-            await deleteStock(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.delete).toHaveBeenCalledWith({ where: { productId: '1' } });
-            expect(jsonMock).toHaveBeenCalledWith({ message: 'Stock deleted' });
+            expect(prisma.storeStock.deleteMany).toHaveBeenCalledWith({ where: { productId: 'milk' } });
+            expect(NextResponse.json).toHaveBeenCalledWith({ message: 'Stock deleted' });
         });
 
-        it('should return 404 if stock is not found', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            (prisma.stock.delete as jest.Mock).mockResolvedValue(null);
+        it('returns 404 for a product without stock', async () => {
+            (prisma.storeStock.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
 
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/2', { method: 'DELETE' });
-            const params = { id: '2' };
+            await deleteStock(buildRequest('/api/stocks/milk', { method: 'DELETE' }), params('milk'));
 
-            await deleteStock(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.delete).toHaveBeenCalledWith({ where: { productId: '2' } });
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Stock not found' },
-                { status: 404 }
-            );
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Stock not found' }, { status: 404 });
         });
 
-        it('should return 400 if product ID is missing', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/', { method: 'DELETE' });
-            const params = { id: '' }; // identifiant absent
+        it('is reserved to administrators', async () => {
+            (isAdmin as jest.Mock).mockResolvedValue(false);
 
-            await deleteStock(req, { params: Promise.resolve(params) });
+            await deleteStock(buildRequest('/api/stocks/milk', { method: 'DELETE' }), params('milk'));
 
-            expect(prisma.stock.delete).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Product ID is required' },
-                { status: 400 }
-            );
-        });
-
-        it('should return 500 on database error', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
-            (prisma.stock.delete as jest.Mock).mockRejectedValue(new Error('Database error'));
-
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-            const req = buildRequest('/api/stocks/1', { method: 'DELETE' });
-            const params = { id: '1' };
-
-            await deleteStock(req, { params: Promise.resolve(params) });
-
-            expect(prisma.stock.delete).toHaveBeenCalledTimes(1);
-            expect(jsonMock).toHaveBeenCalledWith({ error: 'Internal Server Error' }, { status: 500 });
-        });
-
-        it('should return 401 if user is not logged in', async () => {
-            (isUserLoggedIn as jest.Mock).mockResolvedValue(false);
-            const req = buildRequest('/api/stocks/1', { method: 'DELETE' });
-            const jsonMock = jest.spyOn(NextResponse, 'json');
-
-            await deleteStock(req, { params: Promise.resolve({ id: '1' }) });
-
-            expect(prisma.stock.delete).not.toHaveBeenCalled();
-            expect(jsonMock).toHaveBeenCalledWith(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+            expect(prisma.storeStock.deleteMany).not.toHaveBeenCalled();
+            expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Forbidden' }, { status: 403 });
         });
     });
 });
-

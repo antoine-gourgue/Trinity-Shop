@@ -20,7 +20,7 @@ jest.mock("@/lib/prisma", () => ({
         create: jest.fn(),
         count: jest.fn(),
     },
-    stock: {
+    storeStock: {
         updateMany: jest.fn(),
     },
     cart: {
@@ -166,7 +166,7 @@ describe("POST /api/orders", () => {
         (prisma.cart.findUnique as jest.Mock).mockResolvedValue(mockCart);
         (prisma.order.create as jest.Mock).mockResolvedValue(mockOrder);
         (prisma.cart.update as jest.Mock).mockResolvedValue({ id: "cart456", archived: true });
-        (prisma.stock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+        (prisma.storeStock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
 
         (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => {
             return await callback(prisma);
@@ -190,9 +190,9 @@ describe("POST /api/orders", () => {
             include: { productsInCart: { include: { product: { select: { price: true, name: true } } } } },
         });
 
-        // Le stock n'est décompté que s'il reste assez d'articles
-        expect(prisma.stock.updateMany).toHaveBeenCalledWith({
-            where: { productId: "prod1", quantity: { gte: 2 } },
+        // Le stock du drive n'est décompté que s'il reste assez d'articles
+        expect(prisma.storeStock.updateMany).toHaveBeenCalledWith({
+            where: { storeId: "store1", productId: "prod1", quantity: { gte: 2 } },
             data: { quantity: { decrement: 2 } },
         });
 
@@ -235,7 +235,7 @@ describe("POST /api/orders", () => {
     it("should refuse the order when an item is out of stock", async () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [CART_ITEM] });
-        (prisma.stock.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+        (prisma.storeStock.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
         (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
         const jsonMock = jest.spyOn(NextResponse, "json");
 
@@ -259,7 +259,7 @@ describe("POST /api/orders", () => {
             })
         );
 
-        expect(prisma.stock.updateMany).not.toHaveBeenCalled();
+        expect(prisma.storeStock.updateMany).not.toHaveBeenCalled();
         expect(prisma.order.create).not.toHaveBeenCalled();
         expect(jsonMock).toHaveBeenCalledWith({ error: "Pickup slot full" }, { status: 409 });
         // Les places d'un créneau se comptent dans le drive du client
@@ -347,7 +347,7 @@ describe("POST /api/orders", () => {
         (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
         (prisma.address.findUnique as jest.Mock).mockResolvedValue({ userId: "user123" });
         (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [CART_ITEM] });
-        (prisma.stock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+        (prisma.storeStock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
         (prisma.order.create as jest.Mock).mockResolvedValue({ id: "order123" });
         (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
 

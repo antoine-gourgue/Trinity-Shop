@@ -13,6 +13,9 @@ import { productDescription, productJsonLd, productPath, serializeJsonLd } from 
 import PriceBlock from "@/components/product/price-block";
 import { formatPromoEnd } from "@/lib/promotions";
 import { currentStore } from "@/lib/current-store";
+import { nearbyStock } from "@/lib/stock";
+import { formatDistance } from "@/lib/geo";
+import StoreButton from "@/components/store/store-button";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
 import AddToCartButton from "@/components/product/add-to-cart-button";
@@ -31,7 +34,8 @@ const getProduct = cache((id: string) =>
     where: { id },
     include: {
       brand: true,
-      stock: { select: { quantity: true } },
+      // Stock de chaque magasin : celui du client pour l'achat, le réseau pour le référencement
+      stocks: { select: { storeId: true, quantity: true } },
       categories: { select: { categoryName: true } },
     },
   })
@@ -86,7 +90,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const quantity: string | undefined = product.netContent || off?.quantity || undefined;
   const discount = discountPercent(product.price, product.regularPrice);
-  const stock = product.stock?.quantity ?? 0;
+  // Stock du magasin choisi ; sans magasin, ce que propose l'ensemble du réseau
+  const networkUnits = product.stocks.reduce((total, entry) => total + entry.quantity, 0);
+  const storesWithStock = product.stocks.filter((entry) => entry.quantity > 0).length;
+  const stock = store ? (product.stocks.find((entry) => entry.storeId === store.id)?.quantity ?? 0) : networkUnits;
+  const availability = store
+    ? stock > 10
+      ? "En stock dans votre magasin"
+      : stock > 0
+        ? `Plus que ${stock} en stock dans votre magasin`
+        : "Épuisé dans votre magasin"
+    : stock > 0
+      ? `Disponible dans ${storesWithStock} magasin${storesWithStock > 1 ? "s" : ""} Trinity`
+      : "Rupture de stock";
+  // Épuisé dans le magasin du client : les magasins les plus proches qui l'ont encore
+  const nearby = store && stock === 0 ? await nearbyStock(product.id, store) : [];
   const allergens = formatAllergens(off?.allergens_tags);
   const nutrition = nutritionRows(off?.nutriments);
   const ingredients: string | undefined = off?.ingredients_text_fr || off?.ingredients_text || undefined;
@@ -104,7 +122,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd(product, { description })) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd({ ...product, stock: { quantity: networkUnits } }, { description })) }}
       />
       <nav aria-label="Fil d'Ariane">
         <ol className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
@@ -207,8 +225,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
               aria-hidden
               className={`h-2.5 w-2.5 rounded-full ${stock > 10 ? "bg-bio" : stock > 0 ? "bg-highlight" : "bg-promo"}`}
             />
-            {stock > 10 ? "En stock" : stock > 0 ? `Plus que ${stock} en stock` : "Rupture de stock"}
+            {availability}
           </p>
+          {nearby.length > 0 && (
+            <div className="mt-3 rounded-2xl bg-secondary/60 p-3 text-sm">
+              <p className="font-bold">Disponible à proximité :</p>
+              <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                {nearby.map((entry) => (
+                  <li key={entry.slug}>
+                    {entry.name} · {formatDistance(entry.distance)}
+                  </li>
+                ))}
+              </ul>
+              <StoreButton variant="link" className="mt-1" />
+            </div>
+          )}
 
           <AddToCartButton
             productId={product.id}

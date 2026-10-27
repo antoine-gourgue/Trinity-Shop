@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Package, Pencil, Plus } from "lucide-react";
-import { LOW_STOCK, PRODUCT_FILTERS, getAdminProducts, parseAdminParams } from "@/lib/admin/queries";
+import { PRODUCT_FILTERS, getAdminProducts, parseAdminParams } from "@/lib/admin/queries";
 import { discountPercent, formatBrand, formatPrice } from "@/lib/format";
 import NutriScore from "@/components/product/nutri-score";
 import { AdminPageHeader, AdminPagination, AdminTable, Badge, EmptyState, Panel, Td, Th, adminHref } from "@/components/admin/admin-ui";
 import { AdminFilterTabs, AdminSearch, AdminSelectFilter } from "@/components/admin/admin-toolbar";
-import { ProductThumb, StockBadge } from "@/components/admin/admin-bits";
+import { NetworkStockBadge, ProductThumb } from "@/components/admin/admin-bits";
 import { DeleteProductButton, VisibilityButton } from "@/components/admin/product-actions";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export default async function AdminProductsPage({
                   <Th>Produit</Th>
                   <Th>Rayon</Th>
                   <Th className="text-right">Prix</Th>
-                  <Th>Stock</Th>
+                  <Th>Stock réseau</Th>
                   <Th>Nutri-Score</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
@@ -95,7 +95,7 @@ export default async function AdminProductsPage({
                         )}
                       </Td>
                       <Td>
-                        {product.stock ? <StockBadge quantity={product.stock.quantity} low={LOW_STOCK} /> : <Badge tone="danger">Aucun stock</Badge>}
+                        <NetworkStockBadge {...product.stock} />
                       </Td>
                       <Td>
                         <NutriScore grade={product.nutriScore} className="h-6" />

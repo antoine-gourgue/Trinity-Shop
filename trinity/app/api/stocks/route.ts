@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { STOCK_FIELDS } from '@/lib/stock';
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
 import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
 
-// Stock initial d'un produit
+// Stock d'un produit dans un magasin
 const stockBodySchema = z.object({
     quantity: optionalField(z.number().int().min(0)),
     productId: optionalField(z.string().min(1)),
+    storeId: optionalField(z.string().min(1)),
 });
 
-export async function GET() {
+// Stock d'un magasin (?magasin=slug) : la liste du réseau entier compterait une ligne par magasin et par produit
+export async function GET(request: NextRequest) {
     const isLoggedIn = await isUserLoggedIn()
     if (!isLoggedIn) {
         return NextResponse.json(
@@ -20,8 +23,13 @@ export async function GET() {
         );
     }
 
+    const store = request.nextUrl.searchParams.get("magasin");
+    if (!store) {
+        return NextResponse.json({ error: 'Store required: /api/stocks?magasin=<slug>' }, { status: 400 });
+    }
+
     try {
-        const stocks = await prisma.stock.findMany();
+        const stocks = await prisma.storeStock.findMany({ where: { store: { slug: store } }, select: STOCK_FIELDS });
         return NextResponse.json({ data: stocks });
     } catch (error) {
         console.error('Error fetching stocks:', error);
@@ -43,16 +51,14 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const { quantity, productId } = (await readJsonBody(request, stockBodySchema)) ?? {};
-        if (quantity === undefined || !productId) {
-            return NextResponse.json({ error: 'All fields (quantity, productId) are required' }, { status: 400 });
+        const { quantity, productId, storeId } = (await readJsonBody(request, stockBodySchema)) ?? {};
+        if (quantity === undefined || !productId || !storeId) {
+            return NextResponse.json({ error: 'All fields (quantity, productId, storeId) are required' }, { status: 400 });
         }
 
-        const createStock = await prisma.stock.create({
-            data: {
-                quantity,
-                productId
-            },
+        const createStock = await prisma.storeStock.create({
+            data: { quantity, productId, storeId },
+            select: STOCK_FIELDS,
         });
         return NextResponse.json({ data: createStock }, { status: 201 });
     } catch {

@@ -96,7 +96,9 @@ model Product {
   brand            Brand                @relation(fields: [brandId], references: [id])
   brandId          String
   categories       CategoriesProducts[]
-  stock            Stock?
+  // Ancien stock unique, remplacé par le stock de chaque magasin (table à supprimer après la migration)
+  legacyStock      Stock?
+  stocks           StoreStock[]
   cartsWithProduct ProductInCart[]
   promoEndsAt      DateTime? // fin de la promotion : le prix revient alors au prix barré
   favorites        Favorite[]
@@ -130,6 +132,8 @@ model CategoriesProducts {
   @@id([productId, categoryName])
 }
 
+// Ancien stock unique du drive, remplacé par StoreStock : plus utilisé par le site, gardé le temps
+// de la migration (prisma/split-stock-by-store.ts) pour ne pas interrompre la version en ligne
 model Stock {
   id        String   @id @default(cuid())
   quantity  Int
@@ -279,8 +283,8 @@ model RateLimit {
 // Magasin Trinity : drive de retrait et point de départ des livraisons. Le catalogue, les prix
 // et le stock sont communs à tous les magasins.
 model Store {
-  id        String   @id @default(cuid())
-  slug      String   @unique
+  id        String       @id @default(cuid())
+  slug      String       @unique
   name      String // « Trinity Nantes Beaujoire »
   street    String
   zipCode   String
@@ -292,7 +296,24 @@ model Store {
   hours     String // horaires du drive, ex. « Lun.–sam. 8h30–20h30 »
   users     User[]
   orders    Order[]
-  createdAt DateTime @default(now())
+  stocks    StoreStock[]
+  createdAt DateTime     @default(now())
 
   @@index([city])
+}
+
+// Stock d'un produit dans un magasin : chaque drive a le sien, décompté par ses commandes
+model StoreStock {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, productId])
+  // Ruptures et stocks faibles d'un magasin (back-office)
+  @@index([storeId, quantity])
+  @@index([productId])
 }

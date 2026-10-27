@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink, ShoppingBag } from "lucide-react";
-import { LOW_STOCK, getAdminProduct } from "@/lib/admin/queries";
+import { Boxes, ExternalLink, ShoppingBag } from "lucide-react";
+import { getAdminProduct } from "@/lib/admin/queries";
 import { discountPercent, formatBrand, formatPrice, toPriceInput } from "@/lib/format";
 import NutriScore from "@/components/product/nutri-score";
 import { AdminPageHeader, Badge, Panel, formatDate } from "@/components/admin/admin-ui";
-import { ProductThumb, StockBadge } from "@/components/admin/admin-bits";
+import { NetworkStockBadge, ProductThumb } from "@/components/admin/admin-bits";
 import { DeleteProductButton } from "@/components/admin/product-actions";
 import ProductForm from "@/components/admin/product-form";
 import { promoLastDay } from "@/lib/promotions";
@@ -51,7 +52,8 @@ export default async function AdminProductPage({ params }: Props) {
             nutriScore: product.nutriScore,
             categories: product.categories.map((c) => c.categoryName),
             hidden: product.hidden,
-            stock: String(product.stock?.quantity ?? 0),
+            // Le stock se gère magasin par magasin, dans la page Stocks
+            stock: "",
           }}
         />
 
@@ -73,7 +75,7 @@ export default async function AdminProductPage({ params }: Props) {
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {product.hidden ? <Badge tone="muted">Masqué</Badge> : <Badge tone="success">En ligne</Badge>}
-              {product.stock && <StockBadge quantity={product.stock.quantity} low={LOW_STOCK} />}
+              <NetworkStockBadge {...product.stock} />
               <NutriScore grade={product.nutriScore} className="h-6" />
             </div>
           </Panel>
@@ -84,8 +86,19 @@ export default async function AdminProductPage({ params }: Props) {
                 <ShoppingBag size={16} className="shrink-0 text-primary" aria-hidden />
                 {orderedCount > 0 ? `Présent dans ${orderedCount} commande${orderedCount > 1 ? "s" : ""}` : "Jamais commandé"}
               </li>
-              {product.stock && (
-                <li className="text-muted-foreground">Stock mis à jour le {formatDate(product.stock.updatedAt, true)}</li>
+              <li className="flex items-start gap-3">
+                <Boxes size={16} className="mt-0.5 shrink-0 text-primary" aria-hidden />
+                <span>
+                  {product.stock.units} unités dans {product.stock.stores} magasins
+                  {product.stock.ruptures > 0 && `, en rupture dans ${product.stock.ruptures}`}
+                  <br />
+                  <Link href={`/admin/stocks?q=${product.barCode.toString()}`} className="font-bold text-primary hover:underline">
+                    Voir le stock de chaque magasin
+                  </Link>
+                </span>
+              </li>
+              {product.stock.lastUpdate && (
+                <li className="text-muted-foreground">Stock mis à jour le {formatDate(product.stock.lastUpdate, true)}</li>
               )}
               <li className="text-muted-foreground">Fiche modifiée le {formatDate(product.updatedAt, true)}</li>
             </ul>

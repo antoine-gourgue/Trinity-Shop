@@ -12,6 +12,8 @@ import { PrismaClient, nutriScore } from "@prisma/client";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { computePrice, seeded } from "../lib/pricing";
+import { HISTORIC_STORE_SLUG } from "./stores-data";
+import { storeQuantity } from "./store-stock";
 import {
   type CatalogEntry,
   catalogSchema,
@@ -75,8 +77,11 @@ async function main() {
     return;
   }
 
+  const stores = await prisma.store.findMany({ select: { id: true, slug: true } });
   const imported: { id: string; barCode: string }[] = [];
   for (const p of pending) {
+    // Stock de référence, réparti entre les magasins comme celui du reste du catalogue
+    const reference = 40 + Math.floor(seeded(`${p.barCode}:stock`) * 400);
     let brandId = brandIds.get(p.brands[0]);
     if (!brandId) {
       brandId = (await prisma.brand.create({ data: { name: p.brands[0] } })).id;
@@ -94,7 +99,14 @@ async function main() {
         netContent: p.quantity,
         description: p.description,
         categories: { create: p.categories.map((name) => ({ category: { connect: { name } } })) },
-        stock: { create: { quantity: 40 + Math.floor(seeded(`${p.barCode}:stock`) * 400) } },
+        stocks: {
+          createMany: {
+            data: stores.map((store) => ({
+              storeId: store.id,
+              quantity: storeQuantity(reference, store.slug, p.barCode, store.slug === HISTORIC_STORE_SLUG),
+            })),
+          },
+        },
       },
       select: { id: true },
     });

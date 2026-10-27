@@ -136,9 +136,14 @@ export default async function AdminDashboardPage() {
               {data.lowStocks.map((stock) => (
                 <li key={stock.id} className="flex items-center gap-3 px-5 py-3">
                   <ProductThumb src={stock.product.picture} alt="" size="sm" />
-                  <Link href={`/admin/products/${stock.product.id}`} className="min-w-0 flex-1 truncate text-sm font-semibold hover:text-primary hover:underline">
-                    {stock.product.name}
-                  </Link>
+                  <span className="min-w-0 flex-1">
+                    <Link href={`/admin/products/${stock.product.id}`} className="block truncate text-sm font-semibold hover:text-primary hover:underline">
+                      {stock.product.name}
+                    </Link>
+                    <Link href={`/admin/stocks?magasin=${stock.store.slug}&filtre=faible`} className="block truncate text-xs text-muted-foreground hover:underline">
+                      {stock.store.name}
+                    </Link>
+                  </span>
                   <StockBadge quantity={stock.quantity} low={LOW_STOCK} />
                 </li>
               ))}

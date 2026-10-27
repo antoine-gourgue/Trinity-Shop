@@ -42,7 +42,6 @@ const productFields = z.object({
   nutriScore: z.nativeEnum(nutriScore).nullable(),
   categories: z.array(z.string()).max(40),
   hidden: z.boolean(),
-  stock: z.number().int("Le stock doit être un nombre entier.").min(0, "Le stock ne peut pas être négatif.").max(100000),
   // Dernier jour de la promotion (AAAA-MM-JJ), ou null pour une promotion sans date de fin
   promoEndsAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date de fin de promotion invalide.").nullable(),
 });
@@ -102,11 +101,6 @@ export async function saveProduct(productId: string, input: ProductInput): Promi
     }),
     prisma.categoriesProducts.deleteMany({ where: { productId } }),
     prisma.categoriesProducts.createMany({ data: known.map((c) => ({ productId, categoryName: c.name })) }),
-    prisma.stock.upsert({
-      where: { productId },
-      update: { quantity: data.stock },
-      create: { productId, quantity: data.stock },
-    }),
     // Sans promotion : la prochaine préviendra de nouveau les clients qui ont ce produit en favori
     ...(data.regularPrice === null ? [rearmFavoritePromoAlerts([productId])] : []),
   ]);
@@ -134,6 +128,7 @@ export async function deleteProduct(productId: string): Promise<AdminResult> {
   await prisma.$transaction([
     prisma.productInCart.deleteMany({ where: { productId } }),
     prisma.categoriesProducts.deleteMany({ where: { productId } }),
+    prisma.storeStock.deleteMany({ where: { productId } }),
     prisma.stock.deleteMany({ where: { productId } }),
     prisma.product.delete({ where: { id: productId } }),
   ]);
@@ -184,6 +179,8 @@ export async function lookupProductBarcode(barcode: string): Promise<BarcodeLook
 
 const newProductSchema = productFields
   .extend({
+    // Stock initial, le même dans chaque magasin ; il s'ajuste ensuite magasin par magasin
+    stock: z.number().int("Le stock doit être un nombre entier.").min(0, "Le stock ne peut pas être négatif.").max(100000),
     barCode: z.string().trim().refine(isBarcode, "Code-barres invalide : 1 à 14 chiffres."),
     // Photo Open Food Facts (seuls ses serveurs d'images sont autorisés par next.config.js), ou aucune
     picture: z
@@ -210,8 +207,11 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
 
   if (await prisma.product.findUnique({ where: { barCode }, select: { id: true } })) return fail(BARCODE_TAKEN);
 
-  const known = await knownCategories(data.categories);
-  const brand = await findOrCreateBrand(data.brand);
+  const [known, brand, stores] = await Promise.all([
+    knownCategories(data.categories),
+    findOrCreateBrand(data.brand),
+    prisma.store.findMany({ select: { id: true } }),
+  ]);
 
   let product: { id: string };
   try {
@@ -229,7 +229,7 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
         nutriScore: data.nutriScore,
         hidden: data.hidden,
         categories: { create: known.map((c) => ({ category: { connect: { name: c.name } } })) },
-        stock: { create: { quantity: data.stock } },
+        stocks: { createMany: { data: stores.map((store) => ({ storeId: store.id, quantity: data.stock })) } },
       },
       select: { id: true },
     });
@@ -245,12 +245,13 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
 
 // ——— Stocks ———
 
+// Stock d'un produit dans un magasin
 export async function updateStockQuantity(stockId: string, quantity: number): Promise<AdminResult> {
   await requireAdmin();
   if (!Number.isInteger(quantity) || quantity < 0 || quantity > 100000) {
     return fail("Indiquez une quantité entière entre 0 et 100 000.");
   }
-  await prisma.stock.update({ where: { id: stockId }, data: { quantity } });
+  await prisma.storeStock.update({ where: { id: stockId }, data: { quantity } });
   revalidatePath("/admin", "layout");
   return { ok: true };
 }
@@ -317,6 +318,7 @@ const ORDER_REVERSAL = {
   cartId: true,
   status: true,
   stripeSessionId: true,
+  storeId: true,
   stockDeducted: true,
   loyaltyPointsEarned: true,
   loyaltyPointsUsed: true,
@@ -333,7 +335,7 @@ function reverseOrder(orderId: string, order: Prisma.OrderGetPayload<{ select: t
   return [
     prisma.loyaltyTransaction.deleteMany({ where: { orderId } }),
     ...(pointsDelta !== 0 ? [prisma.user.update({ where: { id: order.userId }, data: { loyaltyPoints: balance } })] : []),
-    ...(order.stockDeducted ? restock(order.cart.productsInCart) : []),
+    ...(order.stockDeducted ? restock(order.storeId, order.cart.productsInCart) : []),
   ];
 }
 

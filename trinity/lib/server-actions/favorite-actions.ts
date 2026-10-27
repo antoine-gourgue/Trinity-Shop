@@ -4,6 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { storeForOrder } from "@/lib/stores";
+import { storeStockMap } from "@/lib/stock";
 
 export type FavoriteResult = { ok: true; favorite: boolean } | { ok: false; error: "login" | "invalid" };
 
@@ -42,24 +44,24 @@ export type AddFavoritesResult =
   | { ok: true; added: number; alreadyInCart: number; unavailable: number }
   | { ok: false; error: "login" };
 
-// « Tout ajouter au panier » : un exemplaire de chaque favori disponible qui n'y est pas encore.
-// Les produits déjà au panier gardent leur quantité ; ceux en rupture sont signalés.
+// « Tout ajouter au panier » : un exemplaire de chaque favori disponible dans le magasin du client
+// qui n'y est pas encore. Les produits déjà au panier gardent leur quantité ; ceux en rupture sont
+// signalés. Sans magasin choisi, le stock sera vérifié au paiement.
 export async function addFavoritesToCart(): Promise<AddFavoritesResult> {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return { ok: false, error: "login" };
 
-  const [favorites, cart] = await Promise.all([
-    prisma.favorite.findMany({
-      where: { userId, product: { hidden: false } },
-      select: { productId: true, product: { select: { stock: { select: { quantity: true } } } } },
-    }),
+  const [favorites, cart, storeId] = await Promise.all([
+    prisma.favorite.findMany({ where: { userId, product: { hidden: false } }, select: { productId: true } }),
     prisma.cart.findFirst({ where: { userId, archived: false }, select: { id: true, productsInCart: { select: { productId: true } } } }),
+    storeForOrder(userId),
   ]);
 
   const inCart = new Set(cart?.productsInCart.map((item) => item.productId));
   const notInCart = favorites.filter((favorite) => !inCart.has(favorite.productId));
-  const available = notInCart.filter((favorite) => (favorite.product.stock?.quantity ?? 0) > 0);
+  const stock = storeId ? await storeStockMap(storeId, notInCart.map((favorite) => favorite.productId)) : null;
+  const available = notInCart.filter((favorite) => !stock || (stock.get(favorite.productId) ?? 0) > 0);
 
   if (available.length > 0) {
     const cartId = cart?.id ?? (await prisma.cart.create({ data: { userId }, select: { id: true } })).id;

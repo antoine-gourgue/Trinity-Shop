@@ -1,6 +1,7 @@
 import type { Order } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { SLOT_CAPACITY } from "@/lib/checkout";
+import { storeStockMap } from "@/lib/stock";
 import { orderNumber } from "@/lib/account";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
 
@@ -113,12 +114,12 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
 
       if (await slotIsFull(prisma, storeId, pickupSlot)) throw new PlaceOrderFailure({ code: "slot_full" });
 
-      // Stock décompté article par article : la mise à jour n'aboutit que si la quantité suffit,
+      // Stock du drive décompté article par article : la mise à jour n'aboutit que si la quantité suffit,
       // et une seule rupture annule toute la transaction
       const missing: string[] = [];
       for (const item of cart.productsInCart) {
-        const { count } = await prisma.stock.updateMany({
-          where: { productId: item.productId, quantity: { gte: item.quantity } },
+        const { count } = await prisma.storeStock.updateMany({
+          where: { storeId, productId: item.productId, quantity: { gte: item.quantity } },
           data: { quantity: { decrement: item.quantity } },
         });
         if (count === 0) missing.push(item.product.name);
@@ -178,8 +179,9 @@ export async function checkAvailability(cartId: string, pickupSlot: Date | null,
   if (await slotIsFull(prisma, storeId, pickupSlot)) return { code: "slot_full" };
   const items = await prisma.productInCart.findMany({
     where: { cartId },
-    select: { quantity: true, product: { select: { name: true, stock: { select: { quantity: true } } } } },
+    select: { quantity: true, product: { select: { id: true, name: true } } },
   });
-  const missing = items.filter((item) => (item.product.stock?.quantity ?? 0) < item.quantity).map((item) => item.product.name);
+  const stock = await storeStockMap(storeId, items.map((item) => item.product.id));
+  const missing = items.filter((item) => (stock.get(item.product.id) ?? 0) < item.quantity).map((item) => item.product.name);
   return missing.length ? { code: "out_of_stock", products: missing } : null;
 }
