@@ -5,11 +5,13 @@ import { createUserSchema } from "@/schemas/createUserSchema";
 import { WelcomeEmail } from "@/components/emails/welcome-email";
 import { siteUrl } from "@/lib/site-url";
 import { emailSender } from "@/lib/email-sender";
+import { VERIFICATION_VALIDITY_DAYS, verificationUrl } from "@/lib/email-verification";
 import { Resend } from "resend";
 import { EmailAlreadyUsed } from "@/services/auth/errors";
 
-// E-mail de bienvenue « au mieux » : un échec d'envoi ne doit jamais bloquer l'inscription
-async function sendWelcomeEmail(user: { email: string; firstName: string }) {
+// E-mail de bienvenue avec le lien de confirmation de l'adresse, « au mieux » :
+// un échec d'envoi ne doit jamais bloquer l'inscription
+async function sendWelcomeEmail(user: { id: string; email: string; firstName: string }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return;
 
@@ -19,7 +21,12 @@ async function sendWelcomeEmail(user: { email: string; firstName: string }) {
       from: emailSender(),
       to: [user.email],
       subject: `Bienvenue chez Trinity, ${user.firstName} !`,
-      react: WelcomeEmail({ firstName: user.firstName, siteUrl: siteUrl() }),
+      react: WelcomeEmail({
+        firstName: user.firstName,
+        siteUrl: siteUrl(),
+        verifyUrl: verificationUrl(user),
+        validityDays: VERIFICATION_VALIDITY_DAYS,
+      }),
     });
     if (error) console.error("Email de bienvenue non envoyé :", error);
   } catch (err) {

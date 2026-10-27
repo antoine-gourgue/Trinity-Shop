@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, CreditCard, Leaf, MapPin, ShoppingBasket, Sparkles, Store } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { auth } from "@/auth";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import RayonTiles from "@/components/catalog/rayon-tiles";
 import ProductSection from "@/components/catalog/product-section";
@@ -32,6 +33,18 @@ const STEPS = [
   },
 ];
 
+// Derniers favoris du client connecté, pour les racheter sans chercher
+async function favoriteProducts(userId: string | undefined) {
+  if (!userId) return [];
+  const favorites = await prisma.favorite.findMany({
+    where: { userId, product: VISIBLE_PRODUCT },
+    orderBy: { createdAt: "desc" },
+    take: SECTION_SIZE,
+    select: { product: { include: { brand: true } } },
+  });
+  return favorites.map((favorite) => favorite.product);
+}
+
 function productsWhere(where: Prisma.ProductWhereInput) {
   return prisma.product.findMany({
     where: { AND: [where, VISIBLE_PRODUCT] },
@@ -50,10 +63,12 @@ export default async function HomePage({
   const legacyQuery = (await searchParams).product;
   if (legacyQuery) redirect(`/produits?q=${encodeURIComponent(legacyQuery)}`);
 
-  const [productCount, bioCount, nutriACount, promos, saveurs, nutriA, bio, matLou] = await Promise.all([
+  const session = await auth();
+  const [productCount, bioCount, nutriACount, favorites, promos, saveurs, nutriA, bio, matLou] = await Promise.all([
     prisma.product.count({ where: VISIBLE_PRODUCT }),
     prisma.product.count({ where: { ...VISIBLE_PRODUCT, brand: { name: "u-bio" } } }),
     prisma.product.count({ where: { ...VISIBLE_PRODUCT, nutriScore: "A" } }),
+    favoriteProducts(session?.user?.id),
     productsWhere({ regularPrice: { not: null } }),
     productsWhere({ brand: { name: "u-saveurs" } }),
     productsWhere({ nutriScore: "A" }),
@@ -139,6 +154,13 @@ export default async function HomePage({
           </Link>
         </div>
       </section>
+
+      <ProductSection
+        title="Vos favoris"
+        subtitle="Vos produits habituels, à remettre au panier en un clic."
+        href="/user/favoris"
+        products={favorites}
+      />
 
       <section id="rayons" className="mt-10 scroll-mt-40">
         <h2 className="mb-4 text-xl font-black md:text-2xl">Nos rayons</h2>

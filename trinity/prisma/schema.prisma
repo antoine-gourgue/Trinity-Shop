@@ -50,19 +50,21 @@ model VerificationToken {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String    @unique
-  phone     String?   @unique
-  password  String
-  birthDate DateTime?
-  role      Role      @default(Customer)
-  carts     Cart[]
-  accounts  Account[]
-  sessions  Session[]
-  orders    Order[]
-  addresses Address[]
+  id            String    @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String    @unique
+  // Adresse confirmée par le lien envoyé à l'inscription ; sans confirmation, aucun e-mail commercial
+  emailVerified DateTime?
+  phone         String?   @unique
+  password      String
+  birthDate     DateTime?
+  role          Role      @default(Customer)
+  carts         Cart[]
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+  addresses     Address[]
 
   // Carte Trinity (programme de fidélité)
   loyaltyNumber       String? // unicité vérifiée à la création de la carte
@@ -71,6 +73,7 @@ model User {
   loyaltyTransactions LoyaltyTransaction[]
   favorites           Favorite[]
   cartReminders       Boolean              @default(true) // accepte les rappels de panier abandonné
+  favoritePromos      Boolean              @default(true) // accepte les alertes quand un favori passe en promotion
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -244,9 +247,11 @@ enum OrderStatus {
 
 // Produits mis de côté par un client
 model Favorite {
-  userId    String
-  productId String
-  createdAt DateTime @default(now())
+  userId          String
+  productId       String
+  createdAt       DateTime  @default(now())
+  // Alerte « favori en promotion » déjà envoyée pour la promotion en cours ; remise à zéro quand elle se termine
+  promoNotifiedAt DateTime?
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)

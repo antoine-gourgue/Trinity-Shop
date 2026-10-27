@@ -21,12 +21,15 @@ export function AccountHeader({
 }
 
 export function AccountCard({
+  id,
   title,
   icon,
   action,
   className,
   children,
 }: {
+  // Ancre pour y mener depuis un autre écran (/user/info#emails)
+  id?: string;
   title?: string;
   icon?: React.ReactNode;
   action?: React.ReactNode;
@@ -34,7 +37,7 @@ export function AccountCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn("rounded-3xl border bg-white p-5 md:p-6", className)}>
+    <section id={id} className={cn("scroll-mt-40 rounded-3xl border bg-white p-5 md:p-6", className)}>
       {(title || action) && (
         <div className="mb-4 flex items-center justify-between gap-3">
           {title && (

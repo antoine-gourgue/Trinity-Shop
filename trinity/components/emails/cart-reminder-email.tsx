@@ -37,7 +37,7 @@ export function CartReminderEmail({ firstName, items, siteUrl, unsubscribeUrl }:
         subtitle: `${count} article${count > 1 ? "s vous attendent" : " vous attend"} dans votre panier. Il ne reste qu’à choisir un créneau.`,
       }}
       reason="Vous recevez ce rappel parce que des articles sont restés dans votre panier Trinity."
-      unsubscribeUrl={unsubscribeUrl}
+      unsubscribe={{ url: unsubscribeUrl, label: "Ne plus recevoir ces rappels" }}
     >
       {items.slice(0, SHOWN).map((item) => (
         <Row key={item.name} style={{ marginBottom: 10 }}>

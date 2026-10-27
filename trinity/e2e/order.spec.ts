@@ -17,6 +17,9 @@ test("un client commande au drive, l'équipe prépare puis annule la commande", 
   await page.goto("/user/favoris");
   await expect(page.getByRole("heading", { name: "Mes favoris" })).toBeVisible();
   await expect(page.locator('a[href^="/product/"]').first()).toBeVisible();
+  // Le favori est déjà au panier : rien n'est ajouté deux fois
+  await page.getByRole("button", { name: "Tout ajouter au panier" }).click();
+  await expect(page.getByText("1 produit déjà au panier")).toBeVisible();
 
   // Panier : remplacement accepté par défaut, puis créneau de retrait
   await page.goto("/cart");

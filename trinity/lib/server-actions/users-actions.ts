@@ -2,7 +2,9 @@
 
 import prisma from "@/lib/prisma"
 import bcrypt from "bcrypt";
+import { after } from "next/server";
 import { requireAddressAccess, requireUserAccess } from "@/services/auth/guards";
+import { sendVerificationEmail } from "@/lib/email-verification";
 
 interface UpdateUserEmailProps {
     userId: string;
@@ -81,7 +83,9 @@ export async function getUserDetails(userId: string) {
                 lastName: true,
                 email: true,
                 birthDate: true,
+                emailVerified: true,
                 cartReminders: true,
+                favoritePromos: true,
             },
         });
 
@@ -98,12 +102,17 @@ export async function getUserDetails(userId: string) {
 }
 
 
+// Nouvelle adresse : elle doit être confirmée à son tour, le lien part tout de suite
 export async function updateUserEmail({ userId, newEmail }: UpdateUserEmailProps) {
     await requireUserAccess(userId);
-    await prisma.user.update({
+    const current = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (current?.email === newEmail) return;
+    const user = await prisma.user.update({
         where: { id: userId },
-        data: { email: newEmail },
+        data: { email: newEmail, emailVerified: null },
+        select: { id: true, email: true, firstName: true },
     });
+    after(() => sendVerificationEmail(user));
 }
 
 export async function updateUserPassword(userId: string, currentPassword: string, newPassword: string) {

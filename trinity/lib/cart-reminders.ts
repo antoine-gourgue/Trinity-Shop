@@ -1,9 +1,9 @@
 import { Resend } from "resend";
 import prisma from "@/lib/prisma";
-import { absoluteUrl, siteUrl } from "@/lib/site-url";
+import { siteUrl } from "@/lib/site-url";
 import { emailSender } from "@/lib/email-sender";
 import { unsubscribeUrl } from "@/lib/email-preferences";
-import { localImageFor } from "@/lib/product-images";
+import { emailPicture } from "@/lib/email-pictures";
 import { CartReminderEmail } from "@/components/emails/cart-reminder-email";
 
 const HOUR = 3_600_000;
@@ -13,29 +13,13 @@ const ACTIVE_WITHIN = 7 * 24 * HOUR;
 // Envois par passage de la tâche planifiée
 const BATCH = 100;
 
-// Photo d'un produit dans l'e-mail : copie locale du site si elle existe (une messagerie ne peut pas
-// basculer sur une autre image comme le fait le site), sinon l'image d'origine, sinon aucune
-async function emailPicture(picture: string, checked: Map<string, string | null>) {
-  if (!picture) return null;
-  const known = checked.get(picture);
-  if (known !== undefined) return known;
-
-  const local = localImageFor(picture);
-  let url: string | null = absoluteUrl(picture);
-  if (local) {
-    const response = await fetch(absoluteUrl(local), { method: "HEAD" }).catch(() => null);
-    if (response?.ok) url = absoluteUrl(local);
-  }
-  checked.set(picture, url);
-  return url;
-}
-
-// Paniers à relancer : un seul rappel tant que le panier n'a pas changé depuis le précédent
+// Paniers à relancer : un seul rappel tant que le panier n'a pas changé depuis le précédent,
+// et seulement vers une adresse confirmée (une adresse inventée ferait rebondir l'e-mail)
 export async function findAbandonedCarts(now = new Date()) {
   const carts = await prisma.cart.findMany({
     where: {
       archived: false,
-      user: { cartReminders: true },
+      user: { cartReminders: true, emailVerified: { not: null } },
       productsInCart: {
         some: { updatedAt: { gte: new Date(now.getTime() - ACTIVE_WITHIN) } },
         none: { updatedAt: { gt: new Date(now.getTime() - IDLE_FOR) } },
@@ -90,7 +74,7 @@ export async function sendCartReminders(now = new Date()) {
     });
     if (count === 0) continue;
 
-    const unsubscribe = unsubscribeUrl(cart.user.id);
+    const unsubscribe = unsubscribeUrl(cart.user.id, "cart-reminders");
     const { error } = await resend.emails.send({
       from: emailSender(),
       to: [cart.user.email],

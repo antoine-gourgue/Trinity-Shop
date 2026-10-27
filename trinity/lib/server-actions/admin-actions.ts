@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Prisma, nutriScore, Role } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { restock } from "@/lib/stock";
-import { promoEndFromDay } from "@/lib/promotions";
+import { promoEndFromDay, rearmFavoritePromoAlerts } from "@/lib/promotions";
 import { canCancelOrder, nextOrderStatus } from "@/lib/order-status";
 import { isBarcode } from "@/lib/barcode";
 import { fetchCategoryTaxonomy, fetchOpenFoodFactsProduct, isOpenFoodFactsImage, type CategoryTaxonomy } from "@/lib/open-food-facts";
@@ -107,6 +107,8 @@ export async function saveProduct(productId: string, input: ProductInput): Promi
       update: { quantity: data.stock },
       create: { productId, quantity: data.stock },
     }),
+    // Sans promotion : la prochaine préviendra de nouveau les clients qui ont ce produit en favori
+    ...(data.regularPrice === null ? [rearmFavoritePromoAlerts([productId])] : []),
   ]);
 
   revalidatePath("/admin", "layout");

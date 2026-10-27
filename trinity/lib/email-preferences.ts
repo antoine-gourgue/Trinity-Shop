@@ -1,26 +1,30 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { isValidSignature, sign } from "@/lib/signing";
 import { siteUrl } from "@/lib/site-url";
 
-// Lien de désinscription des rappels de panier : il marche sans connexion, mais sa signature
-// (HMAC du secret du site) empêche de désinscrire le compte de quelqu'un d'autre.
-// Même secret que les sessions : NEXTAUTH_SECRET (auth.ts), sinon AUTH_SECRET, que NextAuth lit à défaut
-function secret() {
-  const value = process.env.NEXTAUTH_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
-  if (!value) throw new Error("NEXTAUTH_SECRET ou AUTH_SECRET est nécessaire pour signer les liens de désinscription.");
-  return value;
+// E-mails commerciaux auxquels le client peut se désinscrire
+export const EMAIL_TOPICS = ["cart-reminders", "favorite-promos"] as const;
+
+export type EmailTopic = (typeof EMAIL_TOPICS)[number];
+
+export function isEmailTopic(value: string): value is EmailTopic {
+  return (EMAIL_TOPICS as readonly string[]).includes(value);
 }
 
-export function unsubscribeSignature(userId: string) {
-  return createHmac("sha256", secret()).update(`cart-reminders:${userId}`).digest("hex");
+// Réglage du compte qui autorise ce type d'e-mail
+export function topicSetting(topic: EmailTopic, enabled: boolean) {
+  return topic === "cart-reminders" ? { cartReminders: enabled } : { favoritePromos: enabled };
 }
 
-export function isValidUnsubscribeSignature(userId: string, signature: string) {
-  const expected = Buffer.from(unsubscribeSignature(userId));
-  const given = Buffer.from(signature);
-  return expected.length === given.length && timingSafeEqual(expected, given);
+// Le lien de désinscription vaut pour un compte et un type d'e-mail
+export function unsubscribeSignature(userId: string, topic: EmailTopic) {
+  return sign(`${topic}:${userId}`);
 }
 
-export function unsubscribeUrl(userId: string) {
-  const params = new URLSearchParams({ u: userId, s: unsubscribeSignature(userId) });
+export function isValidUnsubscribeSignature(userId: string, topic: EmailTopic, signature: string) {
+  return isValidSignature(`${topic}:${userId}`, signature);
+}
+
+export function unsubscribeUrl(userId: string, topic: EmailTopic) {
+  const params = new URLSearchParams({ u: userId, t: topic, s: unsubscribeSignature(userId, topic) });
   return `${siteUrl()}/api/emails/unsubscribe?${params.toString()}`;
 }

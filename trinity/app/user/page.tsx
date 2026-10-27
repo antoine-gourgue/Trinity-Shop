@@ -12,8 +12,8 @@ const MORE_OPTIONS = [
     {
         title: "Mes communications",
         links: [
-            { href: "/legal/maintenance", label: "Mes canaux de communication" },
-            { href: "/legal/maintenance", label: "Mes préférences" },
+            { href: "/user/info#emails", label: "Mes e-mails (rappels, alertes promo)" },
+            { href: "/user/favoris", label: "Mes favoris" },
         ],
     },
     {

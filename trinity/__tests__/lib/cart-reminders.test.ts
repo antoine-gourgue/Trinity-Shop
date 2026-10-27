@@ -24,7 +24,7 @@ describe("findAbandonedCarts", () => {
         jest.clearAllMocks();
     });
 
-    it("looks for idle carts of customers who accept reminders", async () => {
+    it("looks for idle carts of customers who accept reminders at a confirmed address", async () => {
         (prisma.cart.findMany as jest.Mock).mockResolvedValue([]);
 
         await findAbandonedCarts(NOW);
@@ -33,7 +33,7 @@ describe("findAbandonedCarts", () => {
             expect.objectContaining({
                 where: {
                     archived: false,
-                    user: { cartReminders: true },
+                    user: { cartReminders: true, emailVerified: { not: null } },
                     productsInCart: {
                         some: { updatedAt: { gte: new Date("2026-10-20T16:00:00Z") } },
                         none: { updatedAt: { gt: new Date("2026-10-27T13:00:00Z") } },

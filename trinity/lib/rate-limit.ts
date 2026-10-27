@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-// Limitation des tentatives (connexion, inscription, mot de passe oublié), comptées en base :
+// Limitation des tentatives (connexion, inscription, mot de passe oublié, confirmation d'e-mail), comptées en base :
 // sur Vercel, chaque requête peut tourner sur une instance différente, la mémoire ne suffit pas
 export interface RateLimitRule {
   limit: number;
@@ -15,6 +15,7 @@ export const RATE_LIMITS = {
   signupIp: { limit: 5, windowMs: 60 * MINUTE },
   resetEmail: { limit: 3, windowMs: 60 * MINUTE },
   resetIp: { limit: 10, windowMs: 60 * MINUTE },
+  verifyEmail: { limit: 3, windowMs: 60 * MINUTE },
 } satisfies Record<string, RateLimitRule>;
 
 // Compte une tentative pour la clé ; false si la limite de la fenêtre en cours est déjà atteinte

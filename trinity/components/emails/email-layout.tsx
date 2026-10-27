@@ -51,13 +51,13 @@ interface EmailLayoutProps {
   hero: EmailHero;
   // Raison de l'envoi, rappelée en pied de page
   reason: string;
-  // Lien pour ne plus recevoir ce type d'e-mail (e-mails commerciaux)
-  unsubscribeUrl?: string;
+  // Lien pour ne plus recevoir ce type d'e-mail (e-mails commerciaux), avec son libellé
+  unsubscribe?: { url: string; label: string };
   children: React.ReactNode;
 }
 
 // Gabarit commun, au design du site : bandeau, en-tête avec le logo, bloc titre, carte de contenu, pied de page
-export function EmailLayout({ preview, siteUrl, hero, reason, unsubscribeUrl, children }: EmailLayoutProps) {
+export function EmailLayout({ preview, siteUrl, hero, reason, unsubscribe, children }: EmailLayoutProps) {
   const host = new URL(siteUrl).host;
 
   return (
@@ -173,11 +173,11 @@ export function EmailLayout({ preview, siteUrl, hero, reason, unsubscribeUrl, ch
             <Hr style={{ borderColor: EMAIL_COLORS.border, margin: "10px 0" }} />
             <Text style={{ ...emailStyles.muted, fontSize: 11 }}>
               {reason}
-              {unsubscribeUrl && (
+              {unsubscribe && (
                 <>
                   {" "}
-                  <Link href={unsubscribeUrl} style={{ color: EMAIL_COLORS.muted, textDecoration: "underline" }}>
-                    Ne plus recevoir ces rappels
+                  <Link href={unsubscribe.url} style={{ color: EMAIL_COLORS.muted, textDecoration: "underline" }}>
+                    {unsubscribe.label}
                   </Link>
                 </>
               )}

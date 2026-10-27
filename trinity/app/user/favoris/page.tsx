@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { requireUser } from "@/lib/account";
 import { AccountHeader } from "@/components/account/account-ui";
 import ProductGrid from "@/components/catalog/product-grid";
+import AddFavoritesToCart from "@/components/account/add-favorites-to-cart";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,9 @@ export default async function FavorisPage() {
                         ? `${products.length} produit${products.length > 1 ? "s" : ""} mis de côté`
                         : "Retrouvez ici les produits que vous achetez souvent."
                 }
-            />
+            >
+                {products.length > 0 && <AddFavoritesToCart />}
+            </AccountHeader>
             {products.length ? (
                 <ProductGrid products={products} className="xl:grid-cols-3" />
             ) : (

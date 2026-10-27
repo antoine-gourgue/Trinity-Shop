@@ -6,6 +6,7 @@ import { expirePromotions, formatPromoEnd, promoEndFromDay, promoLastDay } from 
 
 jest.mock("@/lib/prisma", () => ({
     product: { findMany: jest.fn(), update: jest.fn((args: object) => args) },
+    favorite: { updateMany: jest.fn((args: object) => args) },
     $transaction: jest.fn(async (operations: object[]) => operations),
 }));
 
@@ -41,5 +42,17 @@ describe("expirePromotions", () => {
             data: { price: 2490, regularPrice: null, promoEndsAt: null },
         });
         expect(prisma.product.update).toHaveBeenCalledWith({ where: { id: "p2" }, data: { promoEndsAt: null } });
+        // La prochaine promotion de ces produits préviendra de nouveau les clients qui les ont en favori
+        expect(prisma.favorite.updateMany).toHaveBeenCalledWith({
+            where: { productId: { in: ["p1", "p2"] }, promoNotifiedAt: { not: null } },
+            data: { promoNotifiedAt: null },
+        });
+    });
+
+    it("does nothing when no promotion has ended", async () => {
+        (prisma.product.findMany as jest.Mock).mockResolvedValue([]);
+
+        await expect(expirePromotions()).resolves.toEqual([]);
+        expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 });

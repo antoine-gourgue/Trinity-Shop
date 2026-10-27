@@ -6,7 +6,7 @@ import { AccountCard, AccountHeader, InfoRow } from "@/components/account/accoun
 import EditEmailModal from "../modal/EditEmailModal";
 import EditPasswordModal from "../modal/EditPasswordModal";
 import DeleteUserModal from "@/app/user/modal/DeleteUserModal";
-import CartRemindersToggle from "@/components/account/cart-reminders-toggle";
+import EmailPreferenceToggle from "@/components/account/email-preference-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,20 @@ export default async function UserDetailsPage() {
                     <div className="divide-y">
                         <InfoRow
                             label="Adresse e-mail"
-                            value={user.email}
+                            value={
+                                <>
+                                    {user.email}{" "}
+                                    <span
+                                        className={
+                                            user.emailVerified
+                                                ? "ml-1 rounded-full bg-bio/10 px-2 py-0.5 text-xs font-bold text-bio"
+                                                : "ml-1 rounded-full bg-highlight/30 px-2 py-0.5 text-xs font-bold text-brand-dark"
+                                        }
+                                    >
+                                        {user.emailVerified ? "Confirmée" : "À confirmer"}
+                                    </span>
+                                </>
+                            }
                             action={<EditEmailModal userId={user.id} currentEmail={user.email} />}
                         />
                         <InfoRow
@@ -51,8 +64,29 @@ export default async function UserDetailsPage() {
                 </AccountCard>
             </div>
 
-            <AccountCard title="E-mails" icon={<Bell size={18} aria-hidden />} className="mt-6">
-                <CartRemindersToggle initial={user.cartReminders} />
+            <AccountCard id="emails" title="E-mails" icon={<Bell size={18} aria-hidden />} className="mt-6">
+                {!user.emailVerified && (
+                    <p className="mb-2 rounded-2xl bg-highlight/20 px-4 py-3 text-sm text-brand-dark">
+                        Confirmez d’abord votre adresse e-mail : sans confirmation, ces e-mails ne vous sont pas envoyés.
+                    </p>
+                )}
+                <div className="divide-y">
+                    <EmailPreferenceToggle
+                        topic="cart-reminders"
+                        initial={user.cartReminders}
+                        title="Rappels de panier"
+                        description="Un rappel quand des articles restent dans votre panier sans commande."
+                    />
+                    <EmailPreferenceToggle
+                        topic="favorite-promos"
+                        initial={user.favoritePromos}
+                        title="Alertes promo sur mes favoris"
+                        description="Un e-mail quand un produit de vos favoris passe en promotion."
+                    />
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    Les e-mails liés à vos commandes (confirmation, préparation, retrait ou livraison) sont toujours envoyés.
+                </p>
             </AccountCard>
 
             <AccountCard

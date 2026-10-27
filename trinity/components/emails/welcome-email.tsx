@@ -7,6 +7,9 @@ import { formatPrice } from "@/lib/format";
 interface WelcomeEmailProps {
   firstName: string;
   siteUrl: string;
+  // Lien de confirmation de l'adresse, et sa durée de validité en jours
+  verifyUrl: string;
+  validityDays: number;
 }
 
 const card = {
@@ -17,8 +20,8 @@ const card = {
   width: "50%",
 };
 
-// Envoyé à l'inscription : ce que le client peut faire, et par où commencer
-export function WelcomeEmail({ firstName, siteUrl }: WelcomeEmailProps) {
+// Envoyé à l'inscription : confirmation de l'adresse, puis ce que le client peut faire
+export function WelcomeEmail({ firstName, siteUrl, verifyUrl, validityDays }: WelcomeEmailProps) {
   return (
     <EmailLayout
       preview={`Bienvenue chez Trinity, ${firstName} : vos courses en ligne vous attendent`}
@@ -31,6 +34,16 @@ export function WelcomeEmail({ firstName, siteUrl }: WelcomeEmailProps) {
         subtitle: "Votre compte est prêt : plus de 1 200 produits à commander en ligne, préparés par nos équipes.",
       }}
     >
+      <Section style={{ ...emailStyles.box, marginTop: 0, textAlign: "center" }}>
+        <Text style={emailStyles.strong}>Première étape : confirmez votre adresse e-mail</Text>
+        <Text style={{ ...emailStyles.muted, margin: "0 0 14px" }}>
+          Pour recevoir le suivi de vos commandes et nos alertes. Le lien est valable {validityDays} jours.
+        </Text>
+        <Button href={verifyUrl} style={emailStyles.button}>
+          Confirmer mon adresse
+        </Button>
+      </Section>
+
       <Text style={emailStyles.text}>Remplissez votre panier, choisissez un créneau d’une heure, et récupérez vos courses :</Text>
 
       <Row style={{ margin: "18px 0" }}>
@@ -48,11 +61,11 @@ export function WelcomeEmail({ firstName, siteUrl }: WelcomeEmailProps) {
         </Column>
       </Row>
 
-      <Section style={{ textAlign: "center", margin: "24px 0 8px" }}>
-        <Button href={siteUrl} style={emailStyles.button}>
+      <Text style={{ ...emailStyles.text, textAlign: "center" }}>
+        <Link href={siteUrl} style={emailStyles.link}>
           Commencer mes courses
-        </Button>
-      </Section>
+        </Link>
+      </Text>
 
       <Section style={emailStyles.box}>
         <Text style={emailStyles.strong}>Votre Carte Trinity, gratuite</Text>

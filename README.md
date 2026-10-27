@@ -49,14 +49,15 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 - **Tri** par prix, par nom ou par prix au kilo ou au litre, calculé à partir de la contenance du produit.
 - **Recherche** tolérante aux accents, avec des suggestions pendant la frappe : rayons correspondants et premiers produits, avec navigation au clavier.
 - **Fiche produit** : photo officielle du fabricant, prix et prix au kilo, promotion (avec sa date de fin), ingrédients avec allergènes mis en évidence, tableau nutritionnel, Nutri-Score, produits similaires.
-- **Favoris** : un cœur sur chaque produit, et la liste « Mes favoris » dans l'espace client.
+- **Favoris** : un cœur sur chaque produit et dans l'en-tête (avec leur nombre), la page « Mes favoris » avec « Tout ajouter au panier » pour refaire ses courses habituelles en un clic, et une rangée « Vos favoris » sur l'accueil.
 - **Panier** conservé sur le compte, qui signale les ruptures de stock ; pour chaque article, le client accepte ou non un produit de remplacement.
 - **Tunnel de commande** : retrait gratuit au drive ou livraison à domicile (adresse choisie ou ajoutée à la volée), choix du créneau (8 commandes au plus par heure, créneaux complets grisés), puis paiement par carte via Stripe. Le stock est décompté à la commande.
 - **Suivi de commande** : statut (reçue, en préparation, prête, retirée ou livrée, annulée) et frise d'avancement, et « Racheter cette commande ».
-- **E-mails au design du site** : bienvenue, confirmation avec la facture PDF, « prête au drive » ou « en route », annulation avec le montant remboursé, mot de passe oublié, et rappel de panier abandonné (un seul rappel par panier, désinscription en un clic).
+- **E-mails au design du site** : bienvenue avec confirmation de l'adresse, confirmation de commande avec la facture PDF, suivi à chaque étape (en préparation, prête au drive ou en route, retirée ou livrée), annulation avec le montant remboursé, mot de passe oublié.
+- **E-mails commerciaux** : rappel de panier abandonné (un seul par panier) et alerte quand des favoris passent en promotion (une seule par promotion), envoyés seulement vers une adresse confirmée, chacun avec sa désinscription en un clic et son réglage dans l'espace client.
 - **Carte Trinity** (fidélité) : 1 point par euro dépensé, 100 points = un bon de 5 € à utiliser au paiement.
 - **Espace client** : commandes et factures PDF, favoris, adresses, téléphone, informations personnelles, mot de passe et carte de fidélité.
-- **Compte** : inscription, connexion, mot de passe oublié par lien envoyé par e-mail (valable une heure), tentatives limitées contre les attaques par force brute.
+- **Compte** : inscription avec confirmation de l'adresse e-mail (lien signé valable 7 jours, renvoyable depuis l'espace client, redemandé après un changement d'adresse), connexion, mot de passe oublié par lien envoyé par e-mail (valable une heure), tentatives limitées contre les attaques par force brute.
 - **Scanner de code-barres** : un produit du catalogue ouvre sa fiche, sinon la fiche Open Food Facts s'affiche.
 - **Application installable** (PWA) et pages d'information : FAQ, programme de fidélité, contact, mentions légales, confidentialité, cookies.
 - **Référencement** : sitemap, robots.txt, URL canoniques, Open Graph et données structurées schema.org sur les fiches produit.
@@ -79,7 +80,7 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 | Interface | Tailwind CSS, composants [shadcn/ui](https://ui.shadcn.com) (Radix), lucide-react, recharts |
 | Validation | zod (formulaires, corps des requêtes API, données externes) |
 | Paiement | [Stripe Checkout](https://stripe.com/docs/payments/checkout) (mode test), webhook de confirmation |
-| Divers | pdf-lib (factures), Resend + React Email (e-mails de bienvenue, de commande et de réinitialisation), next-pwa, react-qr-barcode-scanner |
+| Divers | pdf-lib (factures), Resend + React Email (e-mails de compte, de commande, rappels et alertes), next-pwa, react-qr-barcode-scanner |
 | Tests | Jest (unitaires), Playwright (parcours de bout en bout) |
 | Hébergement | Vercel, base PostgreSQL [Neon](https://neon.tech) |
 
@@ -148,13 +149,13 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 |---|---|
 | `POSTGRES_PRISMA_URL` | URL de connexion avec pool, utilisée par l'application |
 | `POSTGRES_URL_NON_POOLING` | URL directe, utilisée par `prisma db push` et les migrations |
-| `NEXTAUTH_SECRET` | Clé de signature des sessions et des liens de désinscription (`openssl rand -base64 32`) ; `AUTH_SECRET` est accepté à la place |
-| `RESEND_API_KEY` | Facultatif : e-mails de bienvenue, de confirmation de commande et de réinitialisation du mot de passe (sans clé, le lien de réinitialisation s'affiche dans la console en développement) |
+| `NEXTAUTH_SECRET` | Clé de signature des sessions et des liens envoyés par e-mail : désinscription, confirmation d'adresse (`openssl rand -base64 32`) ; `AUTH_SECRET` est accepté à la place |
+| `RESEND_API_KEY` | Facultatif : tous les e-mails (compte, commandes, rappels de panier, alertes promo) ; sans clé, rien n'est envoyé et le lien de réinitialisation s'affiche dans la console en développement |
 | `APP_URL` | Facultatif : URL publique du site (liens des e-mails, URL canoniques, Open Graph, sitemap, robots.txt) ; à défaut, le domaine de production Vercel, sinon `http://localhost:3000` |
 | `STRIPE_SECRET_KEY` | Facultatif : clé secrète Stripe (`sk_test_…`) pour le paiement par carte ; sans clé, le paiement est simulé |
 | `STRIPE_WEBHOOK_SECRET` | Facultatif : secret du webhook Stripe (`whsec_…`) envoyé à `/api/payments/stripe/webhook`, pour créer la commande même si le client ne revient pas sur le site |
 | `EMAIL_FROM` | Facultatif : autre expéditeur des e-mails, sur un domaine validé dans le compte Resend de la clé ; par défaut `Trinity <no-reply@trinity.antoinegourgue.dev>` |
-| `CRON_SECRET` | Secret des tâches planifiées : `/api/cron/maintenance` la nuit (fin des promotions datées, purge des compteurs de tentatives) et `/api/cron/cart-reminders` l'après-midi (rappels de panier) ; Vercel l'envoie à chaque appel |
+| `CRON_SECRET` | Secret des tâches planifiées : `/api/cron/maintenance` la nuit (fin des promotions datées, purge des compteurs de tentatives) et `/api/cron/emails` l'après-midi (rappels de panier, alertes promo des favoris) ; Vercel l'envoie à chaque appel |
 | `SEED_ADMIN_PASSWORD` | Mot de passe du compte administrateur créé par le seed (12 caractères au moins) ; inutile en production |
 
 ## Commandes

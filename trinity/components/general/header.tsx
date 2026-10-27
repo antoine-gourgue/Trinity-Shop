@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
+  Heart,
   LogOut,
   Package,
   ScanBarcode,
@@ -36,6 +37,7 @@ import CartSheetContent from "@/components/cart/cart-sheet-content";
 import Logo from "@/components/general/logo";
 import HeaderMobile from "./header-mobile";
 import { formatPrice } from "@/lib/format";
+import { useFavorites } from "@/lib/favorites-store";
 import type { RayonLink } from "@/lib/rayons";
 
 interface HeaderProps {
@@ -76,6 +78,7 @@ export default function Header({ rayons }: HeaderProps) {
           </div>
 
           <AccountMenu />
+          <FavoritesLink />
 
           <Sheet open={cartOpen} onOpenChange={setCartOpen}>
             <SheetTrigger
@@ -179,6 +182,11 @@ function AccountMenu() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild className={itemClass}>
+              <Link href="/user/favoris">
+                <Heart size={18} className="text-primary" /> Mes favoris
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className={itemClass}>
               <Link href="/cart">
                 <ShoppingBasket size={18} className="text-primary" /> Mon panier
               </Link>
@@ -214,5 +222,25 @@ function AccountMenu() {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// Cœur de l'en-tête : mène aux favoris, avec leur nombre
+function FavoritesLink() {
+  const count = useFavorites().size;
+
+  return (
+    <Link
+      href="/user/favoris"
+      aria-label={count > 0 ? `Mes favoris, ${count} produit${count > 1 ? "s" : ""}` : "Mes favoris"}
+      className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-muted"
+    >
+      <Heart size={22} className={count > 0 ? "fill-promo text-promo" : undefined} aria-hidden />
+      {count > 0 && (
+        <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-promo px-1 text-[11px] font-extrabold text-white">
+          {count}
+        </span>
+      )}
+    </Link>
   );
 }

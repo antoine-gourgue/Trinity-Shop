@@ -8,6 +8,7 @@ import { signOut, useSession } from "next-auth/react";
 import {
   BadgePercent,
   ChevronRight,
+  Heart,
   Home,
   LayoutGrid,
   LogOut,
@@ -173,6 +174,9 @@ export default function HeaderMobile({ rayons }: HeaderMobileProps) {
                 </AccountLink>
                 <AccountLink href={`/user/${session.user.id}/order`} icon={Package} onClick={close}>
                   Mes commandes
+                </AccountLink>
+                <AccountLink href="/user/favoris" icon={Heart} onClick={close}>
+                  Mes favoris
                 </AccountLink>
                 {session.user.role === "Admin" && (
                   <AccountLink href="/admin" icon={ShieldCheck} onClick={close}>
