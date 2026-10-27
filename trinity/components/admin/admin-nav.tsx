@@ -40,7 +40,10 @@ function Brand({ store }: { store: string | null }) {
   );
 }
 
-function NavLinks({ store, onNavigate }: { store: string | null; onNavigate?: () => void }) {
+// Nombre d'éléments à traiter sur une page (lots à donner ou à jeter), affiché à côté de son lien
+type NavAlerts = Record<string, number>;
+
+function NavLinks({ store, alerts, onNavigate }: { store: string | null; alerts: NavAlerts; onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <ul className="space-y-1">
@@ -58,7 +61,12 @@ function NavLinks({ store, onNavigate }: { store: string | null; onNavigate?: ()
               )}
             >
               <Icon size={18} aria-hidden />
-              {label}
+              <span className="flex-1">{label}</span>
+              {(alerts[href] ?? 0) > 0 && (
+                <span className="rounded-full bg-promo px-2 py-0.5 text-[11px] font-black text-white" aria-label={`${alerts[href]} à traiter`}>
+                  {alerts[href] > 99 ? "99+" : alerts[href]}
+                </span>
+              )}
             </Link>
           </li>
         );
@@ -101,7 +109,7 @@ function Footer({ name, email, store }: { name: string; email: string; store: st
 }
 
 // Menu du back-office ; `store` est le nom du magasin d'un compte magasin, null pour le siège
-export default function AdminNav({ name, email, store }: { name: string; email: string; store: string | null }) {
+export default function AdminNav({ name, email, store, alerts = {} }: { name: string; email: string; store: string | null; alerts?: NavAlerts }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -110,7 +118,7 @@ export default function AdminNav({ name, email, store }: { name: string; email: 
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-8 bg-brand-dark px-4 py-6 lg:flex">
         <Brand store={store} />
         <nav aria-label="Administration" className="flex-1">
-          <NavLinks store={store} />
+          <NavLinks store={store} alerts={alerts} />
         </nav>
         <Footer name={name} email={email} store={store} />
       </aside>
@@ -127,7 +135,7 @@ export default function AdminNav({ name, email, store }: { name: string; email: 
             <SheetTitle className="sr-only">Menu de l’administration</SheetTitle>
             <Brand store={store} />
             <nav aria-label="Administration" className="flex-1">
-              <NavLinks store={store} onNavigate={() => setOpen(false)} />
+              <NavLinks store={store} alerts={alerts} onNavigate={() => setOpen(false)} />
             </nav>
             <Footer name={name} email={email} store={store} />
           </SheetContent>

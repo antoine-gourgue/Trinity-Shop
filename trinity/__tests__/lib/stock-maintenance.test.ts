@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import prisma from "@/lib/prisma";
-import { autoReplenish, receiveOverdueRestocks } from "@/lib/stock-maintenance";
+import { autoReplenish, receiveOverdueRestocks, withdrawExpiredLots } from "@/lib/stock-maintenance";
 
 jest.mock("@/lib/prisma", () => {
     const client = {
@@ -14,8 +14,30 @@ jest.mock("@/lib/prisma", () => {
         $executeRaw: jest.fn(),
         $transaction: jest.fn(),
     };
-    client.$transaction.mockImplementation((run: (tx: typeof client) => unknown) => run(client));
+    // Transaction interactive (rappel) ou lot d'opérations (tableau)
+    client.$transaction.mockImplementation((operations: unknown) =>
+        typeof operations === "function" ? (operations as (tx: typeof client) => unknown)(client) : Promise.all(operations as unknown[])
+    );
     return client;
+});
+
+describe("withdrawExpiredLots", () => {
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it("takes the lots past their date out of the stock, to be thrown away (never donated)", async () => {
+        (prisma.$executeRaw as jest.Mock).mockResolvedValueOnce(5).mockResolvedValueOnce(7);
+
+        await expect(withdrawExpiredLots(new Date("2026-10-27T23:05:00Z"))).resolves.toBe(7);
+
+        const [[stockQuery, stockToday], [lotQuery]] = (prisma.$executeRaw as jest.Mock<unknown, [TemplateStringsArray, Date]>).mock.calls;
+        expect(stockQuery.join("?")).toContain('UPDATE "StoreStock"');
+        expect(lotQuery.join("?")).toContain('SET "withdrawnAt" = NOW()');
+        expect(lotQuery.join("?")).not.toContain("donatedQuantity");
+        // Date du jour à Paris : les lots datés d'hier ou avant
+        expect(stockToday).toEqual(new Date("2026-10-28T00:00:00Z"));
+    });
 });
 
 describe("autoReplenish", () => {

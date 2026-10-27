@@ -3,7 +3,7 @@
  */
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { releaseAllocations, setStockQuantity, takeFromLots, trimAllocations } from "@/lib/stock-lots";
+import { releaseAllocations, setStockQuantity, takeFromLots, trimAllocations, unitsValidAt } from "@/lib/stock-lots";
 import { bestBeforeIn } from "@/lib/shelf-life";
 
 jest.mock("@/lib/prisma", () => ({
@@ -66,6 +66,29 @@ describe("takeFromLots", () => {
             where: { id: "older", quantity: { gte: 4 } },
             data: { quantity: { decrement: 4 }, soldQuantity: { increment: 4 } },
         });
+    });
+});
+
+describe("unitsValidAt", () => {
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it("only counts the lots that still hold on the pickup day", async () => {
+        tx.stockLot.findMany.mockResolvedValue([
+            { quantity: 4, bestBefore: new Date("2026-10-28T00:00:00Z") },
+            { quantity: 9, bestBefore: new Date("2026-11-10T00:00:00Z") },
+        ]);
+
+        await expect(unitsValidAt(client, "nantes", "p1", new Date("2026-10-29T00:00:00Z"))).resolves.toBe(9);
+        // Jamais un lot périmé, retiré de la vente
+        expect(call<{ where: Record<string, unknown> }>(tx.stockLot.findMany).where).toMatchObject({ withdrawnAt: null, closedAt: null });
+    });
+
+    it("has nothing to say about a stock without lots", async () => {
+        tx.stockLot.findMany.mockResolvedValue([]);
+
+        await expect(unitsValidAt(client, "nantes", "p1", new Date("2026-10-29T00:00:00Z"))).resolves.toBeNull();
     });
 });
 

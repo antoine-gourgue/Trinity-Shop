@@ -205,9 +205,9 @@ describe("POST /api/orders", () => {
             },
         });
 
-        // Les unités viennent des lots aux dates les plus longues, rattachés à la ligne
+        // Lots encore bons le jour du retrait (jamais un lot périmé), puis unités prises aux dates les plus longues
         expect(prisma.stockLot.findMany).toHaveBeenCalledWith(
-            expect.objectContaining({ where: { storeId: "store1", productId: "prod1", closedAt: null, quantity: { gt: 0 } } })
+            expect.objectContaining({ where: { storeId: "store1", productId: "prod1", closedAt: null, withdrawnAt: null, quantity: { gt: 0 } } })
         );
 
         // Le stock du drive n'est décompté que s'il reste assez d'articles
@@ -240,6 +240,19 @@ describe("POST /api/orders", () => {
 
         expect(jsonMock).toHaveBeenCalledWith({ data: mockOrder }, { status: 201 });
         expect(after).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses units whose lots expire before the pickup", async () => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [CART_ITEM] });
+        (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
+        // Un seul lot de 5 unités, à la date d'aujourd'hui : rien ne tient jusqu'au retrait
+        (prisma.stockLot.findMany as jest.Mock).mockResolvedValueOnce([{ quantity: 5, bestBefore: new Date("2000-01-01T00:00:00Z") }]);
+
+        await POST(buildRequest("/api/orders", { method: "POST", body: { userId: "user123", cartId: "cart456", billingAddressId: "111111" } }));
+
+        expect(prisma.storeStock.updateMany).not.toHaveBeenCalled();
+        expect(NextResponse.json).toHaveBeenCalledWith({ error: "Out of stock", products: ["Lait demi-écrémé"] }, { status: 409 });
     });
 
     it("should refuse an empty cart", async () => {

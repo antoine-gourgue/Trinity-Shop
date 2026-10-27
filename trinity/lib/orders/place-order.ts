@@ -4,8 +4,8 @@ import { SLOT_CAPACITY } from "@/lib/checkout";
 import { storeStockMap } from "@/lib/stock";
 import { orderNumber } from "@/lib/account";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
-import { allocateAntiGaspi } from "@/lib/anti-gaspi";
-import { takeFromLots } from "@/lib/stock-lots";
+import { allocateAntiGaspi, bestBeforeFromDay, parisDay } from "@/lib/anti-gaspi";
+import { takeFromLots, unitsValidAt } from "@/lib/stock-lots";
 
 // Passage d'une commande, partagé par l'API (paiement simulé) et la confirmation d'un paiement Stripe
 
@@ -108,6 +108,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
 
   const total = cartTotal(cart.productsInCart);
   const requestedVouchers = Math.max(0, input.loyaltyVouchers);
+  // Jour du retrait (ou de la livraison) : un lot qui expire avant ne se vend pas
+  const pickupDay = bestBeforeFromDay(parisDay(pickupSlot ?? new Date()));
 
   try {
     const order = await prisma.$transaction(async (prisma) => {
@@ -153,10 +155,15 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
 
       if (await slotIsFull(prisma, storeId, pickupSlot)) throw new PlaceOrderFailure({ code: "slot_full" });
 
-      // Stock du drive décompté article par article : la mise à jour n'aboutit que si la quantité suffit,
-      // et une seule rupture annule toute la transaction
+      // Stock du drive décompté article par article : la mise à jour n'aboutit que si la quantité suffit
+      // (en unités encore bonnes le jour du retrait), et une seule rupture annule toute la transaction
       const missing: string[] = [];
       for (const item of cart.productsInCart) {
+        const valid = await unitsValidAt(prisma, storeId, item.productId, pickupDay);
+        if (valid !== null && valid < item.quantity) {
+          missing.push(item.product.name);
+          continue;
+        }
         const { count } = await prisma.storeStock.updateMany({
           where: { storeId, productId: item.productId, quantity: { gte: item.quantity } },
           data: { quantity: { decrement: item.quantity } },
@@ -175,6 +182,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
           outcome: "sold",
           order: "freshest",
           lineId: item.id,
+          validFrom: pickupDay,
         });
       }
 
@@ -235,6 +243,11 @@ export async function checkAvailability(cartId: string, pickupSlot: Date | null,
     select: { quantity: true, product: { select: { id: true, name: true } } },
   });
   const stock = await storeStockMap(storeId, items.map((item) => item.product.id));
-  const missing = items.filter((item) => (stock.get(item.product.id) ?? 0) < item.quantity).map((item) => item.product.name);
+  const pickupDay = bestBeforeFromDay(parisDay(pickupSlot ?? new Date()));
+  const missing: string[] = [];
+  for (const item of items) {
+    const valid = await unitsValidAt(prisma, storeId, item.product.id, pickupDay);
+    if ((stock.get(item.product.id) ?? 0) < item.quantity || (valid !== null && valid < item.quantity)) missing.push(item.product.name);
+  }
   return missing.length ? { code: "out_of_stock", products: missing } : null;
 }

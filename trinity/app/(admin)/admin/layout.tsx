@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import AdminNav from "@/components/admin/admin-nav";
+import { bestBeforeFromDay, parisDay } from "@/lib/anti-gaspi";
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
@@ -18,10 +19,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const user = session?.user?.id
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { firstName: true, lastName: true, email: true, role: true, store: { select: { name: true } } },
+        select: { firstName: true, lastName: true, email: true, role: true, storeId: true, store: { select: { name: true } } },
       })
     : null;
   const allowed = user?.role === "Admin" || (user?.role === "StoreManager" && !!user.store);
+  // Lots à traiter aujourd'hui (date du jour à donner, ou périmés à jeter), signalés dans le menu :
+  // ceux du magasin pour un compte magasin, du réseau pour le siège
+  const lotsToHandle = allowed
+    ? await prisma.stockLot.count({
+        where: {
+          ...(user?.role === "StoreManager" && user.storeId ? { storeId: user.storeId } : {}),
+          closedAt: null,
+          quantity: { gt: 0 },
+          bestBefore: { lte: bestBeforeFromDay(parisDay(new Date())) },
+        },
+      })
+    : 0;
 
   if (!user || !allowed) {
     return (
@@ -63,6 +76,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         name={`${user.firstName} ${user.lastName}`.trim()}
         email={user.email}
         store={user.role === "StoreManager" ? (user.store?.name ?? null) : null}
+        alerts={{ "/admin/anti-gaspi": lotsToHandle }}
       />
       <main className="lg:pl-64">
         <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8">{children}</div>

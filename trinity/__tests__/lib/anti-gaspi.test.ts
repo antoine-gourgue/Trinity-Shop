@@ -3,6 +3,7 @@ import {
     bestBeforeFromDay,
     daysLeft,
     lotPricing,
+    lotStage,
     markdownPercent,
     unitDiscount,
     validAtPickup,
@@ -57,6 +58,20 @@ describe("lotPricing", () => {
     it("is off sale once the lot is closed or sold out", () => {
         expect(lotPricing(lot({ closedAt: NOW }), 1190, NOW)).toBeNull();
         expect(lotPricing(lot({ quantity: 0 }), 1190, NOW)).toBeNull();
+    });
+});
+
+describe("lotStage", () => {
+    const at = (day: string, withdrawnAt: Date | null = null) => ({ bestBefore: bestBeforeFromDay(day), markdownDays: 5, withdrawnAt });
+
+    it("follows a lot to the end of its life", () => {
+        expect(lotStage(at("2026-11-20"), NOW)).toBe("in-stock");
+        expect(lotStage(at("2026-10-29"), NOW)).toBe("on-sale");
+        // Date du jour : plus vendu en ligne, à donner
+        expect(lotStage(at("2026-10-27"), NOW)).toBe("last-day");
+        // Date passée, ou retiré de la vente la nuit : à jeter
+        expect(lotStage(at("2026-10-26"), NOW)).toBe("expired");
+        expect(lotStage(at("2026-10-27", NOW), NOW)).toBe("expired");
     });
 });
 

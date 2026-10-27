@@ -107,6 +107,17 @@ export function allocateAntiGaspi(lines: AntiGaspiCartLine[], storeId: string | 
   return { allocations, discount: allocations.reduce((total, allocation) => total + allocation.discount, 0) };
 }
 
+// Où en est un lot ouvert : périmé (retiré de la vente, à jeter), dernier jour (à donner),
+// en vente anti-gaspi, ou encore en rayon au prix normal
+export type LotStage = "expired" | "last-day" | "on-sale" | "in-stock";
+
+export function lotStage(lot: { bestBefore: Date; markdownDays: number; withdrawnAt: Date | null }, now = new Date()): LotStage {
+  const days = daysLeft(lot.bestBefore, now);
+  if (lot.withdrawnAt || days < 0) return "expired";
+  if (days === 0) return "last-day";
+  return markdownPercent(days, lot.markdownDays) === null ? "in-stock" : "on-sale";
+}
+
 // « à consommer jusqu'au mercredi 29 octobre »
 export function formatBestBefore(bestBefore: Date) {
   return bestBefore.toLocaleDateString("fr-FR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });

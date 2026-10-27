@@ -5,7 +5,7 @@ import { Boxes, CalendarClock, Layers, ShieldCheck } from "lucide-react";
 import { getStockDetail, LOW_STOCK, type StockDetail } from "@/lib/admin/queries";
 import { backOfficePage } from "@/lib/admin/access";
 import { orderNumber } from "@/lib/account";
-import { daysLeft, daysLeftLabel, formatBestBefore, lotDay, lotPricing } from "@/lib/anti-gaspi";
+import { daysLeft, daysLeftLabel, formatBestBefore, lotDay, lotPricing, lotStage } from "@/lib/anti-gaspi";
 import { formatBrand, formatPrice } from "@/lib/format";
 import { formatDelivery, suggestedQuantity } from "@/lib/restock";
 import { AdminPageHeader, Badge, EmptyState, Panel, StatCard, formatDate } from "@/components/admin/admin-ui";
@@ -32,11 +32,16 @@ function lotOutcomes(lot: Lot) {
 
 function LotStatus({ lot, price }: { lot: Lot; price: number }) {
   if (lot.closedAt) return <Badge tone="muted">Clos le {formatDate(lot.closedAt)}</Badge>;
-  const days = daysLeft(lot.bestBefore);
-  if (days <= 0) return <Badge tone="danger">À retirer ({daysLeftLabel(days)})</Badge>;
-  const pricing = lotPricing(lot, price);
-  if (pricing) return <Badge tone="success">Anti-gaspi −{pricing.percent} %</Badge>;
-  return <Badge tone="brand">En rayon</Badge>;
+  switch (lotStage(lot)) {
+    case "expired":
+      return <Badge tone="danger">Périmé, à jeter</Badge>;
+    case "last-day":
+      return <Badge tone="warning">Dernier jour, à donner</Badge>;
+    case "on-sale":
+      return <Badge tone="success">Anti-gaspi −{lotPricing(lot, price)?.percent} %</Badge>;
+    case "in-stock":
+      return <Badge tone="brand">En rayon</Badge>;
+  }
 }
 
 // Stock d'un produit dans un magasin : ses lots datés, les commandes servies par chacun et son réassort
@@ -46,7 +51,8 @@ export default async function StockPage({ params }: { params: Promise<{ id: stri
   // Le stock d'un autre magasin n'existe pas pour un compte magasin
   if (!stock || (store && stock.storeId !== store.id)) notFound();
 
-  const openLots = stock.lots.filter((lot) => !lot.closedAt);
+  // Lots en vente (les lots périmés, retirés de la vente, attendent d'être jetés)
+  const openLots = stock.lots.filter((lot) => !lot.closedAt && !lot.withdrawnAt);
   const nearest = openLots[0]?.bestBefore ?? null;
   const pending = stock.restocks.filter((order) => order.status === "ordered");
   const traced = stock.lots.filter((lot) => lot.allocations.length > 0);
@@ -116,8 +122,8 @@ export default async function StockPage({ params }: { params: Promise<{ id: stri
                       ].join(" · ")}
                     </span>
                   </span>
-                  {!lot.closedAt && lot.quantity > 0 && (daysLeft(lot.bestBefore) <= 0 || lotPricing(lot, stock.product.price)) && (
-                    <LotActions lotId={lot.id} productName={stock.product.name} quantity={lot.quantity} />
+                  {!lot.closedAt && lot.quantity > 0 && lotStage(lot) !== "in-stock" && (
+                    <LotActions lotId={lot.id} productName={stock.product.name} quantity={lot.quantity} expired={lotStage(lot) === "expired"} />
                   )}
                 </li>
               );

@@ -9,15 +9,20 @@ import type { AdminResult } from "@/lib/server-actions/admin-actions";
 
 const fail = (error: string): AdminResult => ({ ok: false, error });
 
-// Clôt un lot à date courte : les unités restantes sont données (association, banque alimentaire) ou
-// jetées, et quittent le stock du magasin
+// Clôt un lot à date courte : les unités restantes sont données (association, banque alimentaire,
+// jusqu'au jour de la date) ou jetées, et quittent le stock du magasin. Un lot périmé, déjà retiré
+// de la vente par la tâche de la nuit, ne peut plus qu'être jeté.
 export async function closeLot(lotId: string, outcome: "donated" | "wasted"): Promise<AdminResult> {
   const access = await requireBackOffice();
   if (outcome !== "donated" && outcome !== "wasted") return fail("Issue du lot invalide.");
-  const lot = await prisma.stockLot.findUnique({ where: { id: lotId }, select: { storeId: true, productId: true, closedAt: true } });
+  const lot = await prisma.stockLot.findUnique({
+    where: { id: lotId },
+    select: { storeId: true, productId: true, closedAt: true, withdrawnAt: true },
+  });
   if (!lot) return fail("Lot introuvable.");
   if (access.store && lot.storeId !== access.store.id) throw new AccessDeniedError();
   if (lot.closedAt) return fail("Ce lot est déjà clos.");
+  if (lot.withdrawnAt && outcome === "donated") return fail("Ce lot est périmé : il ne peut plus être donné, seulement jeté.");
 
   const closed = await prisma.$transaction(async (tx) => {
     // Quantité relue dans la transaction : une commande a pu prendre des unités entre-temps
@@ -35,7 +40,8 @@ export async function closeLot(lotId: string, outcome: "donated" | "wasted"): Pr
       where: { storeId_productId: { storeId: lot.storeId, productId: lot.productId } },
       select: { quantity: true },
     });
-    if (stock && current.quantity > 0) {
+    // Un lot périmé a déjà quitté le stock à son retrait de la vente
+    if (stock && current.quantity > 0 && !lot.withdrawnAt) {
       await tx.storeStock.update({
         where: { storeId_productId: { storeId: lot.storeId, productId: lot.productId } },
         data: { quantity: Math.max(0, stock.quantity - current.quantity) },

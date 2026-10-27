@@ -343,6 +343,8 @@ model StockLot {
   wastedQuantity   Int             @default(0)
   // Unités retirées par une correction d'inventaire (rayon vide à la préparation, comptage)
   adjustedQuantity Int             @default(0)
+  // Date passée : le lot est retiré de la vente (il ne compte plus dans le stock) et attend d'être jeté
+  withdrawnAt      DateTime?
   // Lot clos : tout est parti, ou le reste a été donné ou jeté
   closedAt         DateTime?
   receivedAt       DateTime        @default(now())

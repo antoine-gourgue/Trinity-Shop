@@ -33,13 +33,16 @@ export interface TakeFromLots {
   order: "freshest" | "oldest";
   // Ligne de commande servie, pour la traçabilité
   lineId?: string;
+  // Vente : seulement les lots encore bons ce jour-là (jour du retrait)
+  validFrom?: Date;
 }
 
 // Retire des unités des lots ouverts d'un produit ; renvoie le nombre d'unités réellement retirées
-export async function takeFromLots(tx: Tx, { storeId, productId, quantity, outcome, order, lineId }: TakeFromLots) {
+export async function takeFromLots(tx: Tx, { storeId, productId, quantity, outcome, order, lineId, validFrom }: TakeFromLots) {
   if (quantity <= 0) return 0;
   const lots = await tx.stockLot.findMany({
-    where: { storeId, productId, closedAt: null, quantity: { gt: 0 } },
+    // Jamais un lot périmé, retiré de la vente
+    where: { storeId, productId, closedAt: null, withdrawnAt: null, quantity: { gt: 0 }, ...(validFrom && { bestBefore: { gte: validFrom } }) },
     orderBy: [{ bestBefore: order === "freshest" ? "desc" : "asc" }, { createdAt: "asc" }],
     select: { id: true, quantity: true },
   });
@@ -109,9 +112,10 @@ export async function setStockQuantity(tx: Tx, { storeId, productId, quantity, s
   }
 }
 
-// Rayon vide à la préparation : le stock affiché était faux, tous les lots du produit sont remis à zéro
+// Rayon vide à la préparation : le stock affiché était faux, tous les lots en vente du produit sont
+// remis à zéro (les lots périmés, retirés de la vente, attendent d'être jetés)
 export async function emptyShelf(tx: Tx, storeId: string, productId: string) {
-  const lots = await tx.stockLot.findMany({ where: { storeId, productId, closedAt: null }, select: { id: true, quantity: true } });
+  const lots = await tx.stockLot.findMany({ where: { storeId, productId, closedAt: null, withdrawnAt: null }, select: { id: true, quantity: true } });
   for (const lot of lots) {
     await tx.stockLot.update({
       where: { id: lot.id },
@@ -119,6 +123,17 @@ export async function emptyShelf(tx: Tx, storeId: string, productId: string) {
     });
   }
   await tx.storeStock.updateMany({ where: { storeId, productId }, data: { quantity: 0 } });
+}
+
+// Unités vendables pour un retrait ce jour-là : celles des lots qui tiennent jusqu'à la date du
+// retrait ; null pour un stock qui n'a pas (encore) de lots
+export async function unitsValidAt(client: Pick<Tx, "stockLot">, storeId: string, productId: string, day: Date) {
+  const lots = await client.stockLot.findMany({
+    where: { storeId, productId, closedAt: null, withdrawnAt: null, quantity: { gt: 0 } },
+    select: { quantity: true, bestBefore: true },
+  });
+  if (lots.length === 0) return null;
+  return lots.filter((lot) => lot.bestBefore.getTime() >= day.getTime()).reduce((total, lot) => total + lot.quantity, 0);
 }
 
 // Unités manquantes à la préparation : elles ne viennent d'aucun lot, la traçabilité de la ligne est

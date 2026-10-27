@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { HandHeart, Recycle, ShoppingBag, Trash2 } from "lucide-react";
+import { AlertTriangle, HandHeart, Recycle, ShoppingBag, Trash2 } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { getAntiGaspiBoard, parseAdminParams, type AdminLot } from "@/lib/admin/queries";
 import { formatRate } from "@/lib/admin/operations";
-import { daysLeft, daysLeftLabel, formatBestBefore, lotDay, lotPricing } from "@/lib/anti-gaspi";
+import { formatBestBefore, lotDay, lotPricing, lotStage } from "@/lib/anti-gaspi";
+import { findRayonForCategories } from "@/lib/rayons";
 import { formatPrice } from "@/lib/format";
 import { backOfficePage } from "@/lib/admin/access";
 import { AdminPageHeader, Badge, EmptyState, Panel, StatCard, formatDate } from "@/components/admin/admin-ui";
@@ -20,6 +21,13 @@ function saleStart(lot: AdminLot) {
   return formatBestBefore(start);
 }
 
+// Rayon du produit, pour retrouver le lot en magasin
+function rayonOf(lot: AdminLot) {
+  const match = findRayonForCategories(lot.product.categories.map((category) => category.categoryName));
+  return match ? (match.subCategory?.label ?? match.rayon.shortName) : null;
+}
+
+// Un lot à retrouver en rayon : photo, rayon, code-barres, date et unités restantes
 function LotRow({ lot, showStore, children }: { lot: AdminLot; showStore: boolean; children?: React.ReactNode }) {
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-3.5">
@@ -28,9 +36,9 @@ function LotRow({ lot, showStore, children }: { lot: AdminLot; showStore: boolea
         <span className="block truncate text-sm font-semibold">{lot.product.name}</span>
         <span className="block text-xs text-muted-foreground">
           {[
-            `${lot.quantity} / ${lot.initialQuantity} unité${lot.initialQuantity > 1 ? "s" : ""}`,
-            `jusqu'au ${formatBestBefore(lot.bestBefore)}`,
-            lot.soldQuantity > 0 ? `${lot.soldQuantity} vendue${lot.soldQuantity > 1 ? "s" : ""} en ligne` : null,
+            `${lot.quantity} unité${lot.quantity > 1 ? "s" : ""} jusqu'au ${formatBestBefore(lot.bestBefore)}`,
+            rayonOf(lot),
+            lot.product.barCode.toString(),
             showStore ? lot.store.name : null,
           ]
             .filter(Boolean)
@@ -52,17 +60,21 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
   const now = new Date();
   const showStore = !store && !filtered;
 
-  const toRemove = board.open.filter((lot) => daysLeft(lot.bestBefore, now) <= 0);
-  const onSale = board.open.filter((lot) => lotPricing(lot, lot.product.price, now));
+  const stage = (wanted: ReturnType<typeof lotStage>) => board.open.filter((lot) => lotStage(lot, now) === wanted);
+  // Périmés (retirés de la vente la nuit) : à jeter ; date du jour : à donner aujourd'hui
+  const expired = stage("expired");
+  const lastDay = stage("last-day");
+  const onSale = stage("on-sale");
   // Dates courtes pas encore dans leur fenêtre (le pain n'est soldé que la veille)
-  const upcoming = board.open.filter((lot) => daysLeft(lot.bestBefore, now) > 0 && !lotPricing(lot, lot.product.price, now));
+  const upcoming = stage("in-stock");
   const unitsOnSale = onSale.reduce((total, lot) => total + lot.quantity, 0);
+  const toHandle = expired.length + lastDay.length;
 
   return (
     <div>
       <AdminPageHeader
         title="Anti-gaspi"
-        description={`${store ? `Dates courtes de ${store.name}` : "Dates courtes des drives Trinity"} : vendues en ligne à prix réduit, puis données.`}
+        description={`${store ? `Dates courtes de ${store.name}` : "Dates courtes des drives Trinity"} : vendues en ligne à prix réduit, données le dernier jour, jetées une fois périmées.`}
       />
       {!store && (
         <div className="mb-4 sm:max-w-xs">
@@ -76,22 +88,22 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="À traiter aujourd'hui"
+          value={toHandle}
+          hint={`${expired.length} périmé${expired.length > 1 ? "s" : ""} à jeter · ${lastDay.length} à donner`}
+          icon={AlertTriangle}
+          tone={toHandle ? "promo" : "muted"}
+        />
         <StatCard label="En vente en ligne" value={unitsOnSale} hint={`${onSale.length} lot${onSale.length > 1 ? "s" : ""} à prix réduit`} icon={ShoppingBag} />
         <StatCard
           label="Sauvés · 30 j"
           value={board.totals.saved}
-          hint={`${board.totals.sold} vendus, ${board.totals.donated} donnés`}
+          hint={`${board.totals.sold} vendus, ${board.totals.donated} donnés · ${formatRate(board.totals.rescueRate)} sauvés`}
           icon={HandHeart}
           tone="bio"
         />
         <StatCard label="Jetés · 30 j" value={board.totals.wasted} hint="Unités perdues" icon={Trash2} tone={board.totals.wasted ? "promo" : "muted"} />
-        <StatCard
-          label="Taux de sauvetage"
-          value={formatRate(board.totals.rescueRate)}
-          hint="Unités vendues ou données"
-          icon={Recycle}
-          tone="highlight"
-        />
       </div>
 
       <div className="grid items-start gap-6 xl:grid-cols-3">
@@ -106,19 +118,37 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
               au plus (la veille seulement pour le pain), −20 % puis −30 % à J-3, −40 % à J-2 et −50 % la veille.
             </li>
             <li>
-              <span className="font-bold">À la date, le reste est donné</span> à l&apos;association partenaire, sauf ce que
-              vous déclarez jeté (produit abîmé).
+              <span className="font-bold">Le jour de la date, donnez ce qui reste</span> à l&apos;association partenaire
+              (« Donné ») : il ne se vend plus en ligne, le premier retrait étant le lendemain.
+            </li>
+            <li>
+              <span className="font-bold">Date passée : le lot est retiré de la vente</span> pendant la nuit et passe « à
+              jeter ». Retirez-le du rayon grâce au rayon et au code-barres indiqués, puis confirmez « Jeté » : un produit
+              périmé ne se donne plus.
             </li>
           </ol>
         </Panel>
 
         <div className="space-y-6 xl:col-span-2">
-          {toRemove.length > 0 && (
-            <Panel title="À retirer du rayon" description="Date limite atteinte : à donner si possible, sinon à jeter" padded={false}>
+          {expired.length > 0 && (
+            <Panel title="Périmés : à jeter" description="Retirés de la vente : à enlever du rayon, puis à confirmer jetés" padded={false}>
               <ul className="divide-y">
-                {toRemove.map((lot) => (
+                {expired.map((lot) => (
                   <LotRow key={lot.id} lot={lot} showStore={showStore}>
-                    <Badge tone="danger">{daysLeftLabel(daysLeft(lot.bestBefore, now))}</Badge>
+                    <Badge tone="danger">Périmé</Badge>
+                    <LotActions lotId={lot.id} productName={lot.product.name} quantity={lot.quantity} expired />
+                  </LotRow>
+                ))}
+              </ul>
+            </Panel>
+          )}
+
+          {lastDay.length > 0 && (
+            <Panel title="Dernier jour : à donner" description="Date limite aujourd'hui : plus vendu en ligne, à donner avant ce soir" padded={false}>
+              <ul className="divide-y">
+                {lastDay.map((lot) => (
+                  <LotRow key={lot.id} lot={lot} showStore={showStore}>
+                    <Badge tone="warning">Aujourd&apos;hui</Badge>
                     <LotActions lotId={lot.id} productName={lot.product.name} quantity={lot.quantity} />
                   </LotRow>
                 ))}

@@ -4,13 +4,13 @@
 import { GET } from "@/app/api/cron/maintenance/route";
 import { expirePromotions } from "@/lib/promotions";
 import { purgeExpiredRateLimits } from "@/lib/rate-limit";
-import { autoReplenish, donateExpiredLots, receiveOverdueRestocks } from "@/lib/stock-maintenance";
+import { autoReplenish, receiveOverdueRestocks, withdrawExpiredLots } from "@/lib/stock-maintenance";
 import { buildRequest } from "@/test-utils/requests";
 
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/promotions", () => ({ expirePromotions: jest.fn() }));
 jest.mock("@/lib/rate-limit", () => ({ purgeExpiredRateLimits: jest.fn() }));
-jest.mock("@/lib/stock-maintenance", () => ({ donateExpiredLots: jest.fn(), receiveOverdueRestocks: jest.fn(), autoReplenish: jest.fn() }));
+jest.mock("@/lib/stock-maintenance", () => ({ withdrawExpiredLots: jest.fn(), receiveOverdueRestocks: jest.fn(), autoReplenish: jest.fn() }));
 
 function cronRequest(authorization?: string) {
     const request = buildRequest("/api/cron/maintenance");
@@ -25,7 +25,7 @@ describe("GET /api/cron/maintenance", () => {
         process.env.CRON_SECRET = "cron-test-secret";
         (expirePromotions as jest.Mock).mockResolvedValue(["p1"]);
         (purgeExpiredRateLimits as jest.Mock).mockResolvedValue({ count: 4 });
-        (donateExpiredLots as jest.Mock).mockResolvedValue(12);
+        (withdrawExpiredLots as jest.Mock).mockResolvedValue(12);
         (receiveOverdueRestocks as jest.Mock).mockResolvedValue(3);
         (autoReplenish as jest.Mock).mockResolvedValue(40);
     });
@@ -55,7 +55,7 @@ describe("GET /api/cron/maintenance", () => {
         await expect(response.json()).resolves.toEqual({
             endedPromotions: 1,
             purgedRateLimits: 4,
-            donatedLots: 12,
+            withdrawnLots: 12,
             receivedRestocks: 3,
             restockOrders: 40,
         });

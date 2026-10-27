@@ -50,6 +50,26 @@ describe("closeLot", () => {
         });
     });
 
+    it("throws an expired lot away without taking it out of the stock twice, and never donates it", async () => {
+        (prisma.$transaction as jest.Mock).mockImplementation((run: (tx: typeof prisma) => unknown) => run(prisma));
+        (prisma.stockLot.findUnique as jest.Mock)
+            .mockReset()
+            .mockResolvedValueOnce({ storeId: "nantes", productId: "p1", closedAt: null, withdrawnAt: new Date() })
+            .mockResolvedValueOnce({ storeId: "nantes", productId: "p1", closedAt: null, withdrawnAt: new Date() })
+            .mockResolvedValueOnce({ quantity: 4, closedAt: null });
+
+        await expect(closeLot("lot1", "donated")).resolves.toEqual({
+            ok: false,
+            error: "Ce lot est périmé : il ne peut plus être donné, seulement jeté.",
+        });
+        await expect(closeLot("lot1", "wasted")).resolves.toEqual({ ok: true });
+
+        const [[lotUpdate]] = (prisma.stockLot.update as unknown as jest.Mock<unknown, [{ data: Record<string, unknown> }]>).mock.calls;
+        expect(lotUpdate.data).toMatchObject({ quantity: 0, wastedQuantity: { increment: 4 } });
+        // Déjà sorti du stock la nuit de son retrait
+        expect(prisma.storeStock.update).not.toHaveBeenCalled();
+    });
+
     it("refuses a lot of another store", async () => {
         (prisma.stockLot.findUnique as jest.Mock).mockReset().mockResolvedValue({ storeId: "rennes", productId: "p1", closedAt: null });
 

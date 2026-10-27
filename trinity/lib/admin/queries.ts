@@ -652,9 +652,12 @@ const LOT_SELECT = {
   soldQuantity: true,
   donatedQuantity: true,
   wastedQuantity: true,
+  withdrawnAt: true,
   closedAt: true,
   store: { select: { name: true, slug: true } },
-  product: { select: { id: true, name: true, price: true, picture: true, netContent: true, barCode: true } },
+  product: {
+    select: { id: true, name: true, price: true, picture: true, netContent: true, barCode: true, categories: { select: { categoryName: true } } },
+  },
 } satisfies Prisma.StockLotSelect;
 
 export type AdminLot = Prisma.StockLotGetPayload<{ select: typeof LOT_SELECT }>;
@@ -776,6 +779,7 @@ export async function getStockDetail(stockId: string) {
     wastedQuantity: true,
     adjustedQuantity: true,
     receivedAt: true,
+    withdrawnAt: true,
     closedAt: true,
     restockOrder: { select: { automatic: true } },
     allocations: {

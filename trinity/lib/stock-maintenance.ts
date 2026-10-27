@@ -7,27 +7,28 @@ import { REORDER_POINT, expectedDelivery, suggestedQuantity } from "@/lib/restoc
 // des milliers de lignes, d'où quelques requêtes SQL groupées. La table des lots garde son nom
 // d'origine (AntiGaspiLot, voir le schéma).
 
-// Lots dont la date est passée : ce qui reste est donné à l'association partenaire (convention de don
-// des grandes surfaces, loi Garot), sauf si le magasin l'a déclaré jeté, et quitte le stock
-export async function donateExpiredLots(now = new Date()) {
+// Lots dont la date est passée : ils sont retirés de la vente (ils quittent le stock du magasin) et
+// attendent que le magasin confirme les avoir jetés. Un produit périmé ne se donne plus : le don se
+// fait jusqu'au jour de la date.
+export async function withdrawExpiredLots(now = new Date()) {
   const today = bestBeforeFromDay(parisDay(now));
-  const [, donated] = await prisma.$transaction([
+  const [, withdrawn] = await prisma.$transaction([
     prisma.$executeRaw`
       UPDATE "StoreStock" AS s
       SET quantity = GREATEST(0, s.quantity - expired.units), "updatedAt" = NOW()
       FROM (
         SELECT "storeId", "productId", SUM(quantity)::int AS units
         FROM "AntiGaspiLot"
-        WHERE "closedAt" IS NULL AND quantity > 0 AND "bestBefore" < ${today}
+        WHERE "closedAt" IS NULL AND "withdrawnAt" IS NULL AND quantity > 0 AND "bestBefore" < ${today}
         GROUP BY "storeId", "productId"
       ) AS expired
       WHERE s."storeId" = expired."storeId" AND s."productId" = expired."productId"`,
     prisma.$executeRaw`
       UPDATE "AntiGaspiLot"
-      SET "donatedQuantity" = "donatedQuantity" + quantity, quantity = 0, "closedAt" = NOW()
-      WHERE "closedAt" IS NULL AND "bestBefore" < ${today}`,
+      SET "withdrawnAt" = NOW()
+      WHERE "closedAt" IS NULL AND "withdrawnAt" IS NULL AND quantity > 0 AND "bestBefore" < ${today}`,
   ]);
-  return donated;
+  return withdrawn;
 }
 
 // Livraisons d'hier (ou avant) que le magasin n'a pas réceptionnées : elles entrent en stock à la
