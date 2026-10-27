@@ -13,6 +13,12 @@ export type FulfillResult =
   | { ok: true; orderId: string; userId: string; created: boolean }
   | { ok: false; reason: "unpaid" | "invalid" | PlaceOrderError["code"]; metadata: CheckoutMetadata | null };
 
+// Magasin du compte, pour un paiement commencé avant que la session Stripe ne porte le magasin
+async function accountStoreId(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { storeId: true } });
+  return user?.storeId ?? null;
+}
+
 async function existingOrder(sessionId: string) {
   return prisma.order.findUnique({ where: { stripeSessionId: sessionId }, select: { id: true, userId: true } });
 }
@@ -46,6 +52,7 @@ export async function fulfillCheckoutSession(stripe: RefundClient, session: Paid
       userId: metadata.userId,
       cartId: metadata.cartId,
       pickupSlot: slot ? slotToDate(slot) : null,
+      storeId: metadata.storeId ?? (await accountStoreId(metadata.userId)),
       delivery: metadata.fulfillment === "delivery" ? { shippingAddressId: metadata.shippingAddressId } : null,
       loyaltyVouchers: metadata.loyaltyVouchers,
       stripeSessionId: session.id,

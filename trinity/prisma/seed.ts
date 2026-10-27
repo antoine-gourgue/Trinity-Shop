@@ -3,6 +3,7 @@ import { faker } from "@faker-js/faker";
 import bcrypt from "bcrypt";
 import { randomBytes } from "node:crypto";
 import productsDataJson from "../data/complete_products.json";
+import { HISTORIC_STORE_SLUG, STORES } from "./stores-data";
 
 const prisma = new PrismaClient();
 
@@ -62,7 +63,12 @@ async function main() {
     await prisma.brand.deleteMany();
     await prisma.user.deleteMany();
     await prisma.address.deleteMany()
+    await prisma.store.deleteMany();
     console.log("✅ Toutes les données ont été supprimées.\n");
+
+    console.log(`🚀 Ajout des ${STORES.length} magasins...`);
+    await prisma.store.createMany({ data: STORES });
+    const historicStore = await prisma.store.findUniqueOrThrow({ where: { slug: HISTORIC_STORE_SLUG }, select: { id: true } });
 
     console.log("🚀 Ajout de l'utilisateur admin...");
     const adminEmail = "admin@trinity.fr";
@@ -232,6 +238,7 @@ async function main() {
           userId: user.id,
           validated: Math.random() > 0.5,
           billingAddressId: billingAddressId,
+          storeId: historicStore.id,
         },
       });
 

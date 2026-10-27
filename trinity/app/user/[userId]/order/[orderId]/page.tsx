@@ -168,8 +168,18 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                     >
                         <p className="text-sm">
                             <span className="font-bold">
-                                {shipping ? `${shipping.street}, ${shipping.zipCode} ${shipping.city}` : "Drive Trinity U Rennes Epitech"}
+                                {shipping
+                                    ? `${shipping.street}, ${shipping.zipCode} ${shipping.city}`
+                                    : `Drive ${order.store?.name ?? "Trinity"}`}
                             </span>
+                            {!shipping && order.store && (
+                                <>
+                                    <br />
+                                    <span className="text-muted-foreground">
+                                        {order.store.street}, {order.store.zipCode} {order.store.city}
+                                    </span>
+                                </>
+                            )}
                             {pickupLabel && (
                                 <>
                                     <br />

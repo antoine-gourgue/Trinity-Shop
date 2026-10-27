@@ -35,6 +35,8 @@ test("un client commande au drive, l'équipe prépare puis annule la commande", 
   await page.getByRole("button", { name: /^Payer / }).click();
   await expect(page).toHaveURL(/\/order\/[^/?]+\?confirmation=1/, { timeout: 30_000 });
   await expect(page.getByText("Merci, votre commande est validée !")).toBeVisible();
+  // Commande préparée par le magasin choisi
+  await expect(page.getByText("Drive Trinity Rennes Epitech").first()).toBeVisible();
   await expect(page.getByText("Reçue").first()).toBeVisible();
   const orderPath = new URL(page.url()).pathname;
   const orderId = orderPath.split("/").pop() ?? "";

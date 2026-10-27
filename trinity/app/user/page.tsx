@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, CreditCard, MapPin, Package, ShoppingBasket } from "lucide-react";
+import { ArrowRight, Clock, CreditCard, MapPin, Package, ShoppingBasket, Store } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { accountLinks, requireUser } from "@/lib/account";
 import OrderCard from "@/components/account/order-card";
 import { AccountCard } from "@/components/account/account-ui";
 import { Button } from "@/components/ui/button";
+import StoreButton from "@/components/store/store-button";
+import { currentStore } from "@/lib/current-store";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,8 @@ export default async function UserPage() {
     const sessionUser = await requireUser();
     const links = accountLinks(sessionUser.id);
 
-    const [user, lastOrder, activeCart] = await Promise.all([
+    const [store, user, lastOrder, activeCart] = await Promise.all([
+        currentStore(),
         prisma.user.findUnique({
             where: { id: sessionUser.id },
             select: {
@@ -118,6 +121,30 @@ export default async function UserPage() {
                     </li>
                 ))}
             </ul>
+
+            {/* Magasin du compte : drive de retrait et départ des livraisons */}
+            <section className="flex flex-wrap items-center gap-4 rounded-3xl border bg-white p-5">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+                    <Store size={22} aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Mon magasin</p>
+                    {store ? (
+                        <>
+                            <p className="font-extrabold">{store.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {store.street}, {store.zipCode} {store.city}
+                            </p>
+                            <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Clock size={14} aria-hidden /> Drive : {store.hours}
+                            </p>
+                        </>
+                    ) : (
+                        <p className="font-extrabold">Aucun magasin choisi pour l’instant</p>
+                    )}
+                </div>
+                <StoreButton variant="link" className="text-sm" />
+            </section>
 
             <section>
                 <div className="mb-3 flex items-end justify-between gap-4">

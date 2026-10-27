@@ -22,6 +22,8 @@ export const checkoutMetadataSchema = z.object({
   userId: z.string().min(1),
   cartId: z.string().min(1),
   pickupSlot: z.string().min(1),
+  // Absent des paiements commencés avant le choix du magasin : le magasin du compte est alors utilisé
+  storeId: z.string().min(1).optional(),
   fulfillment: z.enum(["pickup", "delivery"]),
   shippingAddressId: z.string().min(1).optional(),
   loyaltyVouchers: z.coerce.number().int().min(0),

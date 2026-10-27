@@ -5,6 +5,8 @@ export type PaymentFailure = PlaceOrderError["code"] | "unpaid" | "invalid";
 // Messages affichés au client quand une commande ou un paiement n'aboutit pas
 export function orderFailureMessage(code: PaymentFailure, products: string[] = []) {
   switch (code) {
+    case "store_required":
+      return "Choisissez votre magasin (en haut de la page) avant de commander.";
     case "slot_full":
       return "Ce créneau vient d'être complet : revenez à l'étape précédente pour en choisir un autre.";
     case "out_of_stock":

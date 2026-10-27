@@ -10,6 +10,8 @@ import CheckoutSummary from "@/components/cart/checkout-summary";
 import { useCartSummary } from "@/components/cart/use-cart-summary";
 import { useLoyalty } from "@/components/cart/use-loyalty";
 import AddAddressModal from "@/app/user/modal/AddAddressModal";
+import StoreButton from "@/components/store/store-button";
+import { useStoreChoice } from "@/components/store/store-provider";
 import { pointsForAmount } from "@/lib/loyalty";
 import { getFullSlots, getMyAddresses } from "@/lib/server-actions/checkout-actions";
 import { DELIVERY_FEE, FREE_DELIVERY_FROM, deliveryFee, formatAddressLine, type Fulfillment } from "@/lib/delivery";
@@ -89,6 +91,7 @@ export default function RetraitPage() {
     const userId = session?.user?.id;
     const { cartProducts, totalItems, totalPrice, savings } = useCartSummary();
     const { loyalty } = useLoyalty();
+    const { store } = useStoreChoice();
 
     // Jours calculés côté navigateur (fuseau horaire du client), puis choix déjà faits repris
     const [days, setDays] = useState<ReturnType<typeof pickupDays>>([]);
@@ -127,7 +130,8 @@ export default function RetraitPage() {
             // Le créneau déjà retenu a pu se remplir entre-temps
             setSlot((current) => (current && full.includes(slotParam(current)) ? null : current));
         });
-    }, [days]);
+        // Créneaux du drive choisi : rechargés quand le client change de magasin
+    }, [days, store?.slug]);
 
     const loadAddresses = useCallback(async () => {
         const list = await getMyAddresses();
@@ -174,7 +178,7 @@ export default function RetraitPage() {
     const fee = delivery ? deliveryFee(totalPrice) : 0;
     const selectedAddress = addresses?.find((a) => a.id === addressId) ?? null;
     const selectedDayLabel = days.find((day) => day.date === selectedDay)?.label;
-    const ready = !!slot && (!delivery || !!selectedAddress);
+    const ready = !!store && !!slot && (!delivery || !!selectedAddress);
 
     return (
         <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
@@ -189,6 +193,26 @@ export default function RetraitPage() {
 
             <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
                 <div className="min-w-0 space-y-6">
+                    <section className="flex flex-wrap items-center gap-4 rounded-3xl border bg-white p-5 md:p-6">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+                            <MapPin size={22} aria-hidden />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Votre magasin</p>
+                            {store ? (
+                                <>
+                                    <p className="font-extrabold">{store.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {store.street}, {store.zipCode} {store.city} · Drive : {store.hours}
+                                    </p>
+                                </>
+                            ) : (
+                                <p className="font-extrabold">Choisissez le magasin qui préparera vos courses</p>
+                            )}
+                        </div>
+                        <StoreButton variant="link" className="text-sm" />
+                    </section>
+
                     <section className="rounded-3xl border bg-white p-5 md:p-6">
                         <h2 className="text-lg font-black">Comment souhaitez-vous recevoir vos courses ?</h2>
                         <div role="radiogroup" aria-label="Mode de réception" className="mt-4 grid gap-3">
@@ -197,7 +221,7 @@ export default function RetraitPage() {
                                 onSelect={() => setMode("pickup")}
                                 icon={Store}
                                 title="Retrait au drive"
-                                text="Drive Trinity U Rennes Epitech : vos courses préparées, vous les récupérez sur place."
+                                text={`${store ? `Drive ${store.name}` : "Au drive de votre magasin"} : vos courses préparées, vous les récupérez sur place.`}
                                 price="Gratuit"
                             />
                             <ModeCard
@@ -356,7 +380,11 @@ export default function RetraitPage() {
                     </button>
                     {!ready && (
                         <p className="mt-2 text-center text-xs text-muted-foreground">
-                            {delivery && !selectedAddress ? "Choisissez une adresse et un créneau pour continuer." : "Choisissez un créneau pour continuer."}
+                            {!store
+                                ? "Choisissez votre magasin pour continuer."
+                                : delivery && !selectedAddress
+                                  ? "Choisissez une adresse et un créneau pour continuer."
+                                  : "Choisissez un créneau pour continuer."}
                         </p>
                     )}
                 </CheckoutSummary>

@@ -15,7 +15,7 @@ const priceCell = { ...emailStyles.text, margin: 0, textAlign: "right" as const,
 
 // Confirmation envoyée après chaque commande, avec la facture en pièce jointe
 export function OrderConfirmationEmail({ firstName, invoice, total, orderUrl, siteUrl }: OrderConfirmationEmailProps) {
-  const fulfillment = invoice.delivery ? "Livraison à domicile" : "Retrait au drive Trinity U Rennes Epitech";
+  const fulfillment = invoice.delivery ? "Livraison à domicile" : `Retrait au drive ${invoice.store?.name ?? "Trinity"}`;
 
   return (
     <EmailLayout
@@ -34,6 +34,7 @@ export function OrderConfirmationEmail({ firstName, invoice, total, orderUrl, si
         <Text style={emailStyles.strong}>{fulfillment}</Text>
         {invoice.pickupLabel && <Text style={{ ...emailStyles.muted, margin: 0 }}>{invoice.pickupLabel}</Text>}
         {invoice.delivery && <Text style={{ ...emailStyles.muted, margin: 0 }}>{invoice.delivery.address.join(", ")}</Text>}
+        {!invoice.delivery && invoice.store && <Text style={{ ...emailStyles.muted, margin: 0 }}>{invoice.store.address.join(", ")}</Text>}
       </Section>
 
       {invoice.items.map((item) => (

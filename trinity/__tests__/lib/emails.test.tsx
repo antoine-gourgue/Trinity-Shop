@@ -13,12 +13,14 @@ import { VerifyEmailEmail } from "@/components/emails/verify-email-email";
 import type { InvoiceData } from "@/lib/invoice-pdf";
 
 const SITE = "https://trinity.antoinegourgue.dev";
+const NANTES = { name: "Trinity Nantes Beaujoire", address: "2 route de Saint-Joseph, 44300 Nantes" };
 
 const SAMPLE_INVOICE: InvoiceData = {
     invoiceNumber: "FAC-M482MY2J",
     orderNumber: "M482MY2J",
     createdAt: new Date("2026-10-26T21:50:00Z"),
     pickupLabel: "Mardi 27 octobre, 11h – 12h",
+    store: { name: "Trinity Nantes Beaujoire", address: ["2 route de Saint-Joseph", "44300 Nantes"], phone: null },
     delivery: { address: ["12 rue de la Paix", "35000 Rennes"], fee: 5900 },
     loyalty: { discount: 5000, pointsUsed: 100, pointsEarned: 12, cardNumber: "2911 0000 0042" },
     customer: { name: "Antoine Gourgue", email: "antoine@example.com", address: ["12 rue de la Paix", "35000 Rennes", "France"] },
@@ -73,7 +75,7 @@ describe("e-mails", () => {
 
     it("tells the customer the delivery is being prepared", () => {
         const html = renderToStaticMarkup(
-            <OrderStatusEmail status="preparing" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
+            <OrderStatusEmail store={NANTES} status="preparing" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
                 deliveryAddress="12 rue de Rennes, 35000 Rennes" articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} />
         );
 
@@ -84,17 +86,20 @@ describe("e-mails", () => {
 
     it("tells the customer the order is ready at the drive", () => {
         const html = renderToStaticMarkup(
-            <OrderStatusEmail status="ready" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
+            <OrderStatusEmail store={NANTES} status="ready" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
                 deliveryAddress={null} articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} />
         );
 
         expect(html).toContain("prêtes au drive");
         expect(html).toContain("M482MY2J");
+        // Drive du magasin qui a préparé la commande
+        expect(html).toContain("Elles vous attendent au drive Trinity Nantes Beaujoire");
+        expect(html).toContain("2 route de Saint-Joseph, 44300 Nantes");
     });
 
     it("thanks the customer for picking up the order", () => {
         const html = renderToStaticMarkup(
-            <OrderStatusEmail status="completed" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
+            <OrderStatusEmail store={NANTES} status="completed" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
                 deliveryAddress={null} articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} pointsEarned={13} />
         );
 
@@ -106,7 +111,7 @@ describe("e-mails", () => {
 
     it("explains the refund of a cancelled order", () => {
         const html = renderToStaticMarkup(
-            <OrderStatusEmail status="cancelled" firstName="Antoine" orderNumber="M482MY2J" pickupLabel={null} deliveryAddress={null}
+            <OrderStatusEmail store={NANTES} status="cancelled" firstName="Antoine" orderNumber="M482MY2J" pickupLabel={null} deliveryAddress={null}
                 articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} refundedAmount={13470} vouchersReturned />
         );
 

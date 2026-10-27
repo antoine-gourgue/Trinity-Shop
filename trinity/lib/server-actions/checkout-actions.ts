@@ -4,21 +4,24 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { SLOT_CAPACITY, pickupHours, slotParam, slotToDate } from "@/lib/checkout";
+import { currentStore } from "@/lib/current-store";
 
 const pickupDatesSchema = z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(14);
 
-// Créneaux complets parmi les jours proposés, au format « AAAA-MM-JJ_HH » ;
+// Créneaux complets du drive du client parmi les jours proposés, au format « AAAA-MM-JJ_HH » ;
 // les commandes annulées libèrent leur place
 export async function getFullSlots(dates: string[]): Promise<string[]> {
   const parsed = pickupDatesSchema.safeParse(dates);
   if (!parsed.success || parsed.data.length === 0) return [];
+  const store = await currentStore();
+  if (!store) return [];
 
   const slotByTime = new Map(
     parsed.data.flatMap((date) => pickupHours().map((start) => [slotToDate({ date, start }).getTime(), slotParam({ date, start })] as const))
   );
   const groups = await prisma.order.groupBy({
     by: ["pickupSlot"],
-    where: { pickupSlot: { in: [...slotByTime.keys()].map((time) => new Date(time)) }, status: { not: "cancelled" } },
+    where: { storeId: store.id, pickupSlot: { in: [...slotByTime.keys()].map((time) => new Date(time)) }, status: { not: "cancelled" } },
     _count: { _all: true },
   });
   return groups.flatMap((group) => {

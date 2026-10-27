@@ -74,6 +74,9 @@ model User {
   favorites           Favorite[]
   cartReminders       Boolean              @default(true) // accepte les rappels de panier abandonné
   favoritePromos      Boolean              @default(true) // accepte les alertes quand un favori passe en promotion
+  // Magasin choisi par le client : drive de retrait et point de départ des livraisons
+  storeId             String?
+  store               Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -192,6 +195,9 @@ model Order {
   loyaltyPointsUsed   Int                  @default(0)
   loyaltyPointsEarned Int                  @default(0)
   loyaltyTransactions LoyaltyTransaction[]
+  // Magasin qui prépare la commande (drive de retrait, ou départ de la livraison)
+  storeId             String?
+  store               Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
@@ -199,6 +205,9 @@ model Order {
   cart            Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   billingAddress  Address? @relation("BillingAddress", fields: [billingAddressId], references: [id])
   shippingAddress Address? @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+
+  // Remplissage des créneaux de chaque drive
+  @@index([storeId, pickupSlot])
 }
 
 enum AddressType {
@@ -265,4 +274,25 @@ model RateLimit {
   key     String   @id
   count   Int
   resetAt DateTime
+}
+
+// Magasin Trinity : drive de retrait et point de départ des livraisons. Le catalogue, les prix
+// et le stock sont communs à tous les magasins.
+model Store {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String // « Trinity Nantes Beaujoire »
+  street    String
+  zipCode   String
+  city      String
+  region    String
+  latitude  Float
+  longitude Float
+  phone     String?
+  hours     String // horaires du drive, ex. « Lun.–sam. 8h30–20h30 »
+  users     User[]
+  orders    Order[]
+  createdAt DateTime @default(now())
+
+  @@index([city])
 }

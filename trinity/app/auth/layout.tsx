@@ -10,7 +10,7 @@ interface Props {
 }
 
 const PERKS = [
-  { icon: Store, text: "Vos courses prêtes au drive Trinity U Rennes Epitech" },
+  { icon: Store, text: "Vos courses prêtes au drive de votre magasin Trinity" },
   { icon: Leaf, text: "Plus de 900 produits U, dont une large gamme bio" },
   { icon: ScanBarcode, text: "Scannez un code-barres pour retrouver un produit" },
 ];

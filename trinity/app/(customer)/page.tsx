@@ -6,6 +6,7 @@ import { ArrowRight, CreditCard, Leaf, MapPin, ShoppingBasket, Sparkles, Store }
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { currentStore } from "@/lib/current-store";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import RayonTiles from "@/components/catalog/rayon-tiles";
 import ProductSection from "@/components/catalog/product-section";
@@ -29,7 +30,7 @@ const STEPS = [
   {
     icon: Store,
     title: "Je récupère mes courses",
-    text: "Au drive Trinity U Rennes Epitech, ou livrées chez vous.",
+    text: "Au drive de votre magasin Trinity, ou livrées chez vous.",
   },
 ];
 
@@ -63,8 +64,9 @@ export default async function HomePage({
   const legacyQuery = (await searchParams).product;
   if (legacyQuery) redirect(`/produits?q=${encodeURIComponent(legacyQuery)}`);
 
-  const session = await auth();
-  const [productCount, bioCount, nutriACount, favorites, promos, saveurs, nutriA, bio, matLou] = await Promise.all([
+  const [session, store] = await Promise.all([auth(), currentStore()]);
+  const [storeCount, productCount, bioCount, nutriACount, favorites, promos, saveurs, nutriA, bio, matLou] = await Promise.all([
+    prisma.store.count(),
     prisma.product.count({ where: VISIBLE_PRODUCT }),
     prisma.product.count({ where: { ...VISIBLE_PRODUCT, brand: { name: "u-bio" } } }),
     prisma.product.count({ where: { ...VISIBLE_PRODUCT, nutriScore: "A" } }),
@@ -75,6 +77,8 @@ export default async function HomePage({
     productsWhere({ brand: { name: "u-bio" } }),
     productsWhere({ brand: { name: "u-mat-lou" } }),
   ]);
+  // Magasin choisi, sinon le réseau
+  const storeLabel = store ? store.name : `${storeCount} magasins Trinity en France`;
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
@@ -95,7 +99,7 @@ export default async function HomePage({
           <div className="relative max-w-md">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
               <MapPin size={14} className="text-highlight" aria-hidden />
-              Trinity U Rennes Epitech
+              {storeLabel}
             </span>
             <h1 className="mt-4 text-3xl font-black leading-tight sm:text-4xl">
               Vos courses du quotidien, <span className="text-highlight">prêtes au drive</span>

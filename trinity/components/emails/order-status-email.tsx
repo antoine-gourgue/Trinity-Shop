@@ -8,6 +8,8 @@ export type OrderStatusEmailProps = {
   pickupLabel: string | null;
   // Adresse de livraison, absente pour un retrait au drive
   deliveryAddress: string | null;
+  // Magasin qui prépare la commande : drive de retrait, ou départ de la livraison
+  store: { name: string; address: string } | null;
   articleCount: number;
   orderUrl: string;
   siteUrl: string;
@@ -47,7 +49,7 @@ function hero(props: OrderStatusEmailProps): EmailHero {
     case "ready":
       return props.deliveryAddress
         ? { label, title: "Vos courses sont", highlight: "en route !", subtitle: `Notre livreur arrive sur votre créneau${slot}.` }
-        : { label, title: "Vos courses sont", highlight: "prêtes au drive !", subtitle: `Elles vous attendent au drive Trinity U Rennes Epitech${slot}.` };
+        : { label, title: "Vos courses sont", highlight: "prêtes au drive !", subtitle: `Elles vous attendent au drive ${props.store?.name ?? "Trinity"}${slot}.` };
   }
 }
 
@@ -79,6 +81,7 @@ function nextStep(props: OrderStatusEmailProps & { status: "preparing" | "ready"
 // Retrait ou livraison : créneau, lieu et nombre d'articles
 function PickupBox(props: OrderStatusEmailProps) {
   const done = props.status === "completed";
+  const pickupPlace = props.store ? `${props.store.name}, ${props.store.address}` : "Drive Trinity";
   const mode = props.deliveryAddress ? (done ? "Livrée à domicile" : "Livraison à domicile") : done ? "Retirée au drive" : "Retrait au drive";
 
   return (
@@ -86,7 +89,7 @@ function PickupBox(props: OrderStatusEmailProps) {
       <Text style={emailStyles.strong}>{mode}</Text>
       {props.pickupLabel && <Text style={{ ...emailStyles.muted, margin: 0 }}>{props.pickupLabel}</Text>}
       <Text style={{ ...emailStyles.muted, margin: 0 }}>
-        {props.deliveryAddress ?? "Trinity U Rennes Epitech"} · {props.articleCount} article{props.articleCount > 1 ? "s" : ""}
+        {props.deliveryAddress ?? pickupPlace} · {props.articleCount} article{props.articleCount > 1 ? "s" : ""}
       </Text>
     </Section>
   );

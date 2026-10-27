@@ -10,6 +10,8 @@ export interface InvoiceData {
   orderNumber: string;
   createdAt: Date;
   pickupLabel: string | null;
+  // Magasin qui prépare la commande (null pour une commande d'avant le choix du magasin)
+  store: { name: string; address: string[]; phone: string | null } | null;
   // Livraison à domicile (null pour un retrait au drive)
   delivery: { address: string[]; fee: number } | null;
   loyalty: { discount: number; pointsUsed: number; pointsEarned: number; cardNumber: string | null };
@@ -43,13 +45,11 @@ const COLORS = {
   white: rgb(1, 1, 1),
 };
 
-const SELLER = [
-  "Trinity Shop",
-  "Drive Trinity U Rennes Epitech",
-  "19-22 Bd Saint-Conwoïon",
-  "35000 Rennes",
-  "Tél. 02 57 22 08 54",
-];
+// Vendeur : le magasin qui a préparé la commande
+function sellerLines(store: InvoiceData["store"]) {
+  if (!store) return ["Trinity Shop", "Courses en ligne"];
+  return ["Trinity Shop", store.name, ...store.address, ...(store.phone ? [`Tél. ${store.phone}`] : [])];
+}
 
 // Montant en millièmes d'euro → « 12,34 € » (espaces simples : les polices PDF standard
 // ne connaissent pas l'espace fine insécable produite par Intl)
@@ -142,7 +142,7 @@ export async function buildInvoicePdf(data: InvoiceData) {
     "Paiement : carte bancaire (démo)",
   ];
   const blocks = [
-    { label: "VENDEUR", lines: SELLER },
+    { label: "VENDEUR", lines: sellerLines(data.store) },
     { label: "FACTURÉ À", lines: [data.customer.name, ...data.customer.address, data.customer.email] },
     { label: "COMMANDE", lines: orderLines },
   ];

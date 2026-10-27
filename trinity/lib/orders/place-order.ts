@@ -11,6 +11,8 @@ export interface PlaceOrderInput {
   cartId: string;
   billingAddressId?: string;
   pickupSlot: Date | null;
+  // Magasin qui prépare la commande (celui du client) ; obligatoire
+  storeId: string | null;
   // Adresse demandée pour une livraison à domicile ; absente pour un retrait au drive
   delivery: { shippingAddressId?: string } | null;
   loyaltyVouchers: number;
@@ -18,6 +20,7 @@ export interface PlaceOrderInput {
 }
 
 export type PlaceOrderError =
+  | { code: "store_required" }
   | { code: "invalid_delivery_address" }
   | { code: "cart_not_found" }
   | { code: "cart_forbidden" }
@@ -66,8 +69,16 @@ export function cartTotal(items: { quantity: number; product: { price: number } 
   return items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 }
 
+// Créneau complet : le nombre de commandes par heure est limité dans chaque drive
+async function slotIsFull(client: Pick<typeof prisma, "order">, storeId: string, pickupSlot: Date | null) {
+  if (!pickupSlot) return false;
+  const booked = await client.order.count({ where: { storeId, pickupSlot, status: { not: "cancelled" } } });
+  return booked >= SLOT_CAPACITY;
+}
+
 export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResult> {
-  const { userId, cartId, pickupSlot, stripeSessionId } = input;
+  const { userId, cartId, pickupSlot, storeId, stripeSessionId } = input;
+  if (!storeId) return { ok: false, error: { code: "store_required" } };
 
   let shippingAddressId: string | null = null;
   if (input.delivery) {
@@ -100,10 +111,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       const loyaltyPointsUsed = requestedVouchers * POINTS_PER_VOUCHER;
       const loyaltyPointsEarned = hasCard ? pointsForAmount(total - loyaltyDiscount) : 0;
 
-      // Créneau complet : le nombre de commandes par heure est limité
-      if (pickupSlot && (await prisma.order.count({ where: { pickupSlot, status: { not: "cancelled" } } })) >= SLOT_CAPACITY) {
-        throw new PlaceOrderFailure({ code: "slot_full" });
-      }
+      if (await slotIsFull(prisma, storeId, pickupSlot)) throw new PlaceOrderFailure({ code: "slot_full" });
 
       // Stock décompté article par article : la mise à jour n'aboutit que si la quantité suffit,
       // et une seule rupture annule toute la transaction
@@ -124,6 +132,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
           billingAddressId,
           shippingAddressId,
           pickupSlot,
+          storeId,
           loyaltyDiscount,
           loyaltyPointsUsed,
           loyaltyPointsEarned,
@@ -163,11 +172,10 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   }
 }
 
-// Vérification à blanc avant un paiement : stock et créneau, sans rien réserver
-export async function checkAvailability(cartId: string, pickupSlot: Date | null): Promise<PlaceOrderError | null> {
-  if (pickupSlot && (await prisma.order.count({ where: { pickupSlot, status: { not: "cancelled" } } })) >= SLOT_CAPACITY) {
-    return { code: "slot_full" };
-  }
+// Vérification à blanc avant un paiement : magasin, stock et créneau, sans rien réserver
+export async function checkAvailability(cartId: string, pickupSlot: Date | null, storeId: string | null): Promise<PlaceOrderError | null> {
+  if (!storeId) return { code: "store_required" };
+  if (await slotIsFull(prisma, storeId, pickupSlot)) return { code: "slot_full" };
   const items = await prisma.productInCart.findMany({
     where: { cartId },
     select: { quantity: true, product: { select: { name: true, stock: { select: { quantity: true } } } } },

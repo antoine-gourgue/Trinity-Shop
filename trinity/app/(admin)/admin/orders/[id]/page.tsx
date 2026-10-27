@@ -152,7 +152,7 @@ export default async function AdminOrderPage({ params }: Props) {
                 <CalendarClock size={16} className="shrink-0 text-primary" aria-hidden />
                 {order.pickupSlot ? pickupLabel(order.pickupSlot) : <span className="text-muted-foreground">Aucun créneau choisi</span>}
               </li>
-              {shipping ? (
+              {shipping && (
                 <li className="flex gap-3">
                   <Truck size={16} className="mt-0.5 shrink-0 text-primary" aria-hidden />
                   <span>
@@ -161,12 +161,21 @@ export default async function AdminOrderPage({ params }: Props) {
                     {shipping.zipCode} {shipping.city}, {shipping.country}
                   </span>
                 </li>
-              ) : (
-                <li className="flex items-center gap-3">
-                  <Store size={16} className="shrink-0 text-primary" aria-hidden />
-                  Drive Trinity U Rennes Epitech
-                </li>
               )}
+              {/* Magasin qui prépare : drive de retrait, ou départ de la livraison */}
+              <li className="flex gap-3">
+                <Store size={16} className="mt-0.5 shrink-0 text-primary" aria-hidden />
+                {order.store ? (
+                  <span>
+                    {shipping ? "Préparée par " : "Drive "}
+                    <span className="font-semibold">{order.store.name}</span>
+                    <br />
+                    {order.store.street}, {order.store.zipCode} {order.store.city}
+                  </span>
+                ) : (
+                  <span>Magasin non renseigné</span>
+                )}
+              </li>
             </ul>
           </Panel>
 

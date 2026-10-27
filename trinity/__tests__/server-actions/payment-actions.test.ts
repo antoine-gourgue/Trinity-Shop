@@ -18,6 +18,11 @@ jest.mock("@/lib/payments/stripe", () => ({
     stripeClient: jest.fn(),
 }));
 
+// Magasin du client (celui de son compte, ou choisi avant la connexion)
+jest.mock("@/lib/stores", () => ({
+    storeForOrder: jest.fn(async () => "store1"),
+}));
+
 jest.mock("@/lib/orders/place-order", () => ({
     ...jest.requireActual<typeof import("@/lib/orders/place-order")>("@/lib/orders/place-order"),
     checkAvailability: jest.fn(),
@@ -69,6 +74,8 @@ describe("startCheckout", () => {
 
     it("sends the cart, the delivery fee and the loyalty discount to Stripe", async () => {
         await expect(startCheckout(INPUT)).resolves.toEqual({ mode: "stripe", url: "https://checkout.stripe.com/c/pay/cs_test_1" });
+        // Disponibilités vérifiées dans le drive du client
+        expect(checkAvailability).toHaveBeenCalledWith("cart1", expect.any(Date), "store1");
 
         // Bon de 5 € en remise, livraison de 5,90 € (articles sous 60 €), prix en centimes
         expect(couponsCreate).toHaveBeenCalledWith({ amount_off: 500, currency: "eur", duration: "once", name: "Bons Carte Trinity" });
@@ -82,7 +89,7 @@ describe("startCheckout", () => {
                 { quantity: 1, price_data: { currency: "eur", unit_amount: 459, product_data: { name: "Café" } } },
                 { quantity: 1, price_data: { currency: "eur", unit_amount: 590, product_data: { name: "Livraison à domicile" } } },
             ],
-            metadata: { userId: "user1", cartId: "cart1", fulfillment: "delivery", shippingAddressId: "address1", loyaltyVouchers: "1" },
+            metadata: { userId: "user1", cartId: "cart1", storeId: "store1", fulfillment: "delivery", shippingAddressId: "address1", loyaltyVouchers: "1" },
             success_url: "http://localhost:3000/api/payments/stripe/confirm?session_id={CHECKOUT_SESSION_ID}",
             cancel_url: `http://localhost:3000${INPUT.returnPath}`,
         });

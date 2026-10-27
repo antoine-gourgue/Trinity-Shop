@@ -8,6 +8,7 @@ import { fulfillCheckoutSession, type PaidSession } from "@/lib/payments/fulfill
 
 jest.mock("@/lib/prisma", () => ({
     order: { findUnique: jest.fn() },
+    user: { findUnique: jest.fn() },
 }));
 
 jest.mock("@/lib/orders/place-order", () => ({
@@ -21,6 +22,7 @@ const METADATA = {
     userId: "user1",
     cartId: "cart1",
     pickupSlot: "2099-06-02_10",
+    storeId: "store-nantes",
     fulfillment: "delivery",
     shippingAddressId: "address1",
     loyaltyVouchers: "1",
@@ -73,10 +75,20 @@ describe("fulfillCheckoutSession", () => {
             userId: "user1",
             cartId: "cart1",
             pickupSlot: new Date("2099-06-02T08:00:00.000Z"),
+            storeId: "store-nantes",
             delivery: { shippingAddressId: "address1" },
             loyaltyVouchers: 1,
             stripeSessionId: "cs_test_1",
         });
+    });
+
+    it("uses the account store for a payment started before the session carried the store", async () => {
+        const previousMetadata = Object.fromEntries(Object.entries(METADATA).filter(([key]) => key !== "storeId"));
+        (prisma.user.findUnique as jest.Mock).mockResolvedValue({ storeId: "store-rennes" });
+        (placeOrder as jest.Mock).mockResolvedValue({ ok: true, order: { id: "order2", userId: "user1" } });
+
+        await fulfillCheckoutSession(stripe, session({ metadata: previousMetadata }));
+        expect(placeOrder).toHaveBeenCalledWith(expect.objectContaining({ storeId: "store-rennes" }));
     });
 
     it("refunds the payment when the order is refused", async () => {

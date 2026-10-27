@@ -5,7 +5,7 @@ import { ORDER_FILTERS, articleCount, getAdminOrders, orderTotal, parseAdminPara
 import { orderNumber } from "@/lib/account";
 import { formatPrice } from "@/lib/format";
 import { AdminPageHeader, AdminPagination, AdminTable, EmptyState, Panel, Td, Th, adminHref, formatDate } from "@/components/admin/admin-ui";
-import { AdminFilterTabs, AdminSearch } from "@/components/admin/admin-toolbar";
+import { AdminFilterTabs, AdminSearch, AdminSelectFilter } from "@/components/admin/admin-toolbar";
 import { OrderNumber, OrderStatusBadge, customerName, pickupLabel } from "@/components/admin/admin-bits";
 import { CancelOrderButton, DeleteOrderButton, InvoiceButton } from "@/components/admin/order-actions";
 import { canCancelOrder } from "@/lib/order-status";
@@ -19,15 +19,18 @@ export default async function AdminOrdersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = parseAdminParams(await searchParams);
-  const { orders, total, page, pageCount, counts } = await getAdminOrders(params);
-  const href = (p: number) => adminHref("/admin/orders", { q: params.q, filtre: params.filter, page: p });
+  const { orders, total, page, pageCount, counts, stores } = await getAdminOrders(params);
+  const href = (p: number) => adminHref("/admin/orders", { q: params.q, filtre: params.filter, magasin: params.magasin, page: p });
 
   return (
     <div>
-      <AdminPageHeader title="Commandes" description="Commandes passées sur le drive, du plus récent au plus ancien." />
+      <AdminPageHeader title="Commandes" description="Commandes des drives Trinity, du plus récent au plus ancien." />
 
       <div className="mb-4 flex flex-col gap-3">
-        <AdminSearch placeholder="N° de commande, nom ou e-mail du client" />
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <AdminSearch placeholder="N° de commande, nom ou e-mail du client" />
+          <AdminSelectFilter label="Tous les magasins" param="magasin" options={stores} value={params.magasin} />
+        </div>
         <AdminFilterTabs filters={ORDER_FILTERS} active={params.filter} counts={counts} />
       </div>
 
@@ -65,6 +68,7 @@ export default async function AdminOrdersPage({
                         {order.shippingAddressId ? "Livraison" : "Drive"}
                       </span>
                       <span className="block">{pickupLabel(order.pickupSlot)}</span>
+                      {order.store && <span className="block text-xs text-muted-foreground">{order.store.name}</span>}
                     </Td>
                     <Td className="text-right tabular-nums">{articleCount(order)}</Td>
                     <Td className="text-right font-black tabular-nums">{formatPrice(orderTotal(order))}</Td>

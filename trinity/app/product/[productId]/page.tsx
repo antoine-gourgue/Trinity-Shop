@@ -12,6 +12,7 @@ import { formatAllergens, formatUnitPrice, ingredientParts, nutritionRows } from
 import { productDescription, productJsonLd, productPath, serializeJsonLd } from "@/lib/product-seo";
 import PriceBlock from "@/components/product/price-block";
 import { formatPromoEnd } from "@/lib/promotions";
+import { currentStore } from "@/lib/current-store";
 import NutriScore from "@/components/product/nutri-score";
 import ProductImage from "@/components/product/product-image";
 import AddToCartButton from "@/components/product/add-to-cart-button";
@@ -68,7 +69,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       : rayonCategoryNames(match.rayon)
     : product.categories.map((c) => c.categoryName);
 
-  const [{ openFoodData: off }, similar] = await Promise.all([
+  const [{ openFoodData: off }, similar, store] = await Promise.all([
     getOpenFoodFacts(product.barCode.toString()),
     prisma.product.findMany({
       where: {
@@ -80,6 +81,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       orderBy: { name: "asc" },
       take: 10,
     }),
+    currentStore(),
   ]);
 
   const quantity: string | undefined = product.netContent || off?.quantity || undefined;
@@ -219,7 +221,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <ul className="mt-6 space-y-3 border-t pt-5 text-sm">
             <li className="flex items-center gap-3">
               <Store size={18} className="shrink-0 text-primary" aria-hidden />
-              Retrait au drive Trinity U Rennes Epitech
+              {store ? `Retrait au drive ${store.name}` : "Retrait au drive de votre magasin Trinity"}
             </li>
             <li className="flex items-center gap-3">
               <PackageCheck size={18} className="shrink-0 text-primary" aria-hidden />

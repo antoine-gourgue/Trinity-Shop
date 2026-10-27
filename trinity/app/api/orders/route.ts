@@ -8,6 +8,7 @@ import { placeOrder, type PlaceOrderError } from "@/lib/orders/place-order";
 import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
 import { sendOrderConfirmation } from "@/lib/order-emails";
+import { storeForOrder } from "@/lib/stores";
 
 // Commande envoyée par le tunnel ; un champ du mauvais type compte comme absent
 const orderBodySchema = z.object({
@@ -24,6 +25,8 @@ const orderBodySchema = z.object({
 // Refus du passage de commande, traduits en réponses de l'API
 function orderErrorResponse(error: PlaceOrderError) {
     switch (error.code) {
+        case "store_required":
+            return NextResponse.json({ error: "Store required" }, { status: 400 });
         case "invalid_delivery_address":
             return NextResponse.json({ error: "Invalid delivery address" }, { status: 400 });
         case "cart_not_found":
@@ -131,6 +134,8 @@ export async function POST(request: NextRequest) {
             cartId,
             billingAddressId: body.billingAddressId,
             pickupSlot,
+            // Magasin du compte, ou celui choisi avant la connexion
+            storeId: await storeForOrder(userId),
             // Livraison à domicile : l'adresse doit appartenir au client (les frais sont calculés à l'affichage)
             delivery: body.fulfillment === "delivery" ? { shippingAddressId: body.shippingAddressId } : null,
             // Bons Carte Trinity demandés (100 points = 5 €), vérifiés dans la transaction

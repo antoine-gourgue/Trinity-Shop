@@ -10,6 +10,7 @@ import CheckoutSummary from "@/components/cart/checkout-summary";
 import { useCartSummary } from "@/components/cart/use-cart-summary";
 import { useLoyalty } from "@/components/cart/use-loyalty";
 import ActivateCardButton from "@/components/account/activate-card-button";
+import { useStoreChoice } from "@/components/store/store-provider";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, formatCardNumber, maxVouchers, pointsForAmount } from "@/lib/loyalty";
 import ProductImage from "@/components/product/product-image";
 import { getActiveCartId } from "@/lib/server-actions/cart-actions";
@@ -24,6 +25,7 @@ import { orderFailureMessage, type PaymentFailure } from "@/lib/orders/order-mes
 const PAYMENT_FAILURES: PaymentFailure[] = [
     "unpaid",
     "invalid",
+    "store_required",
     "slot_full",
     "out_of_stock",
     "not_enough_points",
@@ -47,6 +49,7 @@ const orderErrorSchema = z.object({ error: z.string(), products: z.array(z.strin
 function orderErrorMessage(body: unknown) {
     const parsed = orderErrorSchema.safeParse(body);
     if (!parsed.success) return "La commande n'a pas pu être créée. Réessayez.";
+    if (parsed.data.error === "Store required") return orderFailureMessage("store_required");
     if (parsed.data.error === "Pickup slot full") {
         return "Ce créneau vient d'être complet : revenez à l'étape précédente pour en choisir un autre.";
     }
@@ -61,6 +64,7 @@ const PAYMENT_METHODS = ["CB", "Visa", "Mastercard"];
 
 function PaiementContent() {
     const router = useRouter();
+    const { store } = useStoreChoice();
     const searchParams = useSearchParams();
     const slot = parseSlotParam(searchParams.get("creneau"));
     const fulfillment = parseFulfillmentParams(searchParams.get("mode"), searchParams.get("adresse"));
@@ -235,7 +239,7 @@ function PaiementContent() {
                             </p>
                             <p className="font-extrabold">{formatSlot(slot)}</p>
                             <p className="text-sm text-muted-foreground">
-                                {delivery && address ? formatAddressLine(address) : "Trinity U Rennes Epitech"}
+                                {delivery && address ? formatAddressLine(address) : (store?.name ?? "Drive Trinity")}
                             </p>
                         </div>
                         <Link

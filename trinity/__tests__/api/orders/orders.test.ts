@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { buildRequest } from "@/test-utils/requests";
 import { after } from "next/server";
 import { SLOT_CAPACITY } from "@/lib/checkout";
+import { storeForOrder } from "@/lib/stores";
 
 // Fonction passée à prisma.$transaction, rejouée ici sur la doublure Prisma
 type TransactionCallback = (tx: typeof prisma) => Promise<unknown>;
@@ -52,6 +53,11 @@ jest.mock("next/server", () => ({
 // L'e-mail de confirmation est envoyé après la réponse : ici on vérifie seulement qu'il est programmé
 jest.mock("@/lib/order-emails", () => ({
     sendOrderConfirmation: jest.fn(),
+}));
+
+// Magasin du client (celui de son compte, ou choisi avant la connexion)
+jest.mock("@/lib/stores", () => ({
+    storeForOrder: jest.fn(async () => "store1"),
 }));
 
 // Article de panier tel que le lit la route (prix et nom du produit)
@@ -197,6 +203,7 @@ describe("POST /api/orders", () => {
                 billingAddressId: "111111",
                 shippingAddressId: null,
                 pickupSlot: null,
+                storeId: "store1",
                 loyaltyDiscount: 0,
                 loyaltyPointsUsed: 0,
                 loyaltyPointsEarned: 0,
@@ -255,6 +262,21 @@ describe("POST /api/orders", () => {
         expect(prisma.stock.updateMany).not.toHaveBeenCalled();
         expect(prisma.order.create).not.toHaveBeenCalled();
         expect(jsonMock).toHaveBeenCalledWith({ error: "Pickup slot full" }, { status: 409 });
+        // Les places d'un créneau se comptent dans le drive du client
+        expect(prisma.order.count).toHaveBeenCalledWith({
+            where: { storeId: "store1", pickupSlot: new Date("2099-06-02T08:00:00.000Z"), status: { not: "cancelled" } },
+        });
+    });
+
+    it("should refuse an order until the customer has chosen a store", async () => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (storeForOrder as jest.Mock).mockResolvedValueOnce(null);
+        const jsonMock = jest.spyOn(NextResponse, "json");
+
+        await POST(buildRequest("/api/orders", { method: "POST", body: { userId: "user123", cartId: "cart456", billingAddressId: "111111" } }));
+
+        expect(prisma.order.create).not.toHaveBeenCalled();
+        expect(jsonMock).toHaveBeenCalledWith({ error: "Store required" }, { status: 400 });
     });
 
     it("should return 400 if required fields are missing", async () => {

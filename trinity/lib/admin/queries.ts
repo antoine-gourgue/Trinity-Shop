@@ -16,6 +16,8 @@ export interface AdminListParams {
   filter: string;
   page: number;
   rayon?: string;
+  // Magasin (slug) dont on veut voir les commandes
+  magasin?: string;
 }
 
 export function parseAdminParams(raw: RawParams, defaultFilter = "tous"): AdminListParams {
@@ -29,6 +31,7 @@ export function parseAdminParams(raw: RawParams, defaultFilter = "tous"): AdminL
     filter: value("filtre") || defaultFilter,
     page: Number.isFinite(page) && page > 0 ? page : 1,
     rayon: value("rayon") || undefined,
+    magasin: value("magasin") || undefined,
   };
 }
 
@@ -61,6 +64,7 @@ const ORDER_SUMMARY = {
   status: true,
   loyaltyDiscount: true,
   shippingAddressId: true,
+  store: { select: { name: true } },
   user: { select: { id: true, firstName: true, lastName: true, email: true } },
   cart: { select: { productsInCart: { select: { quantity: true, product: { select: { price: true } } } } } },
 } satisfies Prisma.OrderSelect;
@@ -198,8 +202,11 @@ export async function getAdminOrders(params: AdminListParams) {
     livraison: { shippingAddressId: { not: null } },
   };
   const q = params.q;
+  // Équipe d'un drive : seulement les commandes de son magasin, onglets compris
+  const storeFilter: Prisma.OrderWhereInput = params.magasin ? { store: { slug: params.magasin } } : {};
   const where: Prisma.OrderWhereInput = {
     AND: [
+      storeFilter,
       filters[params.filter] ?? {},
       q
         ? {
@@ -214,9 +221,10 @@ export async function getAdminOrders(params: AdminListParams) {
     ],
   };
 
-  const [total, counts] = await Promise.all([
+  const [total, counts, stores] = await Promise.all([
     prisma.order.count({ where }),
-    Promise.all(ORDER_FILTERS.map((f) => prisma.order.count({ where: filters[f.value] ?? {} }))),
+    Promise.all(ORDER_FILTERS.map((f) => prisma.order.count({ where: { AND: [storeFilter, filters[f.value] ?? {}] } }))),
+    prisma.store.findMany({ select: { slug: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   const page = paginate(total, params.page);
   const orders = await prisma.order.findMany({
@@ -226,7 +234,12 @@ export async function getAdminOrders(params: AdminListParams) {
     skip: page.skip,
     take: page.take,
   });
-  return { orders, ...page, counts: Object.fromEntries(ORDER_FILTERS.map((f, i) => [f.value, counts[i]])) };
+  return {
+    orders,
+    ...page,
+    counts: Object.fromEntries(ORDER_FILTERS.map((f, i) => [f.value, counts[i]])),
+    stores: stores.map((store) => ({ value: store.slug, label: store.name })),
+  };
 }
 
 export function getAdminOrder(id: string) {
@@ -236,6 +249,7 @@ export function getAdminOrder(id: string) {
       user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, loyaltyNumber: true } },
       billingAddress: true,
       shippingAddress: true,
+      store: { select: { name: true, street: true, zipCode: true, city: true } },
       cart: {
         include: {
           productsInCart: {

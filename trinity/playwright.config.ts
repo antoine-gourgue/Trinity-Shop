@@ -21,6 +21,13 @@ export default defineConfig({
     locale: "fr-FR",
     timezoneId: "Europe/Paris",
     trace: "retain-on-failure",
+    // Magasin déjà choisi : la fenêtre de choix ne s'ouvre pas pendant les parcours (e2e/store.spec.ts la teste)
+    storageState: {
+      cookies: [
+        { name: "trinity-store", value: "rennes-epitech", domain: "localhost", path: "/", expires: -1, httpOnly: false, secure: false, sameSite: "Lax" },
+      ],
+      origins: [],
+    },
   },
   projects: [{ name: "chrome", use: { ...devices["Desktop Chrome"], channel: "chrome" } }],
   webServer: disposableDatabase

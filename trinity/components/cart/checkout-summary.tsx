@@ -1,4 +1,7 @@
+"use client";
+
 import { CalendarClock, Coins, CreditCard, Leaf, Store, Truck } from "lucide-react";
+import { useStoreChoice } from "@/components/store/store-provider";
 import Price from "@/components/product/price";
 import { formatPrice } from "@/lib/format";
 import { FREE_DELIVERY_FROM, type Fulfillment } from "@/lib/delivery";
@@ -27,6 +30,7 @@ export default function CheckoutSummary({
   fulfillment = { mode: "pickup", fee: 0 },
   children,
 }: CheckoutSummaryProps) {
+  const { store } = useStoreChoice();
   const delivery = fulfillment.mode === "delivery";
   const total = totalPrice - loyaltyDiscount + fulfillment.fee;
 
@@ -83,7 +87,7 @@ export default function CheckoutSummary({
             <Store size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden />
           )}
           <p className="min-w-0">
-            <span className="font-bold">{delivery ? "Livraison à domicile" : "Retrait au drive Trinity U Rennes Epitech"}</span>
+            <span className="font-bold">{delivery ? "Livraison à domicile" : `Retrait au drive ${store?.name ?? "Trinity"}`}</span>
             {delivery && fulfillment.address && (
               <>
                 <br />

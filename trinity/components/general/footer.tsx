@@ -67,8 +67,8 @@ export default function Footer({ rayons }: FooterProps) {
         <div>
           <Logo inverted />
           <p className="mt-4 max-w-xs text-sm text-white/70">
-            Votre supermarché en ligne à Rennes : faites vos courses en quelques clics et
-            récupérez-les au drive ou chez vous.
+            Votre supermarché en ligne près de chez vous : faites vos courses en quelques clics et
+            récupérez-les au drive de votre magasin ou chez vous.
           </p>
         </div>
 

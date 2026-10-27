@@ -10,6 +10,7 @@ import { absoluteUrl, siteUrl } from "@/lib/site-url";
 import { cartTotal, checkAvailability } from "@/lib/orders/place-order";
 import { orderFailureMessage } from "@/lib/orders/order-messages";
 import { stripeClient, toCents, type CheckoutMetadata } from "@/lib/payments/stripe";
+import { storeForOrder } from "@/lib/stores";
 
 const startCheckoutSchema = z.object({
   pickupSlot: z.string(),
@@ -61,7 +62,8 @@ export async function startCheckout(input: StartCheckoutInput): Promise<StartChe
   }
 
   // Vérification à blanc : on ne fait pas payer une commande qui serait refusée
-  const unavailable = await checkAvailability(cart.id, pickupSlot);
+  const storeId = await storeForOrder(userId);
+  const unavailable = await checkAvailability(cart.id, pickupSlot, storeId);
   if (unavailable) return fail(orderFailureMessage(unavailable.code, unavailable.code === "out_of_stock" ? unavailable.products : []));
 
   const total = cartTotal(cart.productsInCart);
@@ -80,6 +82,7 @@ export async function startCheckout(input: StartCheckoutInput): Promise<StartChe
     userId,
     cartId: cart.id,
     pickupSlot: parsed.data.pickupSlot,
+    ...(storeId && { storeId }),
     fulfillment,
     ...(fulfillment === "delivery" && shippingAddressId ? { shippingAddressId } : {}),
     loyaltyVouchers,

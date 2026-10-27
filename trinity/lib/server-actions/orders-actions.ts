@@ -45,6 +45,7 @@ export async function getOrderById(orderId: string) {
             },
             shippingAddress: true,
             billingAddress: true,
+            store: { select: { name: true, street: true, zipCode: true, city: true, hours: true } },
         },
     });
 }

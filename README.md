@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/antoine-gourgue/Trinity-Shop/actions/workflows/ci.yml/badge.svg)](https://github.com/antoine-gourgue/Trinity-Shop/actions/workflows/ci.yml)
 
-Supermarché en ligne de type « drive » : le client remplit son panier dans un catalogue de plus de 1 300 produits réels issus d'[Open Food Facts](https://world.openfoodfacts.org), choisit le retrait au drive ou la livraison à domicile sur un créneau d'une heure, puis paie par carte via Stripe, en mode test. Un back-office permet de suivre les commandes, le catalogue, les stocks et les clients.
+Supermarché en ligne de type « drive » : le client remplit son panier dans un catalogue de plus de 1 300 produits réels issus d'[Open Food Facts](https://world.openfoodfacts.org), choisit son magasin parmi plus de 80 drives en France, le retrait au drive ou la livraison à domicile sur un créneau d'une heure, puis paie par carte via Stripe, en mode test. Un back-office permet de suivre les commandes, le catalogue, les stocks et les clients.
 
 > Le paiement passe par [Stripe](https://stripe.com) en mode test (carte `4242 4242 4242 4242`) : aucun débit réel n'est effectué. Sans clé Stripe, le paiement est simulé.
 
@@ -45,18 +45,19 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 
 ### Côté client
 
+- **Choix du magasin** : à la première visite, une fenêtre propose les 81 magasins Trinity, avec une recherche par ville, code postal ou nom (sans tenir compte des accents) un tri par distance (« Autour de moi », ou autour du magasin actuel) et une carte des magasins (Leaflet, OpenStreetMap), synchronisée avec la liste. Le magasin est gardé dans un cookie, puis sur le compte du client connecté : il le retrouve sur tous ses appareils et peut en changer depuis le haut de chaque page. Le catalogue, les prix et le stock sont communs à tous les magasins.
 - **Catalogue par rayons** avec sous-rayons, pagination et filtres combinables : promotions, bio, tranche de prix, Nutri-Score, marques (avec recherche quand la liste est longue) et gamme (marque U ou marques nationales).
 - **Tri** par prix, par nom ou par prix au kilo ou au litre, calculé à partir de la contenance du produit.
 - **Recherche** tolérante aux accents, avec des suggestions pendant la frappe : rayons correspondants et premiers produits, avec navigation au clavier.
 - **Fiche produit** : photo officielle du fabricant, prix et prix au kilo, promotion (avec sa date de fin), ingrédients avec allergènes mis en évidence, tableau nutritionnel, Nutri-Score, produits similaires.
 - **Favoris** : un cœur sur chaque produit et dans l'en-tête (avec leur nombre), la page « Mes favoris » avec « Tout ajouter au panier » pour refaire ses courses habituelles en un clic, et une rangée « Vos favoris » sur l'accueil.
 - **Panier** conservé sur le compte, qui signale les ruptures de stock ; pour chaque article, le client accepte ou non un produit de remplacement.
-- **Tunnel de commande** : retrait gratuit au drive ou livraison à domicile (adresse choisie ou ajoutée à la volée), choix du créneau (8 commandes au plus par heure, créneaux complets grisés), puis paiement par carte via Stripe. Le stock est décompté à la commande.
+- **Tunnel de commande** : retrait gratuit au drive du magasin choisi ou livraison à domicile depuis ce magasin (adresse choisie ou ajoutée à la volée), choix du créneau (8 commandes au plus par heure dans chaque drive, créneaux complets grisés), puis paiement par carte via Stripe. Le stock est décompté à la commande.
 - **Suivi de commande** : statut (reçue, en préparation, prête, retirée ou livrée, annulée) et frise d'avancement, et « Racheter cette commande ».
 - **E-mails au design du site** : bienvenue avec confirmation de l'adresse, confirmation de commande avec la facture PDF, suivi à chaque étape (en préparation, prête au drive ou en route, retirée ou livrée), annulation avec le montant remboursé, mot de passe oublié.
 - **E-mails commerciaux** : rappel de panier abandonné (un seul par panier) et alerte quand des favoris passent en promotion (une seule par promotion), envoyés seulement vers une adresse confirmée, chacun avec sa désinscription en un clic et son réglage dans l'espace client.
 - **Carte Trinity** (fidélité) : 1 point par euro dépensé, 100 points = un bon de 5 € à utiliser au paiement.
-- **Espace client** : commandes et factures PDF, favoris, adresses, téléphone, informations personnelles, mot de passe et carte de fidélité.
+- **Espace client** : magasin du compte, commandes et factures PDF, favoris, adresses, téléphone, informations personnelles, mot de passe et carte de fidélité.
 - **Compte** : inscription avec confirmation de l'adresse e-mail (lien signé valable 7 jours, renvoyable depuis l'espace client, redemandé après un changement d'adresse), connexion, mot de passe oublié par lien envoyé par e-mail (valable une heure), tentatives limitées contre les attaques par force brute.
 - **Scanner de code-barres** : un produit du catalogue ouvre sa fiche, sinon la fiche Open Food Facts s'affiche.
 - **Application installable** (PWA) et pages d'information : FAQ, programme de fidélité, contact, mentions légales, confidentialité, cookies.
@@ -65,7 +66,7 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 ### Back-office (`/admin`, rôle administrateur)
 
 - **Tableau de bord** : chiffre d'affaires, commandes et inscriptions sur la période, avec graphiques.
-- **Commandes** : recherche, filtres par statut et livraison, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (paiement par carte remboursé, articles remis en stock, points de fidélité rétablis, client prévenu par e-mail) ou supprime une commande annulée.
+- **Commandes** : recherche, filtres par statut, livraison et magasin, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (paiement par carte remboursé, articles remis en stock, points de fidélité rétablis, client prévenu par e-mail) ou supprime une commande annulée.
 - **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, promotions avec date de fin, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
 - **Stocks** : modification directe, filtre des ruptures.
 - **Clients** : rôles et suppression.
@@ -80,7 +81,7 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 | Interface | Tailwind CSS, composants [shadcn/ui](https://ui.shadcn.com) (Radix), lucide-react, recharts |
 | Validation | zod (formulaires, corps des requêtes API, données externes) |
 | Paiement | [Stripe Checkout](https://stripe.com/docs/payments/checkout) (mode test), webhook de confirmation |
-| Divers | pdf-lib (factures), Resend + React Email (e-mails de compte, de commande, rappels et alertes), next-pwa, react-qr-barcode-scanner |
+| Divers | Leaflet et OpenStreetMap (carte des magasins), pdf-lib (factures), Resend + React Email (e-mails de compte, de commande, rappels et alertes), next-pwa, react-qr-barcode-scanner |
 | Tests | Jest (unitaires), Playwright (parcours de bout en bout) |
 | Hébergement | Vercel, base PostgreSQL [Neon](https://neon.tech) |
 
@@ -137,7 +138,7 @@ Lancer le serveur de développement sur [http://localhost:3000](http://localhost
 npm run dev
 ```
 
-Le seed crée le catalogue, 100 comptes clients fictifs (au mot de passe aléatoire) et le compte administrateur `admin@trinity.fr`, dont le mot de passe est celui de `SEED_ADMIN_PASSWORD`.
+Le seed crée les 81 magasins, le catalogue, 100 comptes clients fictifs (au mot de passe aléatoire) et le compte administrateur `admin@trinity.fr`, dont le mot de passe est celui de `SEED_ADMIN_PASSWORD`.
 
 > Prisma lit `.env`, pas `.env.local`. Pour lancer une commande Prisma avec les variables de `.env.local` : `set -a; source .env.local; set +a; npx prisma db push`.
 
@@ -199,6 +200,7 @@ Les scripts, dans `prisma/` et `scripts/`, sont relançables et proposent presqu
 | `prisma/apply-pricing.ts` | Calcule des prix et promotions réalistes et déterministes |
 | `prisma/hide-products.ts` | Masque les produits listés dans `hidden-products.json` |
 | `prisma/replace-photos.ts` | Remplace des photos par la version officielle |
+| `prisma/sync-stores.ts` | Enregistre les magasins de `prisma/stores-data.ts` (création ou mise à jour) et rattache au magasin historique de Rennes les commandes passées avant le choix du magasin |
 
 Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : un fichier au mauvais format arrête le script avant toute écriture.
 
@@ -219,7 +221,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request et à chaque push sur `main` :
 
 1. **Lint, types, tests** : `npm run lint`, `tsc --noEmit`, puis Jest ;
-2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation et annulation par l'équipe. La base de production n'est jamais utilisée.
+2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : choix du magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation et annulation par l'équipe. La base de production n'est jamais utilisée.
 
 ## Déploiement
 

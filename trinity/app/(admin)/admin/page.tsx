@@ -18,7 +18,7 @@ export default async function AdminDashboardPage() {
     <div>
       <AdminPageHeader
         title="Tableau de bord"
-        description={`Activité du drive Trinity U Rennes Epitech · ${today}`}
+        description={`Activité des drives Trinity · ${today}`}
         actions={
           <Link
             href="/admin/orders"

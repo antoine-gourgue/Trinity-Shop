@@ -91,6 +91,7 @@ export async function sendOrderStatusEmail(orderId: string, event: OrderStatusEv
       orderNumber: number,
       pickupLabel: data.pickupLabel,
       deliveryAddress: data.delivery ? data.delivery.address.join(", ") : null,
+      store: data.store ? { name: data.store.name, address: data.store.address.join(", ") } : null,
       articleCount: data.items.reduce((acc, item) => acc + item.quantity, 0),
       orderUrl: `${siteUrl()}/user/${invoice.userId}/order/${orderId}`,
       siteUrl: siteUrl(),

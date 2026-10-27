@@ -73,8 +73,8 @@ export function EmailLayout({ preview, siteUrl, hero, reason, unsubscribe, child
         <Section style={{ backgroundColor: EMAIL_COLORS.dark }}>
           <Container style={{ maxWidth: 600, padding: "9px 20px" }}>
             <Text style={{ color: "#ffffff", fontFamily: FONT, fontSize: 12, fontWeight: 700, lineHeight: "16px", margin: 0 }}>
-              Trinity U Rennes Epitech
-              <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 400 }}> · Drive et livraison à domicile</span>
+              Trinity
+              <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 400 }}> · Drive et livraison à domicile près de chez vous</span>
             </Text>
           </Container>
         </Section>

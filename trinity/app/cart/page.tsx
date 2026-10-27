@@ -30,11 +30,14 @@ import { useLoyalty } from "@/components/cart/use-loyalty";
 import { pointsForAmount } from "@/lib/loyalty";
 import { Button } from "@/components/ui/button";
 import SubstituteToggle from "@/components/cart/substitute-toggle";
+import StoreButton from "@/components/store/store-button";
+import { useStoreChoice } from "@/components/store/store-provider";
 
 const OTHER_GROUP = { slug: "autres", name: "Autres produits", image: null as string | null };
 
 export default function CartPage() {
     const { removeProduct, handleUpdateProductQuantity, refreshCart } = useCart();
+    const { store } = useStoreChoice();
     const { cartProducts, details, suggestions, totalItems, totalPrice, savings } = useCartSummary();
     const { loyalty } = useLoyalty();
     const { data: session, status } = useSession();
@@ -154,8 +157,9 @@ export default function CartPage() {
                     <div className="flex items-center gap-3 rounded-2xl bg-secondary px-4 py-3 text-sm">
                         <Store size={20} className="shrink-0 text-primary" aria-hidden />
                         <p>
-                            <span className="font-bold">Retrait au drive Trinity U Rennes Epitech</span>
-                            <span className="text-muted-foreground"> · préparation de la commande offerte</span>
+                            <span className="font-bold">{store ? `Retrait au drive ${store.name}` : "Retrait au drive ou livraison"}</span>
+                            <span className="text-muted-foreground"> · préparation de la commande offerte · </span>
+                            <StoreButton variant="link" />
                         </p>
                     </div>
 

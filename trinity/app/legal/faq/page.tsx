@@ -16,8 +16,9 @@ const SECTIONS: { title: string; questions: { question: string; answer: React.Re
         question: "Comment récupérer mes courses ?",
         answer: (
           <>
-            Au moment de commander, vous choisissez entre le <strong>retrait au drive</strong> Trinity U Rennes Epitech,
-            gratuit, et la <strong>livraison à domicile</strong>. Vos courses sont préparées par nos équipes pour le
+            Au moment de commander, vous choisissez entre le <strong>retrait au drive</strong> de votre magasin Trinity,
+            gratuit, et la <strong>livraison à domicile</strong> depuis ce magasin. Vous pouvez changer de magasin à tout
+            moment, en haut de chaque page. Vos courses sont préparées par nos équipes pour le
             créneau que vous avez choisi.
           </>
         ),
