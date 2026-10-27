@@ -10,6 +10,10 @@ const withPWA = require("next-pwa")({
 /** @type {import('next').NextConfig} */
 const nextConfig = withPWA({
   experimental: {
+    // Explorateur de segments des outils de dev : ses enveloppes (SegmentViewNode) ajoutent un niveau
+    // à l'arbre React, et un rechargement pendant une recompilation les hydrate différemment du
+    // serveur, ce qui décale les useId (identifiants Radix du menu du back-office). Dev seulement.
+    devtoolSegmentExplorer: false,
   },
   eslint: {
     // Le lint est géré via `npm run lint` / la CI, pas au build de déploiement
