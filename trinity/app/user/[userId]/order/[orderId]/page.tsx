@@ -14,6 +14,7 @@ import { orderNumber, requireUser } from "@/lib/account";
 import { formatPickupDate } from "@/lib/checkout";
 import { orderDeliveryFee } from "@/lib/delivery";
 import CheckoutSteps from "@/components/cart/checkout-steps";
+import { lineOutcome } from "@/lib/orders/preparation";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                     <p className="mt-0.5 text-sm text-muted-foreground">
                                         {item.quantity} × {formatPrice(item.product.price)}
                                     </p>
+                                    <PreparationNote line={item} />
                                 </div>
                                 <span className="shrink-0 font-black tabular-nums">
                                     {formatPrice(item.product.price * item.quantity)}
@@ -136,6 +138,12 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                     <dd className="font-bold text-promo">− {formatPrice(order.loyaltyDiscount)}</dd>
                                 </div>
                             )}
+                            {order.preparationRefund > 0 && (
+                                <div className="flex justify-between">
+                                    <dt className="text-muted-foreground">Remboursé à la préparation</dt>
+                                    <dd className="font-bold text-promo">− {formatPrice(order.preparationRefund)}</dd>
+                                </div>
+                            )}
                             <div className="flex justify-between">
                                 <dt className="text-muted-foreground">Préparation de la commande</dt>
                                 <dd className="font-bold text-bio">Offerte</dd>
@@ -149,7 +157,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                         </dl>
                         <div className="mt-4 flex items-end justify-between border-t pt-4">
                             <span className="font-extrabold">Total</span>
-                            <Price value={totalAmount - order.loyaltyDiscount + fee} size="lg" />
+                            <Price value={Math.max(0, totalAmount - order.loyaltyDiscount - order.preparationRefund) + fee} size="lg" />
                         </div>
                         {order.loyaltyPointsEarned > 0 && (
                             <p className="mt-3 rounded-xl bg-highlight/25 px-3 py-2 text-center text-sm font-bold text-brand-dark">
@@ -203,5 +211,26 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                 </div>
             </div>
         </div>
+    );
+}
+
+// Article manquant ou remplacé, une fois la préparation validée
+function PreparationNote({ line }: { line: Parameters<typeof lineOutcome>[0] }) {
+    if (line.preparedQuantity === null) return null;
+    const { missing, substitute, refund } = lineOutcome(line);
+    if (missing === 0) return null;
+    return (
+        <p
+            className={`mt-1.5 inline-flex max-w-full rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                substitute ? "bg-secondary text-primary" : "bg-promo/10 text-promo"
+            }`}
+        >
+            <span className="truncate">
+                {substitute
+                    ? `${missing} remplacé${missing > 1 ? "s" : ""} par ${substitute.name}`
+                    : `${missing} manquant${missing > 1 ? "s" : ""} en rayon`}
+                {refund > 0 && ` · ${formatPrice(refund)} remboursés`}
+            </span>
+        </p>
     );
 }

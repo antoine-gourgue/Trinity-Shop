@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PDFDocument, PDFFont, PDFImage, PDFPage, StandardFonts, rgb } from "pdf-lib";
 import { formatBrand } from "./format";
+import type { PreparationChange } from "./orders/preparation";
 
 // Facture PDF d'une commande, au format A4, aux couleurs de la boutique
 
@@ -15,6 +16,8 @@ export interface InvoiceData {
   // Livraison à domicile (null pour un retrait au drive)
   delivery: { address: string[]; fee: number } | null;
   loyalty: { discount: number; pointsUsed: number; pointsEarned: number; cardNumber: string | null };
+  // Ajustements de la préparation (articles manquants ou remplacés), null tant qu'elle n'est pas validée
+  preparation: { refund: number; changes: PreparationChange[] } | null;
   customer: { name: string; email: string; address: string[] };
   items: {
     name: string;
@@ -225,7 +228,8 @@ export async function buildInvoicePdf(data: InvoiceData) {
   }
 
   const fee = data.delivery?.fee ?? 0;
-  const total = subtotal - savings - data.loyalty.discount + fee;
+  const refund = data.preparation?.refund ?? 0;
+  const total = subtotal - savings - data.loyalty.discount - refund + fee;
   const vat = total - fee - (total - fee) / (1 + VAT_RATE) + (fee - fee / (1 + SERVICE_VAT_RATE));
   const boxX = right - 230;
   let lineY = y - 10;
@@ -239,6 +243,7 @@ export async function buildInvoicePdf(data: InvoiceData) {
   if (data.loyalty.discount > 0) {
     totalLine(`Bons Carte Trinity (${data.loyalty.pointsUsed} pts)`, `- ${euros(data.loyalty.discount)}`, COLORS.promo);
   }
+  if (refund > 0) totalLine("Remboursé à la préparation", `- ${euros(refund)}`, COLORS.promo);
   totalLine("Préparation de la commande", "Offerte", COLORS.primary);
   if (data.delivery) totalLine("Livraison à domicile", fee > 0 ? euros(fee) : "Offerte", fee > 0 ? COLORS.text : COLORS.primary);
 
@@ -272,6 +277,30 @@ export async function buildInvoicePdf(data: InvoiceData) {
     "Retrouvez vos commandes dans votre espace client.",
   ];
   thanks.forEach((line, index) => write(page, line, MARGIN, y - 28 - index * 13, { size: 9, color: COLORS.muted }));
+
+  // Articles manquants ou remplacés, sous le remerciement (les premiers, pour tenir dans la place des totaux)
+  const changes = data.preparation?.changes ?? [];
+  if (changes.length > 0) {
+    const notesWidth = boxX - MARGIN - 30;
+    write(page, "Ajustements à la préparation", MARGIN, y - 80, { size: 9.5, font: bold, color: COLORS.brandDark });
+    const shown = changes.slice(0, 5);
+    shown.forEach((change, index) => {
+      const outcome = change.substitute ? `remplacé par ${change.substitute}` : "manquant, remboursé";
+      page.drawText(fit(`${change.missing} × ${change.name} : ${outcome}`, regular, 8, notesWidth), {
+        x: MARGIN,
+        y: y - 95 - index * 12,
+        size: 8,
+        font: regular,
+        color: COLORS.muted,
+      });
+    });
+    if (changes.length > shown.length) {
+      write(page, `et ${changes.length - shown.length} autre(s), voir votre espace client`, MARGIN, y - 95 - shown.length * 12, {
+        size: 8,
+        color: COLORS.muted,
+      });
+    }
+  }
 
   // Pied de page et pagination sur chaque page
   const pages = pdf.getPages();

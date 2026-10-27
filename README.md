@@ -66,10 +66,11 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 
 ### Back-office (`/admin`)
 
-Deux types de comptes : le **siège** (rôle administrateur) gère tout le réseau ; chaque **magasin** a son compte (`magasin-<slug>@trinity.antoinegourgue.dev`), qui arrive directement sur le back-office de son seul magasin (tableau de bord, commandes, stocks) et n'a accès ni à la boutique, ni au catalogue, ni aux clients. Les droits sont vérifiés côté serveur sur chaque commande et chaque stock.
+Deux types de comptes : le **siège** (rôle administrateur) gère tout le réseau ; chaque **magasin** a son compte (`magasin-<slug>@trinity.antoinegourgue.dev`), qui arrive directement sur le back-office de son seul magasin (tableau de bord, commandes, préparation, stocks) et n'a accès ni à la boutique, ni au catalogue, ni aux clients. Les droits sont vérifiés côté serveur sur chaque commande et chaque stock.
 
 - **Tableau de bord** : chiffre d'affaires, commandes, clients et inscriptions sur la période, ruptures et stocks faibles, avec graphiques ; tout le réseau pour le siège, son magasin pour un compte magasin.
 - **Commandes** : recherche, filtres par statut, livraison et magasin, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (paiement par carte remboursé, articles remis en stock, points de fidélité rétablis, client prévenu par e-mail) ou supprime une commande annulée.
+- **Préparation** : file des commandes à préparer, classées par créneau, avec leur avancement. L'écran du préparateur liste les articles rayon par rayon ; chacun est prélevé, prélevé en partie ou signalé manquant. Si le client a accepté les remplacements, un produit équivalent en stock dans le magasin (même catégorie, prix le plus proche) peut remplacer ce qui manque. À la validation, la différence est remboursée sur la carte (remboursement partiel Stripe), le stock du magasin est corrigé, la commande passe « prête » et le client reçoit le détail des changements par e-mail ; sa facture et sa page de commande les reprennent.
 - **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, promotions avec date de fin, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
 - **Stocks** : stock de chaque magasin (ou de tout le réseau), filtres stock faible et rupture, modification directe ; un nouveau produit reçoit un stock initial dans chaque magasin.
 - **Clients** : rôles et suppression.
@@ -213,6 +214,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 - **Prix** : entiers en millièmes d'euro (`5900` = 5,90 €), ce qui évite les erreurs d'arrondi.
 - **Livraison** : 5,90 €, offerte dès 60 € d'articles ; le retrait au drive est gratuit. Une commande livrée est une commande qui a une adresse de livraison.
 - **Créneaux** : d'une heure, de 9 h à 13 h et de 14 h à 20 h, sur les six prochains jours d'ouverture à partir du lendemain (fermé le dimanche).
+- **Préparation** : un article manquant est remboursé ; un remplaçant est facturé au prix le plus bas des deux produits (un remplaçant plus cher ne coûte rien de plus). Le remboursement ne dépasse jamais ce que le client a payé pour ses articles, bons fidélité déduits.
 - **Fidélité** : 1 point par euro d'articles ; chaque tranche de 100 points donne un bon de 5 €. Les points d'une commande supprimée sont rendus.
 - **Accès** : l'identité vient toujours de la session, jamais d'un identifiant envoyé par le navigateur ; le rôle administrateur est relu en base à chaque contrôle.
 
@@ -225,7 +227,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request et à chaque push sur `main` :
 
 1. **Lint, types, tests** : `npm run lint`, `tsc --noEmit`, puis Jest ;
-2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : choix du magasin, compte magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation et annulation par l'équipe. La base de production n'est jamais utilisée.
+2. **Build** : `next build` sur une base PostgreSQL jetable, remplie par le seed, puis les parcours Playwright dans Chrome : choix du magasin, compte magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, puis préparation (article prélevé, article manquant) et annulation par l'équipe. La base de production n'est jamais utilisée.
 
 ## Déploiement
 

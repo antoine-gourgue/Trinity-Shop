@@ -4,6 +4,7 @@ import { orderNumber } from "@/lib/account";
 import { formatPickupDate } from "@/lib/checkout";
 import { orderDeliveryFee } from "@/lib/delivery";
 import { storeAddressLines } from "@/lib/stores";
+import { preparationSummary } from "@/lib/orders/preparation";
 
 // Données d'une commande pour sa facture et son e-mail de confirmation.
 // Sans contrôle d'accès : à appeler après avoir vérifié que l'utilisateur peut voir la commande.
@@ -18,7 +19,7 @@ export async function loadInvoice(orderId: string) {
       cart: {
         include: {
           productsInCart: {
-            include: { product: { include: { brand: true } } },
+            include: { product: { include: { brand: true } }, substitute: { select: { name: true, price: true } } },
             orderBy: { createdAt: "asc" },
           },
         },
@@ -32,6 +33,10 @@ export async function loadInvoice(orderId: string) {
   const number = orderNumber(order.id);
   const itemsTotal = order.cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   const deliveryFee = orderDeliveryFee(order, itemsTotal);
+  // Une fois la préparation validée : articles manquants ou remplacés, et montant réellement remboursé
+  const preparation = order.preparedAt
+    ? { refund: order.preparationRefund, changes: preparationSummary(order.cart.productsInCart).changes }
+    : null;
 
   const data: InvoiceData = {
     invoiceNumber: `FAC-${number}`,
@@ -46,6 +51,7 @@ export async function loadInvoice(orderId: string) {
       pointsEarned: order.loyaltyPointsEarned,
       cardNumber: order.user.loyaltyNumber,
     },
+    preparation,
     customer: {
       name: `${order.user.firstName} ${order.user.lastName}`,
       email: order.user.email,
@@ -66,6 +72,6 @@ export async function loadInvoice(orderId: string) {
     userId: order.userId,
     firstName: order.user.firstName,
     email: order.user.email,
-    total: Math.max(0, itemsTotal - order.loyaltyDiscount) + deliveryFee,
+    total: Math.max(0, itemsTotal - order.loyaltyDiscount - order.preparationRefund) + deliveryFee,
   };
 }

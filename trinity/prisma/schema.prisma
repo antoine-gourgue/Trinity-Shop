@@ -98,7 +98,8 @@ model Product {
   brandId          String
   categories       CategoriesProducts[]
   stocks           StoreStock[]
-  cartsWithProduct ProductInCart[]
+  cartsWithProduct ProductInCart[]      @relation("CartLines")
+  substitutedIn    ProductInCart[]      @relation("Substitutes")
   promoEndsAt      DateTime? // fin de la promotion : le prix revient alors au prix barré
   favorites        Favorite[]
   createdAt        DateTime             @default(now())
@@ -144,16 +145,21 @@ model Cart {
 }
 
 model ProductInCart {
-  id              String   @id @default(cuid())
-  quantity        Int
-  cart            Cart     @relation(fields: [cartId], references: [id])
-  cartId          String
-  product         Product  @relation(fields: [productId], references: [id])
-  productId       String
+  id               String   @id @default(cuid())
+  quantity         Int
+  cart             Cart     @relation(fields: [cartId], references: [id])
+  cartId           String
+  product          Product  @relation("CartLines", fields: [productId], references: [id])
+  productId        String
   // Produit équivalent accepté si celui-ci manque à la préparation
-  allowSubstitute Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  allowSubstitute  Boolean  @default(true)
+  // Préparation en magasin : quantité réellement prélevée (null tant que l'article n'est pas traité)
+  preparedQuantity Int?
+  // Produit équivalent donné pour la quantité manquante, si le client l'accepte
+  substituteId     String?
+  substitute       Product? @relation("Substitutes", fields: [substituteId], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Address {
@@ -187,6 +193,10 @@ model Order {
   loyaltyPointsUsed   Int                  @default(0)
   loyaltyPointsEarned Int                  @default(0)
   loyaltyTransactions LoyaltyTransaction[]
+  // Fin de la préparation en magasin, et montant alors remboursé (articles manquants, remplaçants
+  // moins chers), en millièmes d'euro
+  preparedAt          DateTime?
+  preparationRefund   Int                  @default(0)
   // Magasin qui prépare la commande (drive de retrait, ou départ de la livraison)
   storeId             String?
   store               Store?               @relation(fields: [storeId], references: [id], onDelete: SetNull)

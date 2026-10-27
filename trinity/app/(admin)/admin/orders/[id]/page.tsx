@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, CreditCard, Mail, MapPin, Phone, Store, Truck, User } from "lucide-react";
+import { CalendarClock, ClipboardCheck, CreditCard, Mail, MapPin, Phone, Store, Truck, User } from "lucide-react";
 import { getAdminOrder, orderTotal } from "@/lib/admin/queries";
 import { orderNumber } from "@/lib/account";
 import { formatBrand, formatPrice } from "@/lib/format";
@@ -11,6 +11,7 @@ import { OrderStatusBadge, ProductThumb, customerName, pickupLabel } from "@/com
 import { AdvanceOrderButton, CancelOrderButton, DeleteOrderButton, InvoiceButton } from "@/components/admin/order-actions";
 import { backOfficePage } from "@/lib/admin/access";
 import { canCancelOrder, nextOrderStatus, orderStatusLabel } from "@/lib/order-status";
+import { lineOutcome } from "@/lib/orders/preparation";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function AdminOrderPage({ params }: Props) {
   const shipping = order.shippingAddress;
   const fee = orderDeliveryFee(order, subtotal);
   const next = nextOrderStatus(order.status);
+  const preparable = order.status === "received" || order.status === "preparing";
 
   return (
     <div>
@@ -47,6 +49,14 @@ export default async function AdminOrderPage({ params }: Props) {
         }
         actions={
           <>
+            {preparable && (
+              <Link
+                href={`/admin/preparation/${order.id}`}
+                className="flex h-11 items-center gap-2 rounded-full bg-brand-dark px-5 text-sm font-bold text-white transition-colors hover:bg-primary"
+              >
+                <ClipboardCheck size={16} aria-hidden /> Préparer la commande
+              </Link>
+            )}
             {next && <AdvanceOrderButton orderId={order.id} nextLabel={orderStatusLabel(next, !!shipping)} />}
             <InvoiceButton orderId={order.id} label />
             {canCancelOrder(order.status) && <CancelOrderButton orderId={order.id} number={number} label />}
@@ -75,12 +85,13 @@ export default async function AdminOrderPage({ params }: Props) {
                     {formatBrand(item.product.brand.name)}
                     {item.product.netContent && ` · ${item.product.netContent}`} · {item.product.barCode.toString()}
                   </p>
-                  <p className="mt-1">
+                  <p className="mt-1 flex flex-wrap gap-1.5">
                     {item.allowSubstitute ? (
                       <Badge tone="success">Remplacement accepté</Badge>
                     ) : (
                       <Badge tone="warning">Pas de remplacement</Badge>
                     )}
+                    <PreparationBadge line={item} />
                   </p>
                 </div>
                 <p className="shrink-0 text-right text-sm">
@@ -107,6 +118,12 @@ export default async function AdminOrderPage({ params }: Props) {
               <dt className="text-muted-foreground">Préparation</dt>
               <dd className="font-bold text-bio">Offerte</dd>
             </div>
+            {order.preparationRefund > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Remboursé à la préparation</dt>
+                <dd className="font-bold tabular-nums text-promo">− {formatPrice(order.preparationRefund)}</dd>
+              </div>
+            )}
             {shipping && (
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Livraison à domicile</dt>
@@ -207,5 +224,21 @@ export default async function AdminOrderPage({ params }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+// Résultat de la préparation d'un article : rien tant qu'il n'est pas traité ou s'il est complet
+function PreparationBadge({ line }: { line: Parameters<typeof lineOutcome>[0] }) {
+  if (line.preparedQuantity === null) return null;
+  const { missing, substitute } = lineOutcome(line);
+  if (missing === 0) return <Badge tone="success">Prélevé</Badge>;
+  return substitute ? (
+    <Badge tone="brand">
+      {missing} remplacé{missing > 1 ? "s" : ""} par <span className="max-w-56 truncate">{substitute.name}</span>
+    </Badge>
+  ) : (
+    <Badge tone="danger">
+      {missing} manquant{missing > 1 ? "s" : ""} · remboursé{missing > 1 ? "s" : ""}
+    </Badge>
   );
 }

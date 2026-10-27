@@ -1,6 +1,7 @@
 import { Button, Link, Section, Text } from "@react-email/components";
 import { EmailLayout, emailStyles, type EmailHero } from "@/components/emails/email-layout";
 import { formatPrice } from "@/lib/format";
+import type { PreparationChange } from "@/lib/orders/preparation";
 
 export type OrderStatusEmailProps = {
   firstName: string;
@@ -14,7 +15,9 @@ export type OrderStatusEmailProps = {
   orderUrl: string;
   siteUrl: string;
 } & (
-  | { status: "preparing" | "ready" }
+  | { status: "preparing" }
+  // Articles manquants ou remplacés à la préparation, et montant remboursé en millièmes d'euro
+  | { status: "ready"; preparation?: { refund: number; changes: PreparationChange[] } | null }
   // Points Carte Trinity gagnés avec cette commande
   | { status: "completed"; pointsEarned: number }
   // Montant remboursé en millièmes d'euro, null si rien n'avait été débité ; bons Carte Trinity rendus
@@ -95,6 +98,29 @@ function PickupBox(props: OrderStatusEmailProps) {
   );
 }
 
+// Ce que le préparateur n'a pas trouvé en rayon, et ce qui a été donné ou remboursé à la place
+function PreparationChanges({ changes, refund }: { changes: PreparationChange[]; refund: number }) {
+  return (
+    <Section style={{ ...emailStyles.box, marginTop: 12 }}>
+      <Text style={emailStyles.strong}>
+        {changes.length} article{changes.length > 1 ? "s" : ""} modifié{changes.length > 1 ? "s" : ""} à la préparation
+      </Text>
+      {changes.map((change) => (
+        <Text key={change.name} style={{ ...emailStyles.muted, margin: "4px 0 0" }}>
+          {change.missing} × {change.name} :{" "}
+          {change.substitute ? `remplacé par ${change.substitute}` : "manquant en rayon"}
+          {change.refund > 0 && `, ${formatPrice(change.refund)} remboursés`}
+        </Text>
+      ))}
+      {refund > 0 && (
+        <Text style={{ ...emailStyles.muted, margin: "10px 0 0" }}>
+          <strong>{formatPrice(refund)}</strong> reviennent sur la carte utilisée pour payer, sous 5 à 10 jours ouvrés selon votre banque.
+        </Text>
+      )}
+    </Section>
+  );
+}
+
 function Body(props: OrderStatusEmailProps) {
   switch (props.status) {
     case "preparing":
@@ -102,6 +128,9 @@ function Body(props: OrderStatusEmailProps) {
       return (
         <>
           <PickupBox {...props} />
+          {props.status === "ready" && props.preparation && props.preparation.changes.length > 0 && (
+            <PreparationChanges {...props.preparation} />
+          )}
           <Text style={emailStyles.text}>{nextStep(props)}</Text>
         </>
       );

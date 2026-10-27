@@ -45,14 +45,23 @@ test("un client commande au drive, l'équipe prépare puis annule la commande", 
   await page.getByRole("button", { name: "Racheter cette commande" }).click();
   await expect(page.getByText(/ajoutés? au panier/)).toBeVisible();
 
-  // L'équipe fait avancer la commande puis l'annule
+  // L'équipe commence la préparation (un article prélevé, l'autre manquant) puis annule la commande
   const adminContext = await browser.newContext();
   const admin = await adminContext.newPage();
   await signIn(admin, ADMIN_EMAIL, process.env.SEED_ADMIN_PASSWORD ?? "");
   await admin.goto(`/admin/orders/${orderId}`);
   await expect(admin.getByText("Remplacement accepté").first()).toBeVisible();
-  await admin.getByRole("button", { name: "Passer à « En préparation »" }).click();
+  await admin.getByRole("link", { name: "Préparer la commande" }).click();
+  await expect(admin).toHaveURL(new RegExp(`/admin/preparation/${orderId}$`));
+  await admin.getByRole("button", { name: "Prélevé" }).first().click();
+  await expect(admin.getByText("1 article traité sur 2")).toBeVisible();
+  // Premier article traité : la commande passe en préparation
   await expect(admin.getByText("En préparation").first()).toBeVisible();
+  await admin.getByRole("button", { name: "Manquant" }).nth(1).click();
+  await expect(admin.getByText("2 articles traités sur 2")).toBeVisible();
+  await expect(admin.getByText(/À rembourser au client/)).toBeVisible();
+  await admin.goto(`/admin/orders/${orderId}`);
+  await expect(admin.getByText(/1 manquant · remboursé/)).toBeVisible();
   await admin.getByRole("button", { name: "Annuler la commande" }).first().click();
   await admin.getByRole("dialog").getByRole("button", { name: "Annuler la commande" }).click();
   await expect(admin.getByText("Annulée").first()).toBeVisible();

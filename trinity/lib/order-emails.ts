@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { buildInvoicePdf } from "@/lib/invoice-pdf";
+import { buildInvoicePdf, type InvoiceData } from "@/lib/invoice-pdf";
 import { loadInvoice } from "@/lib/invoice-data";
 import { siteUrl } from "@/lib/site-url";
 import { OrderConfirmationEmail } from "@/components/emails/order-confirmation-email";
@@ -41,21 +41,22 @@ export async function sendOrderConfirmation(orderId: string) {
 
 export type OrderStatusEvent = { status: "preparing" | "ready" | "completed" } | { status: "cancelled"; refund: RefundOutcome };
 
-type StatusEmailBase = Omit<OrderStatusEmailProps, "status" | "refundedAmount" | "vouchersReturned" | "pointsEarned"> & {
+type StatusEmailBase = Omit<OrderStatusEmailProps, "status" | "refundedAmount" | "vouchersReturned" | "pointsEarned" | "preparation"> & {
   pointsEarned: number;
   vouchersReturned: boolean;
+  preparation: InvoiceData["preparation"];
 };
 
 // Objet et contenu de l'e-mail pour chaque changement de statut
 function statusEmail(event: OrderStatusEvent, number: string, delivery: boolean, base: StatusEmailBase) {
-  const { pointsEarned, vouchersReturned, ...common } = base;
+  const { pointsEarned, vouchersReturned, preparation, ...common } = base;
   switch (event.status) {
     case "preparing":
       return { subject: `Votre commande n° ${number} est en préparation`, react: OrderStatusEmail({ ...common, status: "preparing" }) };
     case "ready":
       return {
         subject: delivery ? `Votre commande n° ${number} est en route` : `Votre commande n° ${number} est prête au drive`,
-        react: OrderStatusEmail({ ...common, status: "ready" }),
+        react: OrderStatusEmail({ ...common, status: "ready", preparation }),
       };
     case "completed":
       return {
@@ -100,6 +101,7 @@ export async function sendOrderStatusEmail(orderId: string, event: OrderStatusEv
       ...common,
       pointsEarned: data.loyalty.pointsEarned,
       vouchersReturned: data.loyalty.pointsUsed > 0,
+      preparation: data.preparation,
     });
 
     const { error } = await new Resend(apiKey).emails.send({ from: emailSender(), to: [invoice.email], ...email });

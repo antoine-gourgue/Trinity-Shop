@@ -42,14 +42,15 @@ function paginate(total: number, page: number) {
 }
 
 // Total d'une commande, comme sur la facture : articles au prix catalogue, moins les bons
-// fidélité, plus les frais de livraison à domicile
+// fidélité, plus les frais de livraison à domicile, moins ce qui a été remboursé à la préparation
 export function orderTotal(order: {
   loyaltyDiscount: number;
+  preparationRefund: number;
   shippingAddressId: string | null;
   cart: { productsInCart: { quantity: number; product: { price: number } }[] };
 }) {
   const items = order.cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
-  return Math.max(0, items - order.loyaltyDiscount) + orderDeliveryFee(order, items);
+  return Math.max(0, items - order.loyaltyDiscount - order.preparationRefund) + orderDeliveryFee(order, items);
 }
 
 export function articleCount(order: { cart: { productsInCart: { quantity: number }[] } }) {
@@ -63,6 +64,7 @@ const ORDER_SUMMARY = {
   validated: true,
   status: true,
   loyaltyDiscount: true,
+  preparationRefund: true,
   shippingAddressId: true,
   store: { select: { name: true } },
   user: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -261,7 +263,10 @@ export function getAdminOrder(id: string) {
       cart: {
         include: {
           productsInCart: {
-            include: { product: { select: { id: true, name: true, picture: true, barCode: true, price: true, netContent: true, brand: { select: { name: true } } } } },
+            include: {
+              product: { select: { id: true, name: true, picture: true, barCode: true, price: true, netContent: true, brand: { select: { name: true } } } },
+              substitute: { select: { name: true, price: true } },
+            },
             orderBy: { createdAt: "asc" },
           },
         },
@@ -442,6 +447,71 @@ export async function getAdminStocks(params: AdminListParams) {
     units: units._sum.quantity ?? 0,
     stores: stores.map((store) => ({ value: store.slug, label: store.name })),
   };
+}
+
+// ——— Préparation ———
+
+// Commandes à préparer, dans l'ordre des créneaux (les commandes sans créneau en dernier)
+export async function getPreparationQueue(storeSlug?: string) {
+  return prisma.order.findMany({
+    where: { status: { in: ["received", "preparing"] }, ...(storeSlug ? { store: { slug: storeSlug } } : {}) },
+    orderBy: [{ pickupSlot: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      status: true,
+      pickupSlot: true,
+      shippingAddressId: true,
+      store: { select: { name: true } },
+      user: { select: { firstName: true, lastName: true } },
+      cart: { select: { productsInCart: { select: { quantity: true, preparedQuantity: true } } } },
+    },
+    take: 100,
+  });
+}
+
+export type PreparationQueueOrder = Awaited<ReturnType<typeof getPreparationQueue>>[number];
+
+// Commande à préparer, avec ses articles, leurs rayons et leurs remplaçants éventuels
+export function getPreparation(orderId: string) {
+  return prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      status: true,
+      storeId: true,
+      pickupSlot: true,
+      shippingAddressId: true,
+      preparationRefund: true,
+      store: { select: { name: true } },
+      user: { select: { firstName: true, lastName: true } },
+      cart: {
+        select: {
+          productsInCart: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              quantity: true,
+              preparedQuantity: true,
+              allowSubstitute: true,
+              substitute: { select: { id: true, name: true, price: true, netContent: true } },
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  picture: true,
+                  netContent: true,
+                  barCode: true,
+                  brand: { select: { name: true } },
+                  categories: { select: { categoryName: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 // ——— Clients ———
