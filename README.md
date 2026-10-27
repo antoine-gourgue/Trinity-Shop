@@ -12,15 +12,15 @@ Le client choisit son magasin parmi 81 drives en France, fait ses courses dans u
 
 | Accueil | Fiche produit |
 |---|---|
-| ![Accueil : bannières d'opérations, prospectus du magasin et promotions de la semaine](.github/readme/accueil.png) | ![Fiche produit au prix du prospectus du magasin, avec Nutri-Score et date de fin de l'offre](.github/readme/produit.png) |
+| ![Accueil : bannières d'opérations, prospectus du magasin et promotions de la semaine](.github/readme/site-accueil.png) | ![Fiche produit au prix du prospectus du magasin, avec Nutri-Score et date de fin de l'offre](.github/readme/site-produit.png) |
 | **Prospectus du magasin** | **Anti-gaspi** |
-| ![Prospectus d'un magasin : ses produits à prix promo pendant ses dates](.github/readme/prospectus.png) | ![Rayon anti-gaspi : dates courtes du magasin, de −20 % à −50 %](.github/readme/anti-gaspi.png) |
+| ![Prospectus d'un magasin : ses produits à prix promo pendant ses dates](.github/readme/site-prospectus.png) | ![Rayon anti-gaspi : dates courtes du magasin, de −20 % à −50 %](.github/readme/site-anti-gaspi.png) |
 | **Rayon Hygiène et Beauté** | **Recherche** |
-| ![Rayon Hygiène et Beauté avec ses sous-rayons et ses filtres](.github/readme/rayon.png) | ![Suggestions de sous-rayon et de produits pendant la frappe, sans accent](.github/readme/recherche.png) |
+| ![Rayon Hygiène et Beauté avec ses sous-rayons et ses filtres](.github/readme/site-rayon.png) | ![Suggestions de sous-rayon et de produits pendant la frappe, sans accent](.github/readme/site-recherche.png) |
 
 | **Mobile** | |
 |---|---|
-| <img src=".github/readme/mobile.png" alt="Accueil sur mobile, avec la barre de navigation" width="260"> | Sur mobile : bannières qui défilent, panneaux qui montent du bas de l'écran (choix du magasin, connexion, scanner de code-barres) et barre de navigation en bas. |
+| <img src=".github/readme/site-mobile.png" alt="Accueil sur mobile, avec la barre de navigation" width="260"> | Sur mobile : bannières qui défilent, panneaux qui montent du bas de l'écran (choix du magasin, connexion, scanner de code-barres) et barre de navigation en bas. |
 
 ### Back-office d'un magasin
 
