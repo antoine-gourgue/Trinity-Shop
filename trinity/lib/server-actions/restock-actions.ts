@@ -108,7 +108,7 @@ export interface RestockProductOption {
   stock: number | null;
 }
 
-// Produits à commander : recherche par nom ou par code-barres, avec le stock du magasin
+// Produits à commander : recherche par nom, marque ou code-barres, avec le stock du magasin
 export async function searchRestockProducts(query: string, storeId: string | null): Promise<RestockProductOption[]> {
   const access = await requireBackOffice();
   const store = access.store?.id ?? storeId;
@@ -118,7 +118,9 @@ export async function searchRestockProducts(query: string, storeId: string | nul
   const products = await prisma.product.findMany({
     where: {
       hidden: false,
-      ...(isBarcode(search) ? { barCode: BigInt(search) } : { name: { contains: search, mode: "insensitive" } }),
+      ...(isBarcode(search)
+        ? { barCode: BigInt(search) }
+        : { OR: [{ name: { contains: search, mode: "insensitive" } }, { brand: { name: { contains: search, mode: "insensitive" } } }] }),
     },
     orderBy: { name: "asc" },
     take: 8,

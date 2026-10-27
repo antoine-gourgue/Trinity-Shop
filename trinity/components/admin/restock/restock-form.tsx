@@ -24,6 +24,8 @@ export default function RestockForm({ stores, defaultStoreId }: RestockFormProps
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<RestockProductOption[]>([]);
   const [searching, setSearching] = useState(false);
+  // Recherche dont les résultats sont affichés, pour dire quand elle ne trouve rien
+  const [searchedFor, setSearchedFor] = useState<string | null>(null);
   const [product, setProduct] = useState<RestockProductOption | null>(null);
   const [quantity, setQuantity] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +37,7 @@ export default function RestockForm({ stores, defaultStoreId }: RestockFormProps
     if (product || query.trim().length < 2) {
       setOptions([]);
       setSearching(false);
+      setSearchedFor(null);
       return;
     }
     let cancelled = false;
@@ -44,6 +47,7 @@ export default function RestockForm({ stores, defaultStoreId }: RestockFormProps
       if (!cancelled) {
         setOptions(found);
         setSearching(false);
+        setSearchedFor(query);
       }
     }, 250);
     return () => {
@@ -125,6 +129,11 @@ export default function RestockForm({ stores, defaultStoreId }: RestockFormProps
             </div>
             {stores && !storeId && query.trim().length >= 2 && (
               <p className="mt-2 text-xs text-muted-foreground">Choisissez le magasin pour voir son stock de chaque produit.</p>
+            )}
+            {!searching && searchedFor === query && options.length === 0 && (
+              <p className="mt-2 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+                Aucun produit trouvé pour « {query.trim()} ». Essayez un autre nom, une marque ou le code-barres.
+              </p>
             )}
             {options.length > 0 && (
               <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto rounded-2xl border bg-white p-1">
