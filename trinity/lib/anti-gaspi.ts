@@ -1,6 +1,6 @@
-// Anti-gaspillage : un magasin déclare des lots à date courte, vendus en ligne à prix réduit.
-// La remise grandit automatiquement à l'approche de la date limite. Fonctions pures, partagées
-// par le rayon anti-gaspi, le panier, le paiement, la commande et le back-office.
+// Anti-gaspillage : à l'approche de sa date limite, un lot du stock passe en vente en ligne à prix
+// réduit, et la remise grandit jusqu'à la veille. Fonctions pures, partagées par le rayon
+// anti-gaspi, le panier, le paiement, la commande et le back-office.
 
 // Remise selon le nombre de jours avant la date limite (au jour près, heure de Paris)
 const MARKDOWNS: { days: number; percent: number }[] = [
@@ -10,7 +10,8 @@ const MARKDOWNS: { days: number; percent: number }[] = [
   { days: 5, percent: 20 },
 ];
 
-// Un lot passe en vente anti-gaspi 5 jours avant sa date limite
+// Un lot passe en vente anti-gaspi au plus 5 jours avant sa date limite (moins pour un produit qui
+// se conserve peu : voir markdownWindow)
 export const ANTI_GASPI_WINDOW = MARKDOWNS[MARKDOWNS.length - 1].days;
 
 const DAY = 86_400_000;
@@ -39,10 +40,10 @@ export function daysLeft(bestBefore: Date, now = new Date()) {
   return dayNumber(lotDay(bestBefore)) - dayNumber(parisDay(now));
 }
 
-// Remise en pourcentage, ou null hors de la période anti-gaspi (trop tôt, ou date du jour dépassée :
-// le premier créneau de retrait est le lendemain)
-export function markdownPercent(days: number) {
-  if (days < 1) return null;
+// Remise en pourcentage, ou null hors de la période anti-gaspi du lot (trop tôt, ou date du jour
+// dépassée : le premier créneau de retrait est le lendemain)
+export function markdownPercent(days: number, window = ANTI_GASPI_WINDOW) {
+  if (days < 1 || days > window) return null;
   return MARKDOWNS.find((markdown) => days <= markdown.days)?.percent ?? null;
 }
 
@@ -57,13 +58,15 @@ export interface LotOffer {
   quantity: number;
   bestBefore: Date;
   closedAt: Date | null;
+  // Jours avant la date où le lot passe en anti-gaspi
+  markdownDays: number;
 }
 
 // Prix anti-gaspi d'un lot aujourd'hui, ou null s'il n'est pas (ou plus) en vente
-export function lotPricing(lot: Pick<LotOffer, "quantity" | "bestBefore" | "closedAt">, price: number, now = new Date()) {
+export function lotPricing(lot: Pick<LotOffer, "quantity" | "bestBefore" | "closedAt" | "markdownDays">, price: number, now = new Date()) {
   if (lot.closedAt || lot.quantity <= 0) return null;
   const days = daysLeft(lot.bestBefore, now);
-  const percent = markdownPercent(days);
+  const percent = markdownPercent(days, lot.markdownDays);
   if (percent === null) return null;
   const discount = unitDiscount(price, percent);
   return { percent, days, unitDiscount: discount, unitPrice: price - discount };

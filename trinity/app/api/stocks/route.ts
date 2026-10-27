@@ -5,6 +5,7 @@ import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
 import { z } from "zod";
 import { optionalField, readJsonBody } from "@/lib/api";
+import { bestBeforeIn, markdownWindow } from "@/lib/shelf-life";
 
 // Stock d'un produit dans un magasin
 const stockBodySchema = z.object({
@@ -56,10 +57,31 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'All fields (quantity, productId, storeId) are required' }, { status: 400 });
         }
 
-        const createStock = await prisma.storeStock.create({
-            data: { quantity, productId, storeId },
-            select: STOCK_FIELDS,
-        });
+        const product = await prisma.product.findUnique({ where: { id: productId }, select: { shelfLifeDays: true } });
+        if (!product) {
+            return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+        }
+        // Le stock arrive comme un lot reçu aujourd'hui, à la date habituelle du produit
+        const [createStock] = await prisma.$transaction([
+            prisma.storeStock.create({
+                data: { quantity, productId, storeId },
+                select: STOCK_FIELDS,
+            }),
+            ...(quantity > 0
+                ? [
+                      prisma.stockLot.create({
+                          data: {
+                              storeId,
+                              productId,
+                              quantity,
+                              initialQuantity: quantity,
+                              bestBefore: bestBeforeIn(product.shelfLifeDays),
+                              markdownDays: markdownWindow(product.shelfLifeDays),
+                          },
+                      }),
+                  ]
+                : []),
+        ]);
         return NextResponse.json({ data: createStock }, { status: 201 });
     } catch {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

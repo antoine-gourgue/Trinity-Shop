@@ -6,7 +6,8 @@ import { allocateAntiGaspi, ANTI_GASPI_WINDOW, bestBeforeFromDay, lotPricing, pa
 
 const DAY = 86_400_000;
 
-// Lots ouverts d'un magasin dont la date limite tombe entre demain et la fin de la période anti-gaspi
+// Lots ouverts d'un magasin dont la date limite tombe entre demain et la plus longue fenêtre anti-gaspi
+// (chaque lot a ensuite la sienne, selon la conservation du produit)
 function onSaleWhere(storeId: string, now: Date) {
   const today = bestBeforeFromDay(parisDay(now));
   return {
@@ -50,10 +51,10 @@ export interface AntiGaspiOffer {
 
 // Offres du magasin, les dates les plus proches d'abord (un produit n'apparaît qu'une fois)
 export async function storeOffers(storeId: string, now = new Date(), take?: number): Promise<AntiGaspiOffer[]> {
-  const lots = await prisma.antiGaspiLot.findMany({
+  const lots = await prisma.stockLot.findMany({
     where: onSaleWhere(storeId, now),
     orderBy: [{ bestBefore: "asc" }, { createdAt: "asc" }],
-    select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, product: { select: OFFER_PRODUCT } },
+    select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true, product: { select: OFFER_PRODUCT } },
   });
 
   const seen = new Set<string>();
@@ -89,7 +90,7 @@ export async function cartAntiGaspi(userId: string, storeId: string | null, pick
       productId: true,
       quantity: true,
       product: { select: { price: true } },
-      antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true } },
+      antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true } },
     },
   });
   return allocateAntiGaspi(

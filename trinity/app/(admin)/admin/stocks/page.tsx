@@ -8,6 +8,7 @@ import { AdminFilterTabs, AdminSearch, AdminSelectFilter } from "@/components/ad
 import { ProductThumb, StockBadge } from "@/components/admin/admin-bits";
 import StockEditor from "@/components/admin/stock-editor";
 import { backOfficePage } from "@/lib/admin/access";
+import { daysLeft, daysLeftLabel, formatBestBefore } from "@/lib/anti-gaspi";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Stocks" };
@@ -35,8 +36,8 @@ export default async function AdminStocksPage({
         title="Stocks"
         description={
           store
-            ? `Stock de ${store.name}, décompté par ses commandes. Ajustez les quantités directement dans la liste.`
-            : "Stock de chaque magasin, décompté par ses commandes. Choisissez un magasin, puis ajustez ses quantités dans la liste."
+            ? `Stock de ${store.name}, par lots datés. Ouvrez un produit pour voir ses lots, leurs commandes et le réassort.`
+            : "Stock de chaque magasin, par lots datés. Choisissez un magasin, puis ouvrez un produit pour voir ses lots."
         }
       />
 
@@ -82,6 +83,7 @@ export default async function AdminStocksPage({
                   <Th>Produit</Th>
                   {allStores && <Th>Magasin</Th>}
                   <Th>Disponible</Th>
+                  <Th>Date la plus proche</Th>
                   <Th>Mis à jour</Th>
                   <Th className="text-right">Ajuster le stock</Th>
                 </tr>
@@ -93,14 +95,10 @@ export default async function AdminStocksPage({
                       <div className="flex items-center gap-3">
                         <ProductThumb src={stock.product.picture} alt="" />
                         <div className="min-w-0 max-w-sm">
-                          {/* Fiche produit (catalogue) réservée au siège */}
-                          {store ? (
-                            <p className="line-clamp-2 font-semibold">{stock.product.name}</p>
-                          ) : (
-                            <Link href={`/admin/products/${stock.product.id}`} className="line-clamp-2 font-semibold hover:text-primary hover:underline">
-                              {stock.product.name}
-                            </Link>
-                          )}
+                          {/* Lots du produit dans ce magasin, leurs commandes et le réassort */}
+                          <Link href={`/admin/stocks/${stock.id}`} className="line-clamp-2 font-semibold hover:text-primary hover:underline">
+                            {stock.product.name}
+                          </Link>
                           <p className="truncate text-xs text-muted-foreground">
                             {formatBrand(stock.product.brand.name)} · {stock.product.barCode.toString()}
                           </p>
@@ -115,6 +113,16 @@ export default async function AdminStocksPage({
                     {allStores && <Td className="whitespace-nowrap text-sm">{stock.store.name}</Td>}
                     <Td>
                       <StockBadge quantity={stock.quantity} low={LOW_STOCK} />
+                    </Td>
+                    <Td className="whitespace-nowrap text-sm">
+                      {stock.nextBestBefore ? (
+                        <span className={daysLeft(stock.nextBestBefore) <= 2 ? "font-bold text-promo" : undefined}>
+                          {formatBestBefore(stock.nextBestBefore)}
+                          <span className="block text-xs text-muted-foreground">{daysLeftLabel(daysLeft(stock.nextBestBefore))}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </Td>
                     <Td className="whitespace-nowrap text-muted-foreground">{formatDate(stock.updatedAt, true)}</Td>
                     <Td>

@@ -1,6 +1,6 @@
 import {NextRequest, NextResponse} from "next/server";
-import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { setStockQuantity } from "@/lib/stock-lots";
 import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
 import { z } from "zod";
@@ -64,7 +64,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     try {
-        const { count } = await prisma.storeStock.deleteMany({ where: { productId: id } });
+        // Les lots du produit partent avec son stock
+        const [, { count }] = await prisma.$transaction([
+            prisma.stockLot.deleteMany({ where: { productId: id } }),
+            prisma.storeStock.deleteMany({ where: { productId: id } }),
+        ]);
         if (count === 0) {
             return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
         }
@@ -102,18 +106,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                 { status: 400 }
             );
         }
-        const updated = await prisma.storeStock.update({
-            where: { storeId_productId: { storeId, productId: id } },
-            data: { quantity },
-            select: STOCK_FIELDS,
-        });
+        const where = { storeId_productId: { storeId, productId: id } };
+        const stock = await prisma.storeStock.findUnique({ where, select: { product: { select: { shelfLifeDays: true } } } });
+        // Le produit n'a pas de stock dans ce magasin
+        if (!stock) {
+            return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
+        }
+        // Les lots suivent : unités retirées des dates les plus courtes, ou lot ajouté
+        await prisma.$transaction((tx) => setStockQuantity(tx, { storeId, productId: id, quantity, shelfLife: stock.product.shelfLifeDays }));
+        const updated = await prisma.storeStock.findUnique({ where, select: STOCK_FIELDS });
 
         return NextResponse.json({ data: updated });
     } catch (error) {
-        // Le produit n'a pas de stock dans ce magasin
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-            return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
-        }
         console.error('Error updating stock:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }

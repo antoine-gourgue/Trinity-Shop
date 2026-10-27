@@ -2,31 +2,30 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Search, X } from "lucide-react";
+import { Loader2, Search, Truck, X } from "lucide-react";
 import { ProductThumb } from "@/components/admin/product-thumb";
-import { declareLot, searchLotProducts, type LotProductOption } from "@/lib/server-actions/anti-gaspi-admin-actions";
+import { orderRestock, searchRestockProducts, type RestockProductOption } from "@/lib/server-actions/restock-actions";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-interface LotFormProps {
+interface RestockFormProps {
   // Magasins proposés au siège ; null pour un compte magasin (son magasin est imposé)
   stores: { id: string; name: string }[] | null;
-  // Premier jour accepté (AAAA-MM-JJ) : aujourd'hui
-  minDate: string;
+  // Magasin déjà choisi dans le filtre de la page
+  defaultStoreId?: string;
 }
 
 const inputClass = "h-11 w-full rounded-2xl border bg-white px-4 text-sm outline-none focus:border-primary";
 
-// Déclaration d'un lot à date courte : produit (nom ou code-barres), quantité et date limite
-export default function LotForm({ stores, minDate }: LotFormProps) {
+// Commande de réassort d'un produit, livrée le lendemain
+export default function RestockForm({ stores, defaultStoreId }: RestockFormProps) {
   const router = useRouter();
-  const [storeId, setStoreId] = useState<string>("");
+  const [storeId, setStoreId] = useState(defaultStoreId ?? "");
   const [query, setQuery] = useState("");
-  const [options, setOptions] = useState<LotProductOption[]>([]);
+  const [options, setOptions] = useState<RestockProductOption[]>([]);
   const [searching, setSearching] = useState(false);
-  const [product, setProduct] = useState<LotProductOption | null>(null);
+  const [product, setProduct] = useState<RestockProductOption | null>(null);
   const [quantity, setQuantity] = useState("");
-  const [bestBefore, setBestBefore] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -39,7 +38,7 @@ export default function LotForm({ stores, minDate }: LotFormProps) {
     let cancelled = false;
     setSearching(true);
     const timer = setTimeout(async () => {
-      const found = await searchLotProducts(query, storeId || null);
+      const found = await searchRestockProducts(query, storeId || null);
       if (!cancelled) {
         setOptions(found);
         setSearching(false);
@@ -59,21 +58,15 @@ export default function LotForm({ stores, minDate }: LotFormProps) {
       return;
     }
     startTransition(async () => {
-      const result = await declareLot({
-        storeId: storeId || null,
-        productId: product.id,
-        quantity: Number(quantity),
-        bestBefore,
-      });
+      const result = await orderRestock({ storeId: storeId || null, productId: product.id, quantity: Number(quantity) });
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      toast({ description: `Lot déclaré : ${quantity} × ${product.name}.` });
+      toast({ description: `Réassort commandé : ${quantity} × ${product.name}, livré demain.` });
       setProduct(null);
       setQuery("");
       setQuantity("");
-      setBestBefore("");
       router.refresh();
     });
   };
@@ -151,24 +144,10 @@ export default function LotForm({ stores, minDate }: LotFormProps) {
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className="mb-1 block text-sm font-bold">Quantité</span>
-          <input
-            type="number"
-            min={1}
-            max={product?.stock || undefined}
-            required
-            value={quantity}
-            onChange={(event) => setQuantity(event.target.value)}
-            className={inputClass}
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-bold">Date limite (DLC ou DDM)</span>
-          <input type="date" min={minDate} required value={bestBefore} onChange={(event) => setBestBefore(event.target.value)} className={inputClass} />
-        </label>
-      </div>
+      <label className="block">
+        <span className="mb-1 block text-sm font-bold">Quantité</span>
+        <input type="number" min={1} max={2000} required value={quantity} onChange={(event) => setQuantity(event.target.value)} className={inputClass} />
+      </label>
 
       {error && <p className="rounded-2xl bg-promo/10 px-4 py-3 text-sm font-semibold text-promo">{error}</p>}
 
@@ -177,8 +156,8 @@ export default function LotForm({ stores, minDate }: LotFormProps) {
         disabled={pending}
         className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-brand-dark disabled:opacity-60"
       >
-        {pending ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Plus size={16} aria-hidden />}
-        Déclarer le lot
+        {pending ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Truck size={16} aria-hidden />}
+        Commander
       </button>
     </form>
   );

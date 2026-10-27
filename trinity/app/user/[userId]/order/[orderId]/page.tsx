@@ -16,6 +16,7 @@ import { orderDeliveryFee } from "@/lib/delivery";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 import { lineOutcome } from "@/lib/orders/preparation";
 import { canCheckIn } from "@/lib/drive";
+import { nearestBestBefore } from "@/lib/lot-labels";
 import DriveCheckIn from "@/components/account/drive-check-in";
 
 export const dynamic = "force-dynamic";
@@ -124,6 +125,8 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                     </Link>
                                     <p className="mt-0.5 text-sm text-muted-foreground">
                                         {item.quantity} × {formatPrice(item.product.price)}
+                                        {/* Date limite des produits préparés pour le client (les plus longues du rayon) */}
+                                        {nearestBestBefore(item.lotAllocations) && ` · date limite ${nearestBestBefore(item.lotAllocations)}`}
                                     </p>
                                     {item.antiGaspiQuantity > 0 && (
                                         <p className="mt-1.5 inline-flex rounded-full bg-bio/10 px-2.5 py-0.5 text-xs font-bold text-bio">

@@ -4,6 +4,8 @@ import { RAYONS, findRayonForCategories, getRayon, rayonCategoryNames } from "@/
 import { orderDeliveryFee } from "@/lib/delivery";
 import { SLOT_CAPACITY, pickupHours } from "@/lib/checkout";
 import { antiGaspiOutcome, driveWait, preparationStats, slotLoad, upcomingDays } from "@/lib/admin/operations";
+import { ANTI_GASPI_WINDOW, bestBeforeFromDay, parisDay } from "@/lib/anti-gaspi";
+import { REORDER_POINT, suggestedQuantity } from "@/lib/restock";
 
 // Données du back-office : chaque liste est filtrée et paginée côté serveur
 
@@ -271,6 +273,7 @@ export function getAdminOrder(id: string) {
             include: {
               product: { select: { id: true, name: true, picture: true, barCode: true, price: true, netContent: true, brand: { select: { name: true } } } },
               substitute: { select: { name: true, price: true } },
+              lotAllocations: { select: { quantity: true, lot: { select: { bestBefore: true } } } },
             },
             orderBy: { createdAt: "asc" },
           },
@@ -441,12 +444,23 @@ export async function getAdminStocks(params: AdminListParams) {
       id: true,
       quantity: true,
       updatedAt: true,
+      storeId: true,
+      productId: true,
       store: { select: { name: true } },
       product: { select: { id: true, name: true, picture: true, barCode: true, hidden: true, brand: { select: { name: true } } } },
     },
   });
+  // Date limite la plus proche des lots de chaque ligne
+  const nearest = stocks.length
+    ? await prisma.stockLot.groupBy({
+        by: ["storeId", "productId"],
+        where: { closedAt: null, quantity: { gt: 0 }, OR: stocks.map(({ storeId, productId }) => ({ storeId, productId })) },
+        _min: { bestBefore: true },
+      })
+    : [];
+  const nextBestBefore = new Map(nearest.map((lot) => [`${lot.storeId}:${lot.productId}`, lot._min.bestBefore]));
   return {
-    stocks,
+    stocks: stocks.map((stock) => ({ ...stock, nextBestBefore: nextBestBefore.get(`${stock.storeId}:${stock.productId}`) ?? null })),
     ...page,
     counts: Object.fromEntries(STOCK_FILTERS.map((f, i) => [f.value, counts[i]])),
     units: units._sum.quantity ?? 0,
@@ -502,6 +516,7 @@ export function getPreparation(orderId: string) {
               antiGaspiQuantity: true,
               antiGaspiDiscount: true,
               antiGaspiLot: { select: { bestBefore: true } },
+              lotAllocations: { select: { quantity: true, lot: { select: { bestBefore: true } } } },
               product: {
                 select: {
                   id: true,
@@ -525,12 +540,25 @@ export function getPreparation(orderId: string) {
 // ——— Indicateurs opérationnels ———
 
 // Bilan des lots anti-gaspi déclarés sur la période
+// Dates courtes de la période : unités vendues à prix anti-gaspi (commandes non annulées), données ou
+// jetées (lots clos sur la période)
 async function antiGaspiTotals(storeId: string | undefined, since: Date) {
-  const { _sum } = await prisma.antiGaspiLot.aggregate({
-    where: { ...(storeId ? { storeId } : {}), createdAt: { gte: since } },
-    _sum: { soldQuantity: true, donatedQuantity: true, wastedQuantity: true },
+  const inStore = storeId ? { storeId } : {};
+  const [sold, lots] = await Promise.all([
+    prisma.productInCart.aggregate({
+      where: { antiGaspiQuantity: { gt: 0 }, cart: { orders: { some: { ...inStore, createdAt: { gte: since }, status: { not: "cancelled" } } } } },
+      _sum: { antiGaspiQuantity: true },
+    }),
+    prisma.stockLot.aggregate({
+      where: { ...inStore, closedAt: { gte: since } },
+      _sum: { donatedQuantity: true, wastedQuantity: true },
+    }),
+  ]);
+  return antiGaspiOutcome({
+    sold: sold._sum.antiGaspiQuantity ?? 0,
+    donated: lots._sum.donatedQuantity ?? 0,
+    wasted: lots._sum.wastedQuantity ?? 0,
   });
-  return antiGaspiOutcome({ sold: _sum.soldQuantity ?? 0, donated: _sum.donatedQuantity ?? 0, wasted: _sum.wastedQuantity ?? 0 });
 }
 
 // Préparation, drive, charge des créneaux et anti-gaspi sur 30 jours, pour un magasin ou le réseau
@@ -620,27 +648,164 @@ const LOT_SELECT = {
   quantity: true,
   initialQuantity: true,
   bestBefore: true,
+  markdownDays: true,
   soldQuantity: true,
   donatedQuantity: true,
   wastedQuantity: true,
   closedAt: true,
   store: { select: { name: true, slug: true } },
   product: { select: { id: true, name: true, price: true, picture: true, netContent: true, barCode: true } },
-} satisfies Prisma.AntiGaspiLotSelect;
+} satisfies Prisma.StockLotSelect;
 
-export type AdminLot = Prisma.AntiGaspiLotGetPayload<{ select: typeof LOT_SELECT }>;
+export type AdminLot = Prisma.StockLotGetPayload<{ select: typeof LOT_SELECT }>;
 
-// Lots ouverts (les dates les plus proches d'abord), lots clos sur 30 jours et bilan de la période
+// Lots ouverts à date courte (ou dépassée), les plus proches d'abord ; lots clos sur 30 jours avec des
+// unités données ou jetées ; bilan de la période
 export async function getAntiGaspiBoard(storeId?: string) {
   const since = addDays(new Date(), -29);
   const inStore = storeId ? { storeId } : {};
+  const horizon = new Date(bestBeforeFromDay(parisDay(new Date())).getTime() + ANTI_GASPI_WINDOW * 86_400_000);
   const [open, closed, totals] = await Promise.all([
-    prisma.antiGaspiLot.findMany({ where: { ...inStore, closedAt: null }, orderBy: [{ bestBefore: "asc" }, { createdAt: "asc" }], take: 200, select: LOT_SELECT }),
-    prisma.antiGaspiLot.findMany({ where: { ...inStore, closedAt: { gte: since } }, orderBy: { closedAt: "desc" }, take: 30, select: LOT_SELECT }),
+    prisma.stockLot.findMany({
+      where: { ...inStore, closedAt: null, quantity: { gt: 0 }, bestBefore: { lte: horizon } },
+      orderBy: [{ bestBefore: "asc" }, { createdAt: "asc" }],
+      take: 200,
+      select: LOT_SELECT,
+    }),
+    prisma.stockLot.findMany({
+      where: { ...inStore, closedAt: { gte: since }, OR: [{ donatedQuantity: { gt: 0 } }, { wastedQuantity: { gt: 0 } }] },
+      orderBy: { closedAt: "desc" },
+      take: 30,
+      select: LOT_SELECT,
+    }),
     antiGaspiTotals(storeId, since),
   ]);
   return { open, closed, totals };
 }
+
+// ——— Réassort ———
+
+const RESTOCK_SELECT = {
+  id: true,
+  quantity: true,
+  status: true,
+  automatic: true,
+  orderedAt: true,
+  expectedAt: true,
+  receivedAt: true,
+  receivedQuantity: true,
+  store: { select: { name: true } },
+  product: { select: { id: true, name: true, picture: true, netContent: true, barCode: true, shelfLifeDays: true } },
+  lot: { select: { bestBefore: true } },
+} satisfies Prisma.RestockOrderSelect;
+
+export type AdminRestockOrder = Prisma.RestockOrderGetPayload<{ select: typeof RESTOCK_SELECT }>;
+
+// Ventes d'un magasin sur deux semaines, par produit
+async function recentSales(storeId: string, productIds: string[]) {
+  if (productIds.length === 0) return new Map<string, number>();
+  const sales = await prisma.productInCart.groupBy({
+    by: ["productId"],
+    where: {
+      productId: { in: productIds },
+      cart: { orders: { some: { storeId, createdAt: { gte: addDays(new Date(), -13) }, status: { not: "cancelled" } } } },
+    },
+    _sum: { quantity: true },
+  });
+  return new Map(sales.map((sale) => [sale.productId, sale._sum.quantity ?? 0]));
+}
+
+// Livraisons à réceptionner et en route, réceptions de la semaine, et, pour un magasin, les produits à
+// recommander (sous le seuil, sans commande en cours) avec la quantité suggérée
+export async function getRestockBoard(storeId?: string) {
+  const now = new Date();
+  const inStore = storeId ? { storeId } : {};
+  const [toReceive, inDelivery, received, low] = await Promise.all([
+    prisma.restockOrder.findMany({ where: { ...inStore, status: "ordered", expectedAt: { lte: now } }, orderBy: { expectedAt: "asc" }, take: 100, select: RESTOCK_SELECT }),
+    prisma.restockOrder.findMany({ where: { ...inStore, status: "ordered", expectedAt: { gt: now } }, orderBy: { orderedAt: "desc" }, take: 100, select: RESTOCK_SELECT }),
+    prisma.restockOrder.findMany({
+      where: { ...inStore, status: "received", receivedAt: { gte: addDays(now, -6) } },
+      orderBy: { receivedAt: "desc" },
+      take: 30,
+      select: RESTOCK_SELECT,
+    }),
+    storeId
+      ? prisma.storeStock.findMany({
+          where: { storeId, quantity: { lt: REORDER_POINT }, product: { hidden: false, restockOrders: { none: { storeId, status: "ordered" } } } },
+          orderBy: [{ quantity: "asc" }, { product: { name: "asc" } }],
+          take: 30,
+          select: { quantity: true, product: { select: { id: true, name: true, picture: true, netContent: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
+  const sales = storeId ? await recentSales(storeId, low.map((stock) => stock.product.id)) : new Map<string, number>();
+  const suggestions = low.map((stock) => {
+    const sold = sales.get(stock.product.id) ?? 0;
+    return { ...stock, sold, suggested: suggestedQuantity(stock.quantity, sold) };
+  });
+  return { toReceive, inDelivery, received, suggestions };
+}
+
+// ——— Détail d'un stock ———
+
+// Stock d'un produit dans un magasin : ses lots (ouverts, puis clos récemment), les commandes servies
+// par chaque lot (traçabilité, rappel d'un lot) et les réassorts du produit
+export async function getStockDetail(stockId: string) {
+  const stock = await prisma.storeStock.findUnique({
+    where: { id: stockId },
+    select: {
+      id: true,
+      quantity: true,
+      storeId: true,
+      productId: true,
+      store: { select: { name: true, slug: true } },
+      product: {
+        select: { id: true, name: true, picture: true, netContent: true, barCode: true, price: true, shelfLifeDays: true, brand: { select: { name: true } } },
+      },
+    },
+  });
+  if (!stock) return null;
+  const lotSelect = {
+    id: true,
+    quantity: true,
+    initialQuantity: true,
+    bestBefore: true,
+    markdownDays: true,
+    soldQuantity: true,
+    donatedQuantity: true,
+    wastedQuantity: true,
+    adjustedQuantity: true,
+    receivedAt: true,
+    closedAt: true,
+    restockOrder: { select: { automatic: true } },
+    allocations: {
+      orderBy: { createdAt: "desc" as const },
+      take: 20,
+      select: {
+        quantity: true,
+        line: { select: { cart: { select: { orders: { select: { id: true, createdAt: true, status: true, user: { select: { firstName: true, lastName: true } } } } } } } },
+      },
+    },
+  } satisfies Prisma.StockLotSelect;
+  const [open, closed, restocks] = await Promise.all([
+    prisma.stockLot.findMany({ where: { storeId: stock.storeId, productId: stock.productId, closedAt: null }, orderBy: { bestBefore: "asc" }, select: lotSelect }),
+    prisma.stockLot.findMany({
+      where: { storeId: stock.storeId, productId: stock.productId, closedAt: { not: null } },
+      orderBy: { closedAt: "desc" },
+      take: 10,
+      select: lotSelect,
+    }),
+    prisma.restockOrder.findMany({
+      where: { storeId: stock.storeId, productId: stock.productId },
+      orderBy: { orderedAt: "desc" },
+      take: 10,
+      select: RESTOCK_SELECT,
+    }),
+  ]);
+  return { ...stock, lots: [...open, ...closed], restocks };
+}
+
+export type StockDetail = NonNullable<Awaited<ReturnType<typeof getStockDetail>>>;
 
 // ——— Clients ———
 

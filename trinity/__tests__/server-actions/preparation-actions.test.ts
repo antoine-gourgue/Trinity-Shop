@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { finishPreparation, setPreparedQuantity, setSubstitute } from "@/lib/server-actions/preparation-actions";
 import { refundPreparation } from "@/lib/payments/refund";
 import { requireOrderManagement } from "@/services/auth/guards";
+import { emptyShelf, takeFromLots, trimAllocations } from "@/lib/stock-lots";
 
 jest.mock("@/lib/prisma", () => {
     const client = {
@@ -25,6 +26,8 @@ jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/services/auth/guards", () => ({ requireOrderManagement: jest.fn() }));
 jest.mock("@/lib/payments/refund", () => ({ refundPreparation: jest.fn() }));
 jest.mock("@/lib/order-emails", () => ({ sendOrderStatusEmail: jest.fn() }));
+// Mouvements de lots testés à part (stock-lots)
+jest.mock("@/lib/stock-lots", () => ({ emptyShelf: jest.fn(), takeFromLots: jest.fn(), trimAllocations: jest.fn() }));
 
 const ORDER_LINE = {
     id: "line1",
@@ -112,6 +115,7 @@ describe("setSubstitute", () => {
 
 describe("finishPreparation", () => {
     const line = (overrides: object) => ({
+        id: "line-p1",
         productId: "p1",
         quantity: 2,
         preparedQuantity: 2,
@@ -130,8 +134,9 @@ describe("finishPreparation", () => {
         cart: {
             productsInCart: [
                 line({}),
-                line({ productId: "p3", product: { name: "Beurre doux", price: 2500 }, quantity: 1, preparedQuantity: 0 }),
+                line({ id: "line-p3", productId: "p3", product: { name: "Beurre doux", price: 2500 }, quantity: 1, preparedQuantity: 0 }),
                 line({
+                    id: "line-p4",
                     productId: "p4",
                     preparedQuantity: 1,
                     substituteId: "p5",
@@ -145,6 +150,7 @@ describe("finishPreparation", () => {
     beforeEach(() => {
         (prisma.order.findUnique as jest.Mock).mockResolvedValue(ORDER);
         (prisma.order.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+        (prisma.storeStock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
         (refundPreparation as jest.Mock).mockResolvedValue({ refunded: true, amount: 2700 });
     });
 
@@ -162,14 +168,25 @@ describe("finishPreparation", () => {
             where: { id: "order1", status: { in: ["received", "preparing"] } },
             data: { status: "ready", preparationRefund: 2700 },
         });
-        // Rayons vides remis à zéro, remplaçant décompté
-        expect(prisma.storeStock.updateMany).toHaveBeenCalledWith({ where: { storeId: "store-nantes", productId: "p3" }, data: { quantity: 0 } });
-        expect(prisma.storeStock.updateMany).toHaveBeenCalledWith({ where: { storeId: "store-nantes", productId: "p4" }, data: { quantity: 0 } });
+        // Rayons vides remis à zéro (stock et lots), unités manquantes retirées de la traçabilité
+        expect(emptyShelf).toHaveBeenCalledWith(prisma, "store-nantes", "p3");
+        expect(emptyShelf).toHaveBeenCalledWith(prisma, "store-nantes", "p4");
+        expect(emptyShelf).toHaveBeenCalledTimes(2);
+        expect(trimAllocations).toHaveBeenCalledWith(prisma, "line-p3", 1);
+        expect(trimAllocations).toHaveBeenCalledWith(prisma, "line-p4", 1);
+        // Remplaçant décompté, pris dans ses lots aux dates les plus longues
         expect(prisma.storeStock.updateMany).toHaveBeenCalledWith({
             where: { storeId: "store-nantes", productId: "p5", quantity: { gte: 1 } },
             data: { quantity: { decrement: 1 } },
         });
-        expect(prisma.storeStock.updateMany).toHaveBeenCalledTimes(3);
+        expect(takeFromLots).toHaveBeenCalledWith(prisma, {
+            storeId: "store-nantes",
+            productId: "p5",
+            quantity: 1,
+            outcome: "sold",
+            order: "freshest",
+            lineId: "line-p4",
+        });
         expect(after).toHaveBeenCalledTimes(1);
     });
 
@@ -206,6 +223,7 @@ describe("finishPreparation", () => {
 
         await expect(finishPreparation("order1")).resolves.toMatchObject({ ok: false });
         expect(prisma.storeStock.updateMany).not.toHaveBeenCalled();
+        expect(emptyShelf).not.toHaveBeenCalled();
         expect(after).not.toHaveBeenCalled();
     });
 });

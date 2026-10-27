@@ -6,6 +6,8 @@ import { z } from "zod";
 import { Prisma, nutriScore, Role } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { restock } from "@/lib/stock";
+import { releaseAllocations, setStockQuantity } from "@/lib/stock-lots";
+import { bestBeforeIn, markdownWindow, shelfLifeDays } from "@/lib/shelf-life";
 import { promoEndFromDay, rearmFavoritePromoAlerts } from "@/lib/promotions";
 import { canCancelOrder, nextOrderStatus } from "@/lib/order-status";
 import { isBarcode } from "@/lib/barcode";
@@ -97,6 +99,7 @@ export async function saveProduct(productId: string, input: ProductInput): Promi
         description: data.description,
         nutriScore: data.nutriScore,
         hidden: data.hidden,
+        shelfLifeDays: shelfLifeDays(known.map((c) => c.name)),
       },
     }),
     prisma.categoriesProducts.deleteMany({ where: { productId } }),
@@ -212,6 +215,7 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
     prisma.store.findMany({ select: { id: true } }),
   ]);
 
+  const shelfLife = shelfLifeDays(known.map((c) => c.name));
   let product: { id: string };
   try {
     product = await prisma.product.create({
@@ -227,8 +231,23 @@ export async function createProduct(input: NewProductInput): Promise<CreateProdu
         description: data.description,
         nutriScore: data.nutriScore,
         hidden: data.hidden,
+        shelfLifeDays: shelfLife,
         categories: { create: known.map((c) => ({ category: { connect: { name: c.name } } })) },
         stocks: { createMany: { data: stores.map((store) => ({ storeId: store.id, quantity: data.stock })) } },
+        // Stock initial de chaque magasin : un lot reçu aujourd'hui, à la date habituelle du produit
+        ...(data.stock > 0 && {
+          stockLots: {
+            createMany: {
+              data: stores.map((store) => ({
+                storeId: store.id,
+                quantity: data.stock,
+                initialQuantity: data.stock,
+                bestBefore: bestBeforeIn(shelfLife),
+                markdownDays: markdownWindow(shelfLife),
+              })),
+            },
+          },
+        }),
       },
       select: { id: true },
     });
@@ -251,7 +270,15 @@ export async function updateStockQuantity(stockId: string, quantity: number): Pr
   if (!Number.isInteger(quantity) || quantity < 0 || quantity > 100000) {
     return fail("Indiquez une quantité entière entre 0 et 100 000.");
   }
-  await prisma.storeStock.update({ where: { id: stockId }, data: { quantity } });
+  const stock = await prisma.storeStock.findUnique({
+    where: { id: stockId },
+    select: { storeId: true, productId: true, product: { select: { shelfLifeDays: true } } },
+  });
+  if (!stock) return fail("Stock introuvable.");
+  // Comptage en rayon : les lots suivent (unités retirées des dates les plus courtes, ou lot ajouté)
+  await prisma.$transaction((tx) =>
+    setStockQuantity(tx, { storeId: stock.storeId, productId: stock.productId, quantity, shelfLife: stock.product.shelfLifeDays })
+  );
   revalidatePath("/admin", "layout");
   return { ok: true };
 }
@@ -323,28 +350,27 @@ const ORDER_REVERSAL = {
   loyaltyPointsEarned: true,
   loyaltyPointsUsed: true,
   user: { select: { loyaltyPoints: true } },
-  cart: { select: { productsInCart: { select: { productId: true, quantity: true, antiGaspiLotId: true, antiGaspiQuantity: true } } } },
+  cart: {
+    select: {
+      productsInCart: {
+        select: { productId: true, quantity: true, lotAllocations: { select: { id: true, lotId: true, quantity: true } } },
+      },
+    },
+  },
 } satisfies Prisma.OrderSelect;
 
 // Ce que défait une annulation : points gagnés retirés et bons utilisés rendus au client,
-// articles remis en stock s'ils avaient été décomptés, unités anti-gaspi rendues à leur lot
+// articles remis en stock s'ils avaient été décomptés, et rendus aux lots dont ils venaient
 function reverseOrder(orderId: string, order: Prisma.OrderGetPayload<{ select: typeof ORDER_REVERSAL }>) {
   // Le solde ne descend pas sous zéro si le client a déjà dépensé les points gagnés
   const pointsDelta = order.loyaltyPointsUsed - order.loyaltyPointsEarned;
   const balance = Math.max(0, order.user.loyaltyPoints + pointsDelta);
-  const lots = order.cart.productsInCart.filter((line) => line.antiGaspiLotId && line.antiGaspiQuantity > 0);
+  const allocations = order.cart.productsInCart.flatMap((line) => line.lotAllocations);
   return [
     prisma.loyaltyTransaction.deleteMany({ where: { orderId } }),
     ...(pointsDelta !== 0 ? [prisma.user.update({ where: { id: order.userId }, data: { loyaltyPoints: balance } })] : []),
     ...(order.stockDeducted ? restock(order.storeId, order.cart.productsInCart) : []),
-    ...(order.stockDeducted
-      ? lots.map((line) =>
-          prisma.antiGaspiLot.updateMany({
-            where: { id: line.antiGaspiLotId ?? "" },
-            data: { quantity: { increment: line.antiGaspiQuantity }, soldQuantity: { decrement: line.antiGaspiQuantity }, closedAt: null },
-          })
-        )
-      : []),
+    ...(order.stockDeducted ? releaseAllocations(allocations) : []),
   ];
 }
 

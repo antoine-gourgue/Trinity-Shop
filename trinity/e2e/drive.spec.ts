@@ -7,23 +7,27 @@ function parisDayIn(days: number) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date(Date.now() + days * 86_400_000));
 }
 
-test("le magasin vend un lot anti-gaspi, prépare la commande et la remet au client arrivé au drive", async ({ page, browser }) => {
-  // Le magasin déclare un lot à date courte (dans 2 jours : −40 %)
+test("un réassort à date courte passe en anti-gaspi, le magasin prépare la commande et la remet au client arrivé au drive", async ({ page, browser }) => {
+  // Le magasin commande un réassort et le réceptionne avec une date courte (dans 2 jours) : le lot
+  // passe tout seul en anti-gaspi
   const storeContext = await browser.newContext();
   const shop = await storeContext.newPage();
   await signIn(shop, storeAccountEmail("rennes-epitech"), process.env.SEED_ADMIN_PASSWORD ?? "");
-  await shop.goto("/admin/anti-gaspi");
+  await shop.goto("/admin/reassort");
   await shop.getByRole("searchbox", { name: "Rechercher un produit" }).fill("pâtes");
-  // Un produit encore en stock dans le magasin
-  const option = shop.getByRole("button", { name: /en stock/ }).filter({ hasNotText: /· [01] en stock/ }).first();
+  const option = shop.getByRole("button", { name: /en stock/ }).first();
   await expect(option).toBeVisible();
   const productName = ((await option.locator("span.font-semibold").textContent()) ?? "").trim();
   await option.click();
   await shop.getByLabel("Quantité").fill("2");
-  await shop.getByLabel("Date limite (DLC ou DDM)").fill(parisDayIn(2));
-  await shop.getByRole("button", { name: "Déclarer le lot" }).click();
-  await expect(shop.getByText(`Lot déclaré : 2 × ${productName}.`).first()).toBeVisible();
-  await expect(shop.getByText("−40 %").first()).toBeVisible();
+  await shop.getByRole("button", { name: "Commander", exact: true }).click();
+  await expect(shop.getByText(`Réassort commandé : 2 × ${productName}, livré demain.`).first()).toBeVisible();
+  const delivery = shop.locator("li").filter({ hasText: productName }).filter({ has: shop.getByRole("button", { name: "Réceptionner" }) }).first();
+  await delivery.getByRole("button", { name: "Réceptionner" }).click();
+  const reception = shop.getByRole("dialog");
+  await reception.getByLabel("Date limite du lot").fill(parisDayIn(2));
+  await reception.getByRole("button", { name: "Valider la réception" }).click();
+  await expect(shop.getByText(`Réception enregistrée : 2 × ${productName} en stock.`).first()).toBeVisible();
 
   // Le client l'ajoute depuis le rayon anti-gaspi et paie avec la remise
   await signUp(page);
@@ -31,7 +35,8 @@ test("le magasin vend un lot anti-gaspi, prépare la commande et la remet au cli
   await page.getByRole("button", { name: `Ajouter ${productName} au panier à prix anti-gaspi` }).click();
   await expect(page.getByText("Ajouté à prix anti-gaspi").first()).toBeVisible();
   await page.goto("/cart");
-  await expect(page.getByText(/Anti-gaspi −40 % sur 1/)).toBeVisible();
+  // Remise selon la date du lot le plus proche du produit (−40 % à deux jours, plus la veille)
+  await expect(page.getByText(/Anti-gaspi −\d+ % sur 1/)).toBeVisible();
   await page.getByRole("link", { name: "Valider mon panier" }).first().click();
   await page.getByRole("button", { name: /^\d+h – \d+h$/ }).first().click();
   await page.getByRole("button", { name: "Continuer vers le paiement" }).click();

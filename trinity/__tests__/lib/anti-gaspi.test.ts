@@ -18,12 +18,18 @@ const lot = (overrides: Partial<LotOffer> = {}): LotOffer => ({
     quantity: 4,
     bestBefore: bestBeforeFromDay("2026-10-29"),
     closedAt: null,
+    markdownDays: 5,
     ...overrides,
 });
 
 describe("markdownPercent", () => {
     it("grows as the best-before date gets closer", () => {
-        expect([5, 4, 3, 2, 1].map(markdownPercent)).toEqual([20, 20, 30, 40, 50]);
+        expect([5, 4, 3, 2, 1].map((days) => markdownPercent(days))).toEqual([20, 20, 30, 40, 50]);
+    });
+
+    it("waits for the window of the lot: bread is only marked down the day before", () => {
+        expect(markdownPercent(2, 1)).toBeNull();
+        expect(markdownPercent(1, 1)).toBe(50);
     });
 
     it("is not on sale too early, nor on the last day (the first pickup is tomorrow)", () => {

@@ -5,6 +5,7 @@ import { storeStockMap } from "@/lib/stock";
 import { orderNumber } from "@/lib/account";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
 import { allocateAntiGaspi } from "@/lib/anti-gaspi";
+import { takeFromLots } from "@/lib/stock-lots";
 
 // Passage d'une commande, partagé par l'API (paiement simulé) et la confirmation d'un paiement Stripe
 
@@ -46,7 +47,7 @@ const CART_ITEMS = {
   productsInCart: {
     include: {
       product: { select: { price: true, name: true } },
-      antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true } },
+      antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true } },
     },
   },
 } as const;
@@ -116,8 +117,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       });
       const hasCard = !!user?.loyaltyNumber;
 
-      // Articles anti-gaspi : unités réservées dans leur lot ; si un autre client a pris les dernières,
-      // la ligne repasse au prix normal
+      // Articles anti-gaspi : unités réservées dans leur lot à date courte ; si un autre client a pris
+      // les dernières, la ligne repasse au prix normal
       const antiGaspi = allocateAntiGaspi(
         cart.productsInCart.map((item) => ({ productId: item.productId, quantity: item.quantity, price: item.product.price, lot: item.antiGaspiLot })),
         storeId,
@@ -125,20 +126,20 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       );
       const served: typeof antiGaspi.allocations = [];
       for (const allocation of antiGaspi.allocations) {
-        const { count } = await prisma.antiGaspiLot.updateMany({
+        const line = cart.productsInCart.find((item) => item.productId === allocation.productId);
+        if (!line) continue;
+        const { count } = await prisma.stockLot.updateMany({
           where: { id: allocation.lotId, closedAt: null, quantity: { gte: allocation.units } },
           data: { quantity: { decrement: allocation.units }, soldQuantity: { increment: allocation.units } },
         });
         if (count === 0) continue;
         served.push(allocation);
-        await prisma.antiGaspiLot.updateMany({ where: { id: allocation.lotId, quantity: 0, closedAt: null }, data: { closedAt: new Date() } });
-        const line = cart.productsInCart.find((item) => item.productId === allocation.productId);
-        if (line) {
-          await prisma.productInCart.update({
-            where: { id: line.id },
-            data: { antiGaspiQuantity: allocation.units, antiGaspiDiscount: allocation.discount },
-          });
-        }
+        await prisma.stockLot.updateMany({ where: { id: allocation.lotId, quantity: 0, closedAt: null }, data: { closedAt: new Date() } });
+        await prisma.lotAllocation.create({ data: { lineId: line.id, lotId: allocation.lotId, quantity: allocation.units } });
+        await prisma.productInCart.update({
+          where: { id: line.id },
+          data: { antiGaspiQuantity: allocation.units, antiGaspiDiscount: allocation.discount },
+        });
       }
       const antiGaspiDiscount = input.paidAntiGaspiDiscount ?? served.reduce((sum, allocation) => sum + allocation.discount, 0);
       const itemsDue = total - antiGaspiDiscount;
@@ -163,6 +164,19 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
         if (count === 0) missing.push(item.product.name);
       }
       if (missing.length > 0) throw new PlaceOrderFailure({ code: "out_of_stock", products: missing });
+
+      // Les autres unités viennent des lots aux dates les plus longues, rattachés à chaque ligne
+      for (const item of cart.productsInCart) {
+        const fromOffer = served.find((allocation) => allocation.productId === item.productId)?.units ?? 0;
+        await takeFromLots(prisma, {
+          storeId,
+          productId: item.productId,
+          quantity: item.quantity - fromOffer,
+          outcome: "sold",
+          order: "freshest",
+          lineId: item.id,
+        });
+      }
 
       const newOrder = await prisma.order.create({
         data: {

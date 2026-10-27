@@ -35,6 +35,7 @@ export async function getOrderById(orderId: string) {
                                 },
                             },
                             substitute: { select: { id: true, name: true, price: true } },
+                            lotAllocations: { select: { lot: { select: { bestBefore: true } } } },
                         },
                     },
                 },

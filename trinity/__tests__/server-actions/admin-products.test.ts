@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma";
 import { computePrice } from "@/lib/pricing";
 import { AccessDeniedError, requireAdmin } from "@/services/auth/guards";
 import { createProduct, lookupProductBarcode, type NewProductInput } from "@/lib/server-actions/admin-actions";
+import { bestBeforeIn } from "@/lib/shelf-life";
 
 jest.mock("@/lib/prisma", () => ({
     product: { findUnique: jest.fn(), create: jest.fn() },
@@ -287,12 +288,26 @@ describe("createProduct", () => {
                 hidden: false,
                 // Seules les catégories connues du site sont rattachées
                 categories: { create: [{ category: { connect: { name: "Produits à tartiner sucrés" } } }] },
+                // Épicerie sucrée : se conserve 300 jours
+                shelfLifeDays: 300,
                 stocks: {
                     createMany: {
                         data: [
                             { storeId: "store-rennes", quantity: 120 },
                             { storeId: "store-nantes", quantity: 120 },
                         ],
+                    },
+                },
+                // Le stock initial de chaque magasin est un lot reçu aujourd'hui
+                stockLots: {
+                    createMany: {
+                        data: ["store-rennes", "store-nantes"].map((storeId) => ({
+                            storeId,
+                            quantity: 120,
+                            initialQuantity: 120,
+                            bestBefore: bestBeforeIn(300),
+                            markdownDays: 5,
+                        })),
                     },
                 },
             },

@@ -3,21 +3,20 @@ import { HandHeart, Recycle, ShoppingBag, Trash2 } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { getAntiGaspiBoard, parseAdminParams, type AdminLot } from "@/lib/admin/queries";
 import { formatRate } from "@/lib/admin/operations";
-import { ANTI_GASPI_WINDOW, daysLeft, daysLeftLabel, formatBestBefore, lotDay, lotPricing, parisDay } from "@/lib/anti-gaspi";
+import { daysLeft, daysLeftLabel, formatBestBefore, lotDay, lotPricing } from "@/lib/anti-gaspi";
 import { formatPrice } from "@/lib/format";
 import { backOfficePage } from "@/lib/admin/access";
 import { AdminPageHeader, Badge, EmptyState, Panel, StatCard, formatDate } from "@/components/admin/admin-ui";
 import { AdminSelectFilter } from "@/components/admin/admin-toolbar";
 import { ProductThumb } from "@/components/admin/admin-bits";
-import LotForm from "@/components/admin/anti-gaspi/lot-form";
 import LotActions from "@/components/admin/anti-gaspi/lot-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Anti-gaspi" };
 
-// Premier jour de mise en vente d'un lot (« lundi 3 novembre »)
+// Premier jour de mise en vente d'un lot (« lundi 3 novembre »), selon sa fenêtre anti-gaspi
 function saleStart(lot: AdminLot) {
-  const start = new Date(new Date(`${lotDay(lot.bestBefore)}T00:00:00Z`).getTime() - ANTI_GASPI_WINDOW * 86_400_000);
+  const start = new Date(new Date(`${lotDay(lot.bestBefore)}T00:00:00Z`).getTime() - lot.markdownDays * 86_400_000);
   return formatBestBefore(start);
 }
 
@@ -55,14 +54,15 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
 
   const toRemove = board.open.filter((lot) => daysLeft(lot.bestBefore, now) <= 0);
   const onSale = board.open.filter((lot) => lotPricing(lot, lot.product.price, now));
-  const upcoming = board.open.filter((lot) => daysLeft(lot.bestBefore, now) > ANTI_GASPI_WINDOW);
+  // Dates courtes pas encore dans leur fenêtre (le pain n'est soldé que la veille)
+  const upcoming = board.open.filter((lot) => daysLeft(lot.bestBefore, now) > 0 && !lotPricing(lot, lot.product.price, now));
   const unitsOnSale = onSale.reduce((total, lot) => total + lot.quantity, 0);
 
   return (
     <div>
       <AdminPageHeader
         title="Anti-gaspi"
-        description={`${store ? `Lots à date courte de ${store.name}` : "Lots à date courte des drives Trinity"} : vendus en ligne à prix réduit, puis donnés.`}
+        description={`${store ? `Dates courtes de ${store.name}` : "Dates courtes des drives Trinity"} : vendues en ligne à prix réduit, puis données.`}
       />
       {!store && (
         <div className="mb-4 sm:max-w-xs">
@@ -95,11 +95,21 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
       </div>
 
       <div className="grid items-start gap-6 xl:grid-cols-3">
-        <Panel
-          title="Déclarer un lot"
-          description={`En vente en ligne ${ANTI_GASPI_WINDOW} jours avant la date : −20 %, puis −30 % à J-3, −40 % à J-2 et −50 % la veille.`}
-        >
-          <LotForm stores={store ? null : stores.map(({ id, name }) => ({ id, name }))} minDate={parisDay(now)} />
+        <Panel title="Comment ça marche" description="Automatique, à partir des lots du stock">
+          <ol className="space-y-3 text-sm">
+            <li>
+              <span className="font-bold">Chaque lot a sa date.</span> Il entre en stock à la réception d&apos;un réassort ; les
+              commandes reçoivent les dates les plus longues.
+            </li>
+            <li>
+              <span className="font-bold">À l&apos;approche de la date, il passe en vente à prix réduit</span> : 5 jours avant
+              au plus (la veille seulement pour le pain), −20 % puis −30 % à J-3, −40 % à J-2 et −50 % la veille.
+            </li>
+            <li>
+              <span className="font-bold">À la date, le reste est donné</span> à l&apos;association partenaire, sauf ce que
+              vous déclarez jeté (produit abîmé).
+            </li>
+          </ol>
         </Panel>
 
         <div className="space-y-6 xl:col-span-2">
@@ -134,7 +144,7 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
                 })}
               </ul>
             ) : (
-              <EmptyState icon={Recycle} title="Aucun lot en vente" text={`Les lots apparaissent ici ${ANTI_GASPI_WINDOW} jours avant leur date limite.`} />
+              <EmptyState icon={Recycle} title="Aucun lot en vente" text="Les lots apparaissent ici à l'approche de leur date limite." />
             )}
           </Panel>
 

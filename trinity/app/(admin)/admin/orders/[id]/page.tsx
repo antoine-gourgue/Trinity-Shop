@@ -12,6 +12,7 @@ import { AdvanceOrderButton, CancelOrderButton, DeleteOrderButton, InvoiceButton
 import { backOfficePage } from "@/lib/admin/access";
 import { canCancelOrder, nextOrderStatus, orderStatusLabel } from "@/lib/order-status";
 import { lineOutcome } from "@/lib/orders/preparation";
+import { lotLines } from "@/lib/lot-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,11 @@ export default async function AdminOrderPage({ params }: Props) {
                     {formatBrand(item.product.brand.name)}
                     {item.product.netContent && ` · ${item.product.netContent}`} · {item.product.barCode.toString()}
                   </p>
+                  {item.lotAllocations.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Lots : {lotLines(item.lotAllocations).map((lot) => `${lot.quantity} × ${lot.bestBefore}`).join(", ")}
+                    </p>
+                  )}
                   <p className="mt-1 flex flex-wrap gap-1.5">
                     {item.allowSubstitute ? (
                       <Badge tone="success">Remplacement accepté</Badge>

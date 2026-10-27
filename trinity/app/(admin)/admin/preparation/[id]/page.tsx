@@ -6,6 +6,7 @@ import { orderNumber } from "@/lib/account";
 import { RAYONS, findRayonForCategories } from "@/lib/rayons";
 import { orderStatusLabel } from "@/lib/order-status";
 import { formatBestBefore } from "@/lib/anti-gaspi";
+import { lotLines } from "@/lib/lot-labels";
 import { AdminPageHeader } from "@/components/admin/admin-ui";
 import { customerName, pickupLabel } from "@/components/admin/admin-bits";
 import PickingList, { type PickingLine } from "@/components/admin/preparation/picking-list";
@@ -47,6 +48,7 @@ export default async function PreparationPage({ params }: Props) {
           brand: line.product.brand.name,
         },
         antiGaspiDiscount: line.antiGaspiDiscount,
+        lots: lotLines(line.lotAllocations),
         antiGaspi:
           line.antiGaspiQuantity > 0 && line.antiGaspiLot
             ? { quantity: line.antiGaspiQuantity, bestBefore: formatBestBefore(line.antiGaspiLot.bestBefore) }

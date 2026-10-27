@@ -9,6 +9,7 @@ import { requireOrderManagement } from "@/services/auth/guards";
 import { lineOutcome, preparationSummary } from "@/lib/orders/preparation";
 import { refundPreparation } from "@/lib/payments/refund";
 import { sendOrderStatusEmail } from "@/lib/order-emails";
+import { emptyShelf, takeFromLots, trimAllocations } from "@/lib/stock-lots";
 
 export type PreparationResult = { ok: true } | { ok: false; error: string };
 
@@ -152,6 +153,7 @@ export async function finishPreparation(orderId: string): Promise<PreparationRes
         select: {
           productsInCart: {
             select: {
+              id: true,
               productId: true,
               quantity: true,
               preparedQuantity: true,
@@ -196,13 +198,19 @@ export async function finishPreparation(orderId: string): Promise<PreparationRes
     for (const line of lines) {
       const { missing, substitute } = lineOutcome(line);
       if (missing === 0) continue;
-      // Le rayon était vide : le stock affiché était faux
-      await tx.storeStock.updateMany({ where: { storeId, productId: line.productId }, data: { quantity: 0 } });
+      // Le rayon était vide : le stock affiché et ses lots étaient faux ; la ligne n'a servi que les
+      // unités prélevées
+      await emptyShelf(tx, storeId, line.productId);
+      await trimAllocations(tx, line.id, missing);
       if (substitute && line.substituteId) {
-        await tx.storeStock.updateMany({
+        const { count: reserved } = await tx.storeStock.updateMany({
           where: { storeId, productId: line.substituteId, quantity: { gte: missing } },
           data: { quantity: { decrement: missing } },
         });
+        // Le remplaçant vient lui aussi des dates les plus longues, rattaché à la ligne
+        if (reserved > 0) {
+          await takeFromLots(tx, { storeId, productId: line.substituteId, quantity: missing, outcome: "sold", order: "freshest", lineId: line.id });
+        }
       }
     }
     return true;

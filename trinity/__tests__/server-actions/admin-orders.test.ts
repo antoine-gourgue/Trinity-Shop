@@ -11,6 +11,8 @@ jest.mock("@/lib/prisma", () => ({
     loyaltyTransaction: { deleteMany: jest.fn() },
     user: { update: jest.fn() },
     storeStock: { updateMany: jest.fn((args: object) => args) },
+    stockLot: { update: jest.fn((args: object) => args) },
+    lotAllocation: { deleteMany: jest.fn((args: object) => args) },
     $transaction: jest.fn(),
 }));
 jest.mock("next/server", () => ({ after: jest.fn() }));
@@ -35,7 +37,7 @@ const PAID_ORDER = {
     loyaltyPointsEarned: 13,
     loyaltyPointsUsed: 0,
     user: { loyaltyPoints: 40 },
-    cart: { productsInCart: [{ productId: "p1", quantity: 2 }] },
+    cart: { productsInCart: [{ productId: "p1", quantity: 2, lotAllocations: [{ id: "a1", lotId: "lot1", quantity: 2 }] }] },
 };
 
 describe("cancelOrder", () => {
@@ -59,6 +61,12 @@ describe("cancelOrder", () => {
             where: { storeId: "store-nantes", productId: "p1" },
             data: { quantity: { increment: 2 } },
         });
+        // Les unités reviennent au lot dont elles venaient
+        expect(prisma.stockLot.update).toHaveBeenCalledWith({
+            where: { id: "lot1" },
+            data: { quantity: { increment: 2 }, soldQuantity: { decrement: 2 }, closedAt: null },
+        });
+        expect(prisma.lotAllocation.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["a1"] } } });
         expect(after).toHaveBeenCalledTimes(1);
     });
 

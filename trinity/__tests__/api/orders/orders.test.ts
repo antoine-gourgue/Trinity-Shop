@@ -23,6 +23,14 @@ jest.mock("@/lib/prisma", () => ({
     storeStock: {
         updateMany: jest.fn(),
     },
+    // Lots du drive : les commandes reçoivent les dates les plus longues
+    stockLot: {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    lotAllocation: {
+        create: jest.fn(),
+    },
     cart: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -61,7 +69,7 @@ jest.mock("@/lib/stores", () => ({
 }));
 
 // Article de panier tel que le lit la route (prix et nom du produit)
-const CART_ITEM = { productId: "prod1", quantity: 2, product: { price: 1000, name: "Lait demi-écrémé" } };
+const CART_ITEM = { id: "line1", productId: "prod1", quantity: 2, product: { price: 1000, name: "Lait demi-écrémé" } };
 
 jest.mock("@/services/auth/IsUserLoggedIn", () => ({
     isUserLoggedIn: jest.fn(),
@@ -191,11 +199,16 @@ describe("POST /api/orders", () => {
                 productsInCart: {
                     include: {
                         product: { select: { price: true, name: true } },
-                        antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true } },
+                        antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true } },
                     },
                 },
             },
         });
+
+        // Les unités viennent des lots aux dates les plus longues, rattachés à la ligne
+        expect(prisma.stockLot.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ where: { storeId: "store1", productId: "prod1", closedAt: null, quantity: { gt: 0 } } })
+        );
 
         // Le stock du drive n'est décompté que s'il reste assez d'articles
         expect(prisma.storeStock.updateMany).toHaveBeenCalledWith({

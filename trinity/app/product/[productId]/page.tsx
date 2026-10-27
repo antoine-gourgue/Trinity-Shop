@@ -107,10 +107,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
       ? `Disponible dans ${storesWithStock} magasin${storesWithStock > 1 ? "s" : ""} Trinity`
       : "Rupture de stock";
   // Épuisé dans le magasin du client : les magasins les plus proches qui l'ont encore
-  const [nearby, antiGaspi] = await Promise.all([
+  const [nearby, antiGaspi, freshest] = await Promise.all([
     store && stock === 0 ? nearbyStock(product.id, store) : [],
     // Lot à date courte du produit dans le magasin du client
     store ? productOffer(store.id, product.id) : null,
+    // Les commandes reçoivent le lot le plus récent : sa date est celle que le client aura
+    store && stock > 0
+      ? prisma.stockLot.findFirst({
+          where: { storeId: store.id, productId: product.id, closedAt: null, quantity: { gt: 0 } },
+          orderBy: { bestBefore: "desc" },
+          select: { bestBefore: true },
+        })
+      : null,
   ]);
   const allergens = formatAllergens(off?.allergens_tags);
   const nutrition = nutritionRows(off?.nutriments);
@@ -234,6 +242,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
             />
             {availability}
           </p>
+          {freshest && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Date limite des produits préparés : jusqu&apos;au {formatBestBefore(freshest.bestBefore)}
+            </p>
+          )}
           {nearby.length > 0 && (
             <div className="mt-3 rounded-2xl bg-secondary/60 p-3 text-sm">
               <p className="font-bold">Disponible à proximité :</p>

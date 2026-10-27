@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import productsDataJson from "../data/complete_products.json";
 import { HISTORIC_STORE_SLUG, STORES, storeAccountEmail } from "./stores-data";
 import { storeQuantity } from "./store-stock";
+import { bestBeforeIn, initialLots, markdownWindow, shelfLifeDays } from "../lib/shelf-life";
 
 const prisma = new PrismaClient();
 
@@ -51,8 +52,11 @@ async function main() {
 
   try {
     console.log("🔄 Suppression des anciennes données...");
+    await prisma.lotAllocation.deleteMany();
     await prisma.productInCart.deleteMany();
     await prisma.order.deleteMany();
+    await prisma.restockOrder.deleteMany();
+    await prisma.stockLot.deleteMany();
     await prisma.storeStock.deleteMany();
     await prisma.session.deleteMany();
     await prisma.verificationToken.deleteMany();
@@ -212,6 +216,7 @@ async function main() {
           netContent: product.quantity ?? null,
           hidden: product.hidden ?? false,
           description: product.description ?? faker.commerce.productDescription(),
+          shelfLifeDays: shelfLifeDays(product.categories.map((cat) => cat.trim())),
           categories: {
             create: product.categories.map((cat) => ({
               category: {
@@ -241,6 +246,25 @@ async function main() {
       await prisma.storeStock.createMany({ data: stocks.slice(start, start + 5000) });
     }
     console.log(`✅ ${stocks.length} stocks créés (${createdProducts.length} produits × ${stores.length} magasins)`);
+
+    // Lots datés de chaque stock : un lot récent, un plus ancien et, pour le frais, un lot à date courte
+    const now = new Date();
+    const shelfLife = new Map(createdProducts.map((created) => [created.id, created.shelfLifeDays]));
+    const lots = stocks.flatMap((stock) => {
+      const days = shelfLife.get(stock.productId) ?? 180;
+      return initialLots(stock.quantity, days, `${stock.storeId}:${stock.productId}`).map((lot) => ({
+        storeId: stock.storeId,
+        productId: stock.productId,
+        quantity: lot.quantity,
+        initialQuantity: lot.quantity,
+        bestBefore: bestBeforeIn(lot.daysLeft, now),
+        markdownDays: markdownWindow(days),
+      }));
+    });
+    for (let start = 0; start < lots.length; start += 5000) {
+      await prisma.stockLot.createMany({ data: lots.slice(start, start + 5000) });
+    }
+    console.log(`✅ ${lots.length} lots datés créés`);
 
     // ✅ Création des paniers et des commandes
     console.log("🚀 Création des Carts et Orders...");

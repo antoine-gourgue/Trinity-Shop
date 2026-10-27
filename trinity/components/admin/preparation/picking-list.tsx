@@ -29,6 +29,8 @@ export interface PickingLine {
   // Unités vendues à prix anti-gaspi : à prendre dans le lot à date courte
   antiGaspiDiscount: number;
   antiGaspi: { quantity: number; bestBefore: string } | null;
+  // Lots à prélever, par date limite
+  lots: { quantity: number; bestBefore: string }[];
 }
 
 interface PickingListProps {
@@ -182,6 +184,11 @@ function PickingItem({
           <p className="mt-1 text-xs font-semibold text-muted-foreground">
             {line.allowSubstitute ? "Remplacement accepté" : "Remplacement refusé"}
           </p>
+          {line.lots.length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Lots à prendre : {line.lots.map((lot) => `${lot.quantity} × ${lot.bestBefore}`).join(", ")}
+            </p>
+          )}
           {line.antiGaspi && (
             <p className="mt-1.5 inline-flex rounded-full bg-bio/10 px-2.5 py-0.5 text-xs font-bold text-bio">
               Anti-gaspi : prendre {line.antiGaspi.quantity} à date courte (jusqu&apos;au {line.antiGaspi.bestBefore})

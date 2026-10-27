@@ -98,7 +98,10 @@ model Product {
   brandId          String
   categories       CategoriesProducts[]
   stocks           StoreStock[]
-  antiGaspiLots    AntiGaspiLot[]
+  // Durée de conservation habituelle, en jours : date proposée à la réception, fenêtre anti-gaspi
+  shelfLifeDays    Int                  @default(180)
+  stockLots        StockLot[]
+  restockOrders    RestockOrder[]
   cartsWithProduct ProductInCart[]      @relation("CartLines")
   substitutedIn    ProductInCart[]      @relation("Substitutes")
   promoEndsAt      DateTime? // fin de la promotion : le prix revient alors au prix barré
@@ -146,27 +149,29 @@ model Cart {
 }
 
 model ProductInCart {
-  id                String        @id @default(cuid())
+  id                String          @id @default(cuid())
   quantity          Int
-  cart              Cart          @relation(fields: [cartId], references: [id])
+  cart              Cart            @relation(fields: [cartId], references: [id])
   cartId            String
-  product           Product       @relation("CartLines", fields: [productId], references: [id])
+  product           Product         @relation("CartLines", fields: [productId], references: [id])
   productId         String
   // Produit équivalent accepté si celui-ci manque à la préparation
-  allowSubstitute   Boolean       @default(true)
+  allowSubstitute   Boolean         @default(true)
   // Préparation en magasin : quantité réellement prélevée (null tant que l'article n'est pas traité)
   preparedQuantity  Int?
   // Produit équivalent donné pour la quantité manquante, si le client l'accepte
   substituteId      String?
-  substitute        Product?      @relation("Substitutes", fields: [substituteId], references: [id])
+  substitute        Product?        @relation("Substitutes", fields: [substituteId], references: [id])
   // Offre anti-gaspi choisie par le client : unités à date courte d'un lot du magasin
   antiGaspiLotId    String?
-  antiGaspiLot      AntiGaspiLot? @relation(fields: [antiGaspiLotId], references: [id], onDelete: SetNull)
+  antiGaspiLot      StockLot?       @relation("AntiGaspiOffers", fields: [antiGaspiLotId], references: [id], onDelete: SetNull)
+  // Lots dont viennent les unités servies (traçabilité)
+  lotAllocations    LotAllocation[]
   // Unités servies à prix anti-gaspi et remise de la ligne (millièmes d'euro), fixées à la commande
-  antiGaspiQuantity Int           @default(0)
-  antiGaspiDiscount Int           @default(0)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  antiGaspiQuantity Int             @default(0)
+  antiGaspiDiscount Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 }
 
 model Address {
@@ -310,35 +315,92 @@ model Store {
   users         User[]
   orders        Order[]
   stocks        StoreStock[]
-  antiGaspiLots AntiGaspiLot[]
+  stockLots     StockLot[]
+  restockOrders RestockOrder[]
   createdAt     DateTime       @default(now())
 
   @@index([city])
 }
 
-// Lot à date courte déclaré par un magasin : vendu en ligne à prix réduit (la remise grandit à
-// l'approche de la date limite), puis le reste est donné ou jeté. Les unités font partie du stock.
-model AntiGaspiLot {
-  id              String          @id @default(cuid())
-  storeId         String
-  store           Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  productId       String
-  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  // Unités encore proposées, et unités déclarées au départ
-  quantity        Int
-  initialQuantity Int
+// Lot d'un produit dans un magasin : unités reçues ensemble, avec la même date limite. Le stock du
+// magasin (StoreStock) est la somme de ses lots ouverts. Les clients reçoivent les dates les plus
+// longues ; à l'approche de la date, le lot passe en anti-gaspi, puis le reste est donné ou jeté.
+model StockLot {
+  id               String          @id @default(cuid())
+  storeId          String
+  store            Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // Unités restantes, et unités reçues
+  quantity         Int
+  initialQuantity  Int
   // Date limite de consommation (DLC) ou de durabilité (DDM), au jour près
-  bestBefore      DateTime        @db.Date
-  soldQuantity    Int             @default(0)
-  donatedQuantity Int             @default(0)
-  wastedQuantity  Int             @default(0)
-  // Lot clos : tout est vendu, ou le reste a été donné ou jeté
-  closedAt        DateTime?
-  cartLines       ProductInCart[]
-  createdAt       DateTime        @default(now())
+  bestBefore       DateTime        @db.Date
+  // Jours avant la date où le lot passe en anti-gaspi (selon la durée de conservation du produit)
+  markdownDays     Int             @default(5)
+  soldQuantity     Int             @default(0)
+  donatedQuantity  Int             @default(0)
+  wastedQuantity   Int             @default(0)
+  // Unités retirées par une correction d'inventaire (rayon vide à la préparation, comptage)
+  adjustedQuantity Int             @default(0)
+  // Lot clos : tout est parti, ou le reste a été donné ou jeté
+  closedAt         DateTime?
+  receivedAt       DateTime        @default(now())
+  // Réassort dont vient le lot
+  restockOrderId   String?         @unique
+  restockOrder     RestockOrder?   @relation(fields: [restockOrderId], references: [id], onDelete: SetNull)
+  offeredInCarts   ProductInCart[] @relation("AntiGaspiOffers")
+  allocations      LotAllocation[]
+  createdAt        DateTime        @default(now())
 
+  @@index([storeId, productId, closedAt])
   @@index([storeId, closedAt, bestBefore])
   @@index([productId])
+  // Table d'origine des lots anti-gaspi, devenus les lots de tout le stock : la garder évite de casser
+  // la version en ligne pendant la migration
+  @@map("AntiGaspiLot")
+}
+
+// Unités d'un lot servies pour une ligne de commande : traçabilité (rappel d'un lot) et retour au
+// bon lot si la commande est annulée
+model LotAllocation {
+  id        String        @id @default(cuid())
+  lineId    String
+  line      ProductInCart @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  lotId     String
+  lot       StockLot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  quantity  Int
+  createdAt DateTime      @default(now())
+
+  @@index([lineId])
+  @@index([lotId])
+}
+
+enum RestockStatus {
+  ordered // commandé, en livraison
+  received // réceptionné : un lot est entré en stock
+  cancelled
+}
+
+// Commande de réassort d'un magasin : livrée le lendemain, elle devient un lot à la réception
+model RestockOrder {
+  id               String        @id @default(cuid())
+  storeId          String
+  store            Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity         Int
+  status           RestockStatus @default(ordered)
+  // Passée automatiquement sous le seuil de stock faible
+  automatic        Boolean       @default(false)
+  orderedAt        DateTime      @default(now())
+  expectedAt       DateTime
+  receivedAt       DateTime?
+  receivedQuantity Int?
+  lot              StockLot?
+
+  @@index([storeId, status, expectedAt])
+  @@index([storeId, productId, status])
 }
 
 // Stock d'un produit dans un magasin : chaque drive a le sien, décompté par ses commandes

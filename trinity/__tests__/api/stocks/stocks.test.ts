@@ -1,7 +1,6 @@
 /**
  * @jest-environment node
  */
-import { Prisma } from '@prisma/client';
 import { GET as getStoreStocks, POST as createStock } from '@/app/api/stocks/route';
 import { GET as getProductStocks, PUT as updateStock, DELETE as deleteStock } from '@/app/api/stocks/[id]/route';
 import prisma from '@/lib/prisma';
@@ -10,15 +9,29 @@ import {isUserLoggedIn} from "@/services/auth/IsUserLoggedIn";
 import { isAdmin } from "@/services/auth/guards";
 import { STOCK_FIELDS } from '@/lib/stock';
 import { buildRequest } from '@/test-utils/requests';
+import { setStockQuantity } from '@/lib/stock-lots';
 
-jest.mock('@/lib/prisma', () => ({
-    storeStock: {
-        findMany: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-        deleteMany: jest.fn(),
-    },
-}));
+jest.mock('@/lib/prisma', () => {
+    const client = {
+        storeStock: {
+            findMany: jest.fn(),
+            findUnique: jest.fn(),
+            create: jest.fn(),
+            deleteMany: jest.fn(),
+        },
+        stockLot: { create: jest.fn(), deleteMany: jest.fn() },
+        product: { findUnique: jest.fn() },
+        $transaction: jest.fn(),
+    };
+    // Lot d'opérations : leurs résultats ; transaction interactive : le rappel reçoit le client simulé
+    client.$transaction.mockImplementation((operations: unknown) =>
+        typeof operations === 'function' ? (operations as (tx: typeof client) => unknown)(client) : Promise.all(operations as unknown[])
+    );
+    return client;
+});
+
+// Mouvements de lots testés à part (stock-lots)
+jest.mock('@/lib/stock-lots', () => ({ setStockQuantity: jest.fn() }));
 
 jest.mock('next/server', () => ({
     ...jest.requireActual<typeof import('next/server')>('next/server'),
@@ -85,7 +98,8 @@ describe('API: /api/stocks', () => {
     });
 
     describe('POST', () => {
-        it('creates the stock of a product in a store', async () => {
+        it('creates the stock of a product in a store, as a lot received today', async () => {
+            (prisma.product.findUnique as jest.Mock).mockResolvedValue({ shelfLifeDays: 90 });
             (prisma.storeStock.create as jest.Mock).mockResolvedValue(NANTES_MILK);
 
             await createStock(buildRequest('/api/stocks', { method: 'POST', body: { quantity: 12, productId: 'milk', storeId: 'store-nantes' } }));
@@ -94,6 +108,8 @@ describe('API: /api/stocks', () => {
                 data: { quantity: 12, productId: 'milk', storeId: 'store-nantes' },
                 select: STOCK_FIELDS,
             });
+            const [[lot]] = (prisma.stockLot.create as unknown as jest.Mock<unknown, [{ data: Record<string, unknown> }]>).mock.calls;
+            expect(lot.data).toMatchObject({ storeId: 'store-nantes', productId: 'milk', quantity: 12, initialQuantity: 12, markdownDays: 5 });
             expect(NextResponse.json).toHaveBeenCalledWith({ data: NANTES_MILK }, { status: 201 });
         });
 
@@ -160,30 +176,26 @@ describe('API: /api/stocks/[id]', () => {
     });
 
     describe('PUT', () => {
-        it('updates the stock of the product in one store', async () => {
-            (prisma.storeStock.update as jest.Mock).mockResolvedValue({ ...NANTES_MILK, quantity: 40 });
+        it('updates the stock of the product in one store, its lots included', async () => {
+            (prisma.storeStock.findUnique as jest.Mock)
+                .mockResolvedValueOnce({ product: { shelfLifeDays: 90 } })
+                .mockResolvedValueOnce({ ...NANTES_MILK, quantity: 40 });
 
             await updateStock(buildRequest('/api/stocks/milk', { method: 'PUT', body: { quantity: 40, storeId: 'store-nantes' } }), params('milk'));
 
-            expect(prisma.storeStock.update).toHaveBeenCalledWith({
-                where: { storeId_productId: { storeId: 'store-nantes', productId: 'milk' } },
-                data: { quantity: 40 },
-                select: STOCK_FIELDS,
-            });
+            expect(setStockQuantity).toHaveBeenCalledWith(prisma, { storeId: 'store-nantes', productId: 'milk', quantity: 40, shelfLife: 90 });
             expect(NextResponse.json).toHaveBeenCalledWith({ data: { ...NANTES_MILK, quantity: 40 } });
         });
 
         it('requires the quantity and the store', async () => {
             await updateStock(buildRequest('/api/stocks/milk', { method: 'PUT', body: { quantity: 40 } }), params('milk'));
 
-            expect(prisma.storeStock.update).not.toHaveBeenCalled();
+            expect(setStockQuantity).not.toHaveBeenCalled();
             expect(NextResponse.json).toHaveBeenCalledWith({ error: 'Missing required fields: quantity, storeId' }, { status: 400 });
         });
 
         it('returns 404 when the product has no stock in that store', async () => {
-            (prisma.storeStock.update as jest.Mock).mockRejectedValue(
-                new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: 'test' })
-            );
+            (prisma.storeStock.findUnique as jest.Mock).mockResolvedValue(null);
 
             await updateStock(buildRequest('/api/stocks/milk', { method: 'PUT', body: { quantity: 40, storeId: 'store-nantes' } }), params('milk'));
 
@@ -198,6 +210,7 @@ describe('API: /api/stocks/[id]', () => {
             await deleteStock(buildRequest('/api/stocks/milk', { method: 'DELETE' }), params('milk'));
 
             expect(prisma.storeStock.deleteMany).toHaveBeenCalledWith({ where: { productId: 'milk' } });
+            expect(prisma.stockLot.deleteMany).toHaveBeenCalledWith({ where: { productId: 'milk' } });
             expect(NextResponse.json).toHaveBeenCalledWith({ message: 'Stock deleted' });
         });
 

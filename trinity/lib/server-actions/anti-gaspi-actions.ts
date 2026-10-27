@@ -20,9 +20,18 @@ export async function addAntiGaspiToCart(lotId: string): Promise<AntiGaspiCartRe
 
   const [store, lot] = await Promise.all([
     currentStore(),
-    prisma.antiGaspiLot.findUnique({
+    prisma.stockLot.findUnique({
       where: { id: lotId },
-      select: { id: true, storeId: true, productId: true, quantity: true, bestBefore: true, closedAt: true, product: { select: { price: true } } },
+      select: {
+        id: true,
+        storeId: true,
+        productId: true,
+        quantity: true,
+        bestBefore: true,
+        closedAt: true,
+        markdownDays: true,
+        product: { select: { price: true } },
+      },
     }),
   ]);
   if (!lot || !lotPricing(lot, lot.product.price)) return { ok: false, error: "Cette offre anti-gaspi n'est plus disponible." };

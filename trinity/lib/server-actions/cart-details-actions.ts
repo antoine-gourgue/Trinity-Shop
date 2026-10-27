@@ -62,7 +62,7 @@ export async function getCartDetails(productIds: string[]) {
           productId: true,
           allowSubstitute: true,
           product: { select: { price: true } },
-          antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true } },
+          antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true } },
         },
       })
     : [];
