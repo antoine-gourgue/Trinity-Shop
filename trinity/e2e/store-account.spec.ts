@@ -8,7 +8,7 @@ test("un compte magasin travaille dans le back-office de son seul magasin", asyn
 
   // La boutique renvoie vers le back-office du magasin
   await expect(page).toHaveURL(/\/admin$/);
-  await expect(page.getByText("Activité de Trinity Rennes Epitech")).toBeVisible();
+  await expect(page.getByText("Activité de Trinity Rennes Epitech").first()).toBeVisible();
 
   // Ni catalogue ni clients : ils sont gérés par le siège
   const menu = page.getByRole("navigation", { name: "Administration" }).first();
@@ -19,9 +19,10 @@ test("un compte magasin travaille dans le back-office de son seul magasin", asyn
 
   // Commandes et stocks du seul magasin, sans choix de magasin
   await page.goto("/admin/orders");
-  await expect(page.getByText("Commandes de Trinity Rennes Epitech")).toBeVisible();
+  // .first() : le titre de la page est repris ailleurs (en-tête du navigateur, version mobile)
+  await expect(page.getByText("Commandes de Trinity Rennes Epitech").first()).toBeVisible();
   await page.goto("/admin/stocks");
-  await expect(page.getByText("Stock de Trinity Rennes Epitech")).toBeVisible();
+  await expect(page.getByText("Stock de Trinity Rennes Epitech").first()).toBeVisible();
   await expect(page.getByText("Tous les magasins")).toHaveCount(0);
 
   await page.goto("/");
