@@ -3,12 +3,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ListingParams, listingHref } from "@/lib/catalog-options";
 import { cn } from "@/lib/utils";
 
-interface PaginationNavProps {
-  basePath: string;
-  params: ListingParams;
-  page: number;
-  pageCount: number;
-}
+// Liens des pages : ceux d'une liste du catalogue (avec ses filtres), ou construits par la page
+type PaginationNavProps = { page: number; pageCount: number } & (
+  | { basePath: string; params: ListingParams }
+  | { href: (page: number) => string }
+);
 
 // Pages affichées : la première, la dernière et deux voisines de la page courante
 function visiblePages(page: number, pageCount: number) {
@@ -16,11 +15,12 @@ function visiblePages(page: number, pageCount: number) {
   return [...pages].filter((p) => p >= 1 && p <= pageCount).sort((a, b) => a - b);
 }
 
-export default function PaginationNav({ basePath, params, page, pageCount }: PaginationNavProps) {
+export default function PaginationNav(props: PaginationNavProps) {
+  const { page, pageCount } = props;
   if (pageCount <= 1) return null;
 
   const pages = visiblePages(page, pageCount);
-  const hrefFor = (target: number) => listingHref(basePath, params, { page: target });
+  const hrefFor = "href" in props ? props.href : (target: number) => listingHref(props.basePath, props.params, { page: target });
   const arrowClass =
     "flex h-10 items-center gap-1 rounded-full border bg-white px-3 text-sm font-bold transition-colors hover:border-primary hover:text-primary";
 

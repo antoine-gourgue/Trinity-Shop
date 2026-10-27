@@ -5,6 +5,7 @@ import { storeOffers } from "@/lib/anti-gaspi-offers";
 import { ANTI_GASPI_WINDOW } from "@/lib/anti-gaspi";
 import AntiGaspiCard from "@/components/anti-gaspi/anti-gaspi-card";
 import StoreButton from "@/components/store/store-button";
+import PaginationNav from "@/components/catalog/pagination-nav";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -19,10 +20,17 @@ const STEPS = [
   { icon: HandHeart, title: "Rien ne se perd", text: "Ce qui n'est pas vendu est donné à des associations locales." },
 ];
 
-// Rayon anti-gaspi : les lots à date courte du magasin du client
-export default async function AntiGaspiPage() {
+// Offres par page : quatre rangées de cinq sur grand écran
+const PAGE_SIZE = 20;
+
+// Rayon anti-gaspi : les lots à date courte du magasin du client, les dates les plus proches d'abord
+export default async function AntiGaspiPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const store = await currentStore();
   const offers = store ? await storeOffers(store.id) : [];
+  const pageCount = Math.max(1, Math.ceil(offers.length / PAGE_SIZE));
+  const requested = Number.parseInt((await searchParams).page ?? "", 10);
+  const page = Number.isFinite(requested) ? Math.min(Math.max(1, requested), pageCount) : 1;
+  const shown = offers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
@@ -64,15 +72,18 @@ export default async function AntiGaspiPage() {
       ) : (
         <>
           <p className="mt-8 text-sm text-muted-foreground">
-            {offers.length} produit{offers.length > 1 ? "s" : ""} à date courte · retrait ou livraison avant la date limite
+            <span className="font-bold text-foreground">{offers.length}</span> produit{offers.length > 1 ? "s" : ""} à date courte
+            {pageCount > 1 && ` · ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + shown.length} affichés`} · retrait ou
+            livraison avant la date limite
           </p>
           <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {offers.map((offer) => (
+            {shown.map((offer) => (
               <li key={offer.lotId}>
                 <AntiGaspiCard offer={offer} />
               </li>
             ))}
           </ul>
+          <PaginationNav page={page} pageCount={pageCount} href={(target) => (target > 1 ? `/anti-gaspi?page=${target}` : "/anti-gaspi")} />
         </>
       )}
     </div>
