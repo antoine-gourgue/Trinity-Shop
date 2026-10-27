@@ -1,17 +1,21 @@
-// Importe en base les produits de marques nationales de data/national-brands.json
-// (préparés par fetch-national-brands.ts), avec des prix calculés comme pour le reste
-// du catalogue. Les ajoute aussi à data/complete_products.json et data/off-enrichment.json
+// Importe en base les produits de data/national-brands.json (préparés par fetch-national-brands.ts)
+// ou d'un autre fichier au même format (--file data/non-food.json, préparé par fetch-non-food.ts),
+// avec des prix calculés comme pour le reste du catalogue, leur stock dans chaque magasin et les
+// lots datés de ce stock. Les ajoute aussi à data/complete_products.json et data/off-enrichment.json
 // pour qu'un nouveau seed et apply-pricing.ts les connaissent.
 // Relançable : les codes-barres déjà présents en base sont ignorés.
 //
 // Usage :
 //   ./node_modules/.bin/ts-node --compiler-options '{"module":"CommonJS","moduleResolution":"node","target":"ES2020"}' prisma/import-national-brands.ts --dry-run
 //   ./node_modules/.bin/ts-node --compiler-options '{"module":"CommonJS","moduleResolution":"node","target":"ES2020"}' prisma/import-national-brands.ts
+//   ./node_modules/.bin/ts-node --compiler-options '{"module":"CommonJS","moduleResolution":"node","target":"ES2020"}' prisma/import-national-brands.ts --file data/non-food.json
 
 import { PrismaClient, nutriScore } from "@prisma/client";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { computePrice, seeded } from "../lib/pricing";
+import { RAYONS, rayonCategoryNames } from "../lib/rayons";
+import { bestBeforeIn, initialLots, markdownWindow, shelfLifeDays } from "../lib/shelf-life";
 import { HISTORIC_STORE_SLUG } from "./stores-data";
 import { storeQuantity } from "./store-stock";
 import {
@@ -24,11 +28,14 @@ import {
 } from "./data-files";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+const fileArg = process.argv.indexOf("--file");
 const root = join(__dirname, "..");
-const inputFile = join(root, "data/national-brands.json");
+const inputFile = join(root, fileArg > 0 ? process.argv[fileArg + 1] : "data/national-brands.json");
+const DAY = 86_400_000;
 const productsFile = join(root, "data/complete_products.json");
 const enrichmentFile = join(root, "data/off-enrichment.json");
-const backupFile = join(root, "prisma/backups/national-brands-imported.json");
+// Liste des produits créés par fichier importé, pour pouvoir annuler l'import
+const backupFile = join(root, `prisma/backups/${basename(inputFile, extname(inputFile))}-imported.json`);
 
 const GRADES: Record<string, nutriScore> = {
   a: nutriScore.A,
@@ -52,6 +59,15 @@ async function main() {
   const knownCategories = new Set(categories.map((c) => c.name));
   const brandIds = new Map(brands.map((b) => [b.name, b.id]));
   const existingCodes = new Set(existing.map((p) => p.barCode.toString()));
+
+  // Catégories des rayons pas encore en base (nouveaux rayons : hygiène, entretien…)
+  const rayonCategories = new Set(RAYONS.flatMap(rayonCategoryNames));
+  const newCategories = [...new Set(products.flatMap((p) => p.categories))].filter((name) => rayonCategories.has(name) && !knownCategories.has(name));
+  if (newCategories.length) console.log(`Nouvelles catégories : ${newCategories.join(", ")}`);
+  if (!DRY_RUN) {
+    for (const name of newCategories) await prisma.category.create({ data: { name } });
+  }
+  for (const name of newCategories) knownCategories.add(name);
 
   const pending = products
     .filter((p) => !existingCodes.has(p.barCode))
@@ -79,9 +95,14 @@ async function main() {
 
   const stores = await prisma.store.findMany({ select: { id: true, slug: true } });
   const imported: { id: string; barCode: string }[] = [];
+  const now = new Date();
+  let lotCount = 0;
   for (const p of pending) {
-    // Stock de référence, réparti entre les magasins comme celui du reste du catalogue
-    const reference = 40 + Math.floor(seeded(`${p.barCode}:stock`) * 400);
+    const shelfLife = shelfLifeDays(p.categories);
+    const quantities = stores.map((store) => ({
+      store,
+      quantity: storeQuantity(40 + Math.floor(seeded(`${p.barCode}:stock`) * 400), store.slug, p.barCode, store.slug === HISTORIC_STORE_SLUG),
+    }));
     let brandId = brandIds.get(p.brands[0]);
     if (!brandId) {
       brandId = (await prisma.brand.create({ data: { name: p.brands[0] } })).id;
@@ -96,20 +117,30 @@ async function main() {
         brandId,
         price: p.price,
         regularPrice: p.regularPrice,
-        netContent: p.quantity,
+        netContent: p.quantity || null,
         description: p.description,
+        shelfLifeDays: shelfLife,
         categories: { create: p.categories.map((name) => ({ category: { connect: { name } } })) },
-        stocks: {
-          createMany: {
-            data: stores.map((store) => ({
-              storeId: store.id,
-              quantity: storeQuantity(reference, store.slug, p.barCode, store.slug === HISTORIC_STORE_SLUG),
-            })),
-          },
-        },
+        // Stock de référence, réparti entre les magasins comme celui du reste du catalogue
+        stocks: { createMany: { data: quantities.map(({ store, quantity }) => ({ storeId: store.id, quantity })) } },
       },
       select: { id: true },
     });
+    // Lots datés de ce stock (le stock d'un magasin est la somme de ses lots), comme
+    // split-stock-into-lots.ts pour le reste du catalogue
+    const lots = quantities.flatMap(({ store, quantity }) =>
+      initialLots(quantity, shelfLife, `${store.id}:${created.id}`).map((lot) => ({
+        storeId: store.id,
+        productId: created.id,
+        quantity: lot.quantity,
+        initialQuantity: lot.quantity,
+        bestBefore: bestBeforeIn(lot.daysLeft, now),
+        markdownDays: markdownWindow(shelfLife),
+        receivedAt: new Date(now.getTime() - Math.max(0, shelfLife - lot.daysLeft) * DAY),
+      }))
+    );
+    await prisma.stockLot.createMany({ data: lots });
+    lotCount += lots.length;
     imported.push({ id: created.id, barCode: p.barCode });
     if (imported.length % 50 === 0) console.log(`Importés : ${imported.length}/${pending.length}`);
   }
@@ -142,7 +173,7 @@ async function main() {
   writeFileSync(productsFile, JSON.stringify(catalog, null, 4) + "\n");
   writeFileSync(enrichmentFile, JSON.stringify(enrichment, null, 2) + "\n");
 
-  console.log(`${imported.length} produits importés.`);
+  console.log(`${imported.length} produits importés, ${lotCount} lots créés.`);
   await prisma.$disconnect();
 }
 

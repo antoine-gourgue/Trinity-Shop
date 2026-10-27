@@ -6,7 +6,7 @@ import { ChevronDown, ChevronRight, CreditCard, PackageCheck, Store } from "luci
 import prisma from "@/lib/prisma";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { getOpenFoodFacts } from "@/lib/server-actions/products-actions";
-import { findRayonForCategories, rayonCategoryNames, rayonHref } from "@/lib/rayons";
+import { findRayonForCategories, isNonFood, rayonCategoryNames, rayonHref } from "@/lib/rayons";
 import { discountPercent, formatBrand, formatPrice, isBioBrand } from "@/lib/format";
 import { formatAllergens, formatUnitPrice, ingredientParts, nutritionRows } from "@/lib/product-info";
 import { productDescription, productJsonLd, productPath, serializeJsonLd } from "@/lib/product-seo";
@@ -77,8 +77,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
       : rayonCategoryNames(match.rayon)
     : found.categories.map((c) => c.categoryName);
 
-  const [{ openFoodData: off }, similarProducts, store] = await Promise.all([
-    getOpenFoodFacts(found.barCode.toString()),
+  // Hygiène, entretien : ni Nutri-Score ni valeurs nutritionnelles, et des informations lues sur les
+  // bases sœurs d'Open Food Facts
+  const nonFood = isNonFood(found.categories.map((c) => c.categoryName));
+  const [{ openFoodData: off, source }, similarProducts, store] = await Promise.all([
+    getOpenFoodFacts(found.barCode.toString(), nonFood),
     prisma.product.findMany({
       where: {
         ...VISIBLE_PRODUCT,
@@ -317,15 +320,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </InfoSection>
 
           <InfoSection id="composition" title="Composition et origine">
-            <h3 className="text-lg font-black">Ingrédients</h3>
+            <h3 className="text-lg font-black">{nonFood ? "Composition" : "Ingrédients"}</h3>
             <p className="mt-2">
               {ingredients ? (
                 <>
-                  Ingrédients :{" "}
+                  {nonFood ? "Composition" : "Ingrédients"} :{" "}
                   {ingredientParts(ingredients).map((part, index) =>
                     part.allergen ? <strong key={index}>{part.text}</strong> : part.text
                   )}
                 </>
+              ) : nonFood ? (
+                "Composition non renseignée."
               ) : (
                 "Liste des ingrédients non renseignée."
               )}
@@ -348,30 +353,34 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </>
             )}
 
-            <h3 className="mt-8 text-lg font-black">Informations nutritionnelles</h3>
-            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
-              <NutriScore grade={product.nutriScore} className="h-14" />
-              <p className="min-w-[200px] flex-1">
-                Le Nutri-Score est un logo qui informe sur la qualité nutritionnelle d’un produit.
-              </p>
-              <a
-                href="https://www.santepubliquefrance.fr/determinants-de-sante/nutrition-et-activite-physique/articles/nutri-score"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-primary underline underline-offset-4 hover:text-brand-dark"
-              >
-                En savoir plus
-              </a>
-            </div>
+            {!nonFood && (
+              <>
+                <h3 className="mt-8 text-lg font-black">Informations nutritionnelles</h3>
+                <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+                  <NutriScore grade={product.nutriScore} className="h-14" />
+                  <p className="min-w-[200px] flex-1">
+                    Le Nutri-Score est un logo qui informe sur la qualité nutritionnelle d’un produit.
+                  </p>
+                  <a
+                    href="https://www.santepubliquefrance.fr/determinants-de-sante/nutrition-et-activite-physique/articles/nutri-score"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-primary underline underline-offset-4 hover:text-brand-dark"
+                  >
+                    En savoir plus
+                  </a>
+                </div>
 
-            <h3 id="nutrition" className="mt-8 scroll-mt-[230px] text-lg font-black">
-              Valeurs nutritionnelles
-            </h3>
-            <div className="mt-4">
-              {nutrition.length > 0 ? <NutritionTable rows={nutrition} /> : <p>Valeurs nutritionnelles non renseignées.</p>}
-            </div>
+                <h3 id="nutrition" className="mt-8 scroll-mt-[230px] text-lg font-black">
+                  Valeurs nutritionnelles
+                </h3>
+                <div className="mt-4">
+                  {nutrition.length > 0 ? <NutritionTable rows={nutrition} /> : <p>Valeurs nutritionnelles non renseignées.</p>}
+                </div>
+              </>
+            )}
             <p className="mt-4 text-xs text-muted-foreground">
-              Informations issues d’OpenFoodFacts, données collaboratives sous licence ODbL.
+              Informations issues d’{source}, données collaboratives sous licence ODbL.
             </p>
           </InfoSection>
 

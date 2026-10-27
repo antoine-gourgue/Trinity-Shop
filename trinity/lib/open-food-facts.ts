@@ -35,10 +35,24 @@ const openFoodFactsResponseSchema = z.object({
   product: openFoodFactsProductSchema.optional().catch(undefined),
 });
 
+// Open Food Facts et ses bases sœurs, au même format : cosmétiques et hygiène, puis autres produits
+export const OPEN_FACTS = {
+  food: { api: "https://world.openfoodfacts.org", name: "Open Food Facts" },
+  beauty: { api: "https://world.openbeautyfacts.org", name: "Open Beauty Facts" },
+  products: { api: "https://world.openproductsfacts.org", name: "Open Products Facts" },
+} as const;
+
+export type OpenFactsBase = keyof typeof OPEN_FACTS;
+
 // Fiche d'un code-barres, ou null s'il est inconnu ; lève une erreur si l'API ne répond pas
-export async function fetchOpenFoodFactsProduct(barcode: string, init?: RequestInit): Promise<OpenFoodFactsProduct | null> {
-  const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(barcode)}.json`, init);
-  if (!response.ok) throw new Error(`Open Food Facts a répondu ${response.status} ${response.statusText}`);
+export async function fetchOpenFoodFactsProduct(
+  barcode: string,
+  init?: RequestInit,
+  base: OpenFactsBase = "food"
+): Promise<OpenFoodFactsProduct | null> {
+  const { api, name } = OPEN_FACTS[base];
+  const response = await fetch(`${api}/api/v0/product/${encodeURIComponent(barcode)}.json`, init);
+  if (!response.ok) throw new Error(`${name} a répondu ${response.status} ${response.statusText}`);
 
   const result = openFoodFactsResponseSchema.safeParse(await response.json());
   if (!result.success || result.data.status === 0) return null;

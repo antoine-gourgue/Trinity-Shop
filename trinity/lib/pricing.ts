@@ -66,6 +66,16 @@ const UNIT_PRICES: Record<string, number> = {
   "boulangerie/patisseries": 13,
   "boulangerie/gateaux": 10,
   "boulangerie/tartes": 9,
+  // Non alimentaire, au litre (ou au kilo) : un dentifrice de 75 ml, une lessive de 1,5 l…
+  "hygiene-beaute/douche-et-bain": 6,
+  "hygiene-beaute/hygiene-dentaire": 30,
+  "hygiene-beaute/cheveux": 9,
+  "hygiene-beaute/deodorants": 16,
+  "hygiene-beaute/rasage": 14,
+  "entretien-maison/lessives": 5.5,
+  "entretien-maison/adoucissants": 2.6,
+  "entretien-maison/vaisselle": 3.2,
+  "entretien-maison/nettoyants-menagers": 3.5,
 };
 
 const RAYON_UNIT_PRICES: Record<string, number> = {
@@ -78,6 +88,8 @@ const RAYON_UNIT_PRICES: Record<string, number> = {
   "epicerie-sucree": 9,
   boissons: 2,
   boulangerie: 9,
+  "hygiene-beaute": 12,
+  "entretien-maison": 4,
 };
 
 // Prix à l'article quand la contenance est inconnue
@@ -91,6 +103,9 @@ const FLAT_PRICES: Record<string, number> = {
   "epicerie-sucree": 2.8,
   boissons: 2,
   boulangerie: 2.5,
+  // Brosses à dents, mouchoirs, rouleaux de papier, capsules de lessive…
+  "hygiene-beaute": 2.5,
+  "entretien-maison": 4.5,
 };
 
 // Prix maximal vraisemblable d'un article par rayon : protège des contenances
@@ -105,12 +120,30 @@ const MAX_PRICES: Record<string, number> = {
   "epicerie-sucree": 8.99,
   boissons: 7.99,
   boulangerie: 5.99,
+  "hygiene-beaute": 12.99,
+  "entretien-maison": 19.99,
 };
 
 // Produits dont le nom trahit un prix au kilo très différent de leur sous-rayon
 const NAME_RULES: { pattern: RegExp; unitPrice: number }[] = [
   { pattern: /fromage (frais|blanc)|faisselle|petits? suisses?/i, unitPrice: 3.5 },
+  // Hygiène et entretien : formats dont le prix au litre ou au kilo s'écarte de leur sous-rayon
+  { pattern: /bain de bouche/i, unitPrice: 7 },
+  { pattern: /\bstick\b|\bbille\b|roll-?on/i, unitPrice: 70 },
+  { pattern: /apr[èe]s-rasage/i, unitPrice: 45 },
+  { pattern: /coffret/i, unitPrice: 66 },
+  { pattern: /pain de toilette|savon lavant/i, unitPrice: 10 },
+  { pattern: /perles de parfum/i, unitPrice: 22 },
+  { pattern: /sachets? pour armoire/i, unitPrice: 140 },
+  { pattern: /capsules?|\bcaps\b/i, unitPrice: 14 },
+  { pattern: /d[ée]sodorisant/i, unitPrice: 7 },
 ];
+
+// Prix plancher d'un article des rayons non alimentaires (petits formats)
+const MIN_PRICES: Record<string, number> = {
+  "hygiene-beaute": 1.29,
+  "entretien-maison": 0.99,
+};
 
 const BRAND_FACTORS: Record<string, number> = {
   "u-saveurs": 1.25,
@@ -189,7 +222,7 @@ export function computePrice(
       : flatPrice;
 
     const variation = 0.88 + 0.24 * seeded(code);
-  const minPrice = STORE_BRAND.test(brand) || BRAND_FACTORS[brand] ? 0 : NATIONAL_BRAND_MIN_PRICE;
+  const minPrice = Math.max(STORE_BRAND.test(brand) || BRAND_FACTORS[brand] ? 0 : NATIONAL_BRAND_MIN_PRICE, (rayon ? MIN_PRICES[rayon] : undefined) ?? 0);
   const regular = shelfPrice(Math.max(minPrice, Math.min(maxPrice, base * brandFactor(brand) * variation)));
 
   if (seeded(`${code}:promo`) >= PROMO_SHARE) {

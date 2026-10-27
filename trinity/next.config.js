@@ -49,11 +49,26 @@ const nextConfig = withPWA({
         port: "",
         pathname: "/**",
       },
+      // Bases sœurs, pour les rayons hygiène et entretien
+      {
+        protocol: "https",
+        hostname: "images.openbeautyfacts.org",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "images.openproductsfacts.org",
+        port: "",
+        pathname: "/**",
+      },
     ],
     domains: [
       "static.openfoodfacts.org",
       "image.openfoodfacts.org",
       "images.openfoodfacts.org",
+      "images.openbeautyfacts.org",
+      "images.openproductsfacts.org",
     ],
   },
 });

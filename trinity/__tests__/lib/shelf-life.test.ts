@@ -1,4 +1,4 @@
-import { DEFAULT_SHELF_LIFE, initialLots, markdownWindow, shelfLifeDays } from "@/lib/shelf-life";
+import { DEFAULT_SHELF_LIFE, NON_FOOD_SHELF_LIFE, initialLots, markdownWindow, shelfLifeDays } from "@/lib/shelf-life";
 import { expectedDelivery, suggestedQuantity } from "@/lib/restock";
 
 describe("shelfLifeDays", () => {
@@ -8,6 +8,11 @@ describe("shelfLifeDays", () => {
         expect(shelfLifeDays(["Yaourts"])).toBe(25);
         expect(shelfLifeDays(["Pâtes alimentaires"])).toBe(365);
         expect(shelfLifeDays([])).toBe(DEFAULT_SHELF_LIFE);
+    });
+
+    it("gives hygiene and household products no use-by date to watch", () => {
+        expect(shelfLifeDays(["Lessives"])).toBe(NON_FOOD_SHELF_LIFE);
+        expect(shelfLifeDays(["Hygiène dentaire"])).toBe(NON_FOOD_SHELF_LIFE);
     });
 });
 
@@ -55,5 +60,15 @@ describe("expectedDelivery", () => {
         expect(expectedDelivery(new Date("2026-10-27T09:00:00Z")).toISOString()).toBe("2026-10-28T06:00:00.000Z");
         // Samedi 31 octobre : livré lundi 2 novembre
         expect(expectedDelivery(new Date("2026-10-31T09:00:00Z")).toISOString()).toBe("2026-11-02T06:00:00.000Z");
+    });
+});
+
+describe("initialLots for non-food products", () => {
+    it("never puts a lot of a non-food product in the anti-waste window", () => {
+        const window = markdownWindow(NON_FOOD_SHELF_LIFE);
+        for (let index = 0; index < 2000; index++) {
+            const lots = initialLots(120, NON_FOOD_SHELF_LIFE, `store-${index % 81}:lessive-${index}`);
+            expect(lots.every((lot) => lot.daysLeft > window)).toBe(true);
+        }
     });
 });

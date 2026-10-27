@@ -9,12 +9,15 @@ jest.mock("@/lib/prisma", () => ({ product: { findUnique: jest.fn() } }));
 jest.mock("@/lib/open-food-facts", () => ({ fetchOpenFoodFactsProduct: jest.fn() }));
 
 const findProduct = prisma.product.findUnique as unknown as jest.Mock;
-const fetchExternal = fetchOpenFoodFactsProduct as jest.Mock;
+const fetchExternal = fetchOpenFoodFactsProduct as unknown as jest.Mock<Promise<unknown>, [string, unknown, string]>;
 const BARCODE = "3256225955244";
 
 describe("findScannedProduct", () => {
   beforeEach(() => jest.spyOn(console, "error").mockImplementation(() => undefined));
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.restoreAllMocks();
+    fetchExternal.mockReset();
+  });
 
   it("returns the catalogue product to open, without throwing a redirect", async () => {
     findProduct.mockResolvedValue({ id: "p1" });
@@ -29,7 +32,14 @@ describe("findScannedProduct", () => {
     await expect(findScannedProduct(BARCODE)).resolves.toEqual({ kind: "external", product: { product_name: "Biscuits" } });
   });
 
-  it("reports an unknown product, even when Open Food Facts fails", async () => {
+  it("looks up the beauty and household databases for a non-food product", async () => {
+    findProduct.mockResolvedValue(null);
+    fetchExternal.mockImplementation(async (_code: string, _init: unknown, base: string) => (base === "products" ? { product_name: "Lessive" } : null));
+    await expect(findScannedProduct(BARCODE)).resolves.toEqual({ kind: "external", product: { product_name: "Lessive" } });
+    expect(fetchExternal.mock.calls.map((call) => call[2])).toEqual(["food", "beauty", "products"]);
+  });
+
+  it("reports an unknown product, even when the databases fail", async () => {
     findProduct.mockResolvedValue(null);
     fetchExternal.mockResolvedValue(null);
     await expect(findScannedProduct(BARCODE)).resolves.toEqual({ kind: "unknown" });

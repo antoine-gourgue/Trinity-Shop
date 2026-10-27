@@ -199,7 +199,42 @@ export const RAYONS: Rayon[] = [
     ],
     extraCategories: ["Crêpes et galettes"],
   },
+  {
+    slug: "hygiene-beaute",
+    name: "Hygiène et Beauté",
+    shortName: "Hygiène & Beauté",
+    description: "Douche, soins des dents et des cheveux, déodorants, rasage, mouchoirs et cotons.",
+    image: "/categories/hygiene_beaute.svg",
+    subcategories: [
+      sub("Douche et bain", "ShowerHead"),
+      sub("Hygiène dentaire", "Tooth"),
+      sub("Cheveux", "Waves"),
+      sub("Déodorants", "SprayCan"),
+      sub("Rasage", "Razor"),
+      sub("Mouchoirs et cotons", "Cloud"),
+    ],
+    extraCategories: [],
+  },
+  {
+    slug: "entretien-maison",
+    name: "Entretien et Maison",
+    shortName: "Entretien & Maison",
+    description: "Lessives, adoucissants, vaisselle, nettoyants ménagers, papier toilette et essuie-tout.",
+    image: "/categories/entretien_maison.svg",
+    subcategories: [
+      sub("Lessives", "WashingMachine"),
+      sub("Adoucissants", "Feather"),
+      sub("Vaisselle", "Droplets"),
+      sub("Nettoyants ménagers", "Brush"),
+      sub("Papier et essuie-tout", "ScrollText"),
+    ],
+    extraCategories: [],
+  },
 ];
+
+// Rayons non alimentaires : ni Nutri-Score ni valeurs nutritionnelles, et pas de date limite à
+// surveiller (jamais d'anti-gaspi)
+export const NON_FOOD_RAYONS = new Set(["hygiene-beaute", "entretien-maison"]);
 
 export function getRayon(slug: string) {
   return RAYONS.find((rayon) => rayon.slug === slug);
@@ -224,6 +259,12 @@ export function findRayonForCategories(categoryNames: string[]) {
 
   const rayon = RAYONS.find((r) => r.extraCategories.some((name) => names.has(name)));
   return rayon ? { rayon, subCategory: undefined } : null;
+}
+
+// Produit d'un rayon non alimentaire, d'après ses catégories
+export function isNonFood(categoryNames: string[]) {
+  const match = findRayonForCategories(categoryNames);
+  return !!match && NON_FOOD_RAYONS.has(match.rayon.slug);
 }
 
 export interface RayonLink extends Rayon {

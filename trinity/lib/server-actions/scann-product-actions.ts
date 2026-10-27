@@ -7,7 +7,7 @@ import { fetchOpenFoodFactsProduct, type OpenFoodFactsProduct } from "@/lib/open
 export type ScanResult =
   // Produit du catalogue : le scanner ouvre sa fiche
   | { kind: "catalog"; productId: string }
-  // Produit que le drive ne vend pas, décrit par Open Food Facts
+  // Produit que le drive ne vend pas, décrit par Open Food Facts ou une de ses bases sœurs
   | { kind: "external"; product: OpenFoodFactsProduct }
   | { kind: "unknown" }
   // Code lu qui n'est pas un code-barres de produit (QR code, code tronqué)
@@ -22,11 +22,14 @@ export async function findScannedProduct(barcode: string): Promise<ScanResult> {
   const product = await prisma.product.findUnique({ where: { barCode: BigInt(barcode) }, select: { id: true } });
   if (product) return { kind: "catalog", productId: product.id };
 
-  try {
-    const external = await fetchOpenFoodFactsProduct(barcode);
-    return external ? { kind: "external", product: external } : { kind: "unknown" };
-  } catch (error) {
-    console.error("Erreur lors de la récupération depuis Open Food Facts :", error);
-    return { kind: "unknown" };
+  // Produit que le drive ne vend pas : Open Food Facts, puis ses bases sœurs (hygiène, entretien)
+  for (const base of ["food", "beauty", "products"] as const) {
+    try {
+      const external = await fetchOpenFoodFactsProduct(barcode, undefined, base);
+      if (external) return { kind: "external", product: external };
+    } catch (error) {
+      console.error(`Erreur lors de la récupération depuis ${base} :`, error);
+    }
   }
+  return { kind: "unknown" };
 }

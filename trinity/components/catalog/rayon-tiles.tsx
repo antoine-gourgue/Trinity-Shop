@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 export default function RayonTiles({ className }: { className?: string }) {
   return (
-    <ul className={cn("grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9", className)}>
+    <ul className={cn("grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-11", className)}>
       {RAYON_LINKS.map((rayon) => (
         <li key={rayon.slug}>
           <Link

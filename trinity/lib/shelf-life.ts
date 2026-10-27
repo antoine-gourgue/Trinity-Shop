@@ -5,6 +5,8 @@ import { ANTI_GASPI_WINDOW, bestBeforeFromDay, parisDay } from "./anti-gaspi";
 // réception d'un réassort et la fenêtre anti-gaspi d'un lot. Fonctions pures.
 
 export const DEFAULT_SHELF_LIFE = 180;
+// Produits non alimentaires (hygiène, entretien) : pas de date limite à surveiller
+export const NON_FOOD_SHELF_LIFE = 1095;
 
 const BY_RAYON: Record<string, number> = {
   "fruits-legumes": 7,
@@ -16,6 +18,8 @@ const BY_RAYON: Record<string, number> = {
   "epicerie-sucree": 300,
   boissons: 300,
   boulangerie: 4,
+  "hygiene-beaute": NON_FOOD_SHELF_LIFE,
+  "entretien-maison": NON_FOOD_SHELF_LIFE,
 };
 
 // Sous-rayons qui se conservent autrement que leur rayon (« rayon/sous-rayon »)
@@ -95,8 +99,9 @@ export function initialLots(quantity: number, shelfLife: number, key: string): I
   const newest = Math.max(1, shelfLife - Math.floor(draw("newest") * Math.min(4, Math.ceil(shelfLife / 4))));
   if (quantity < 4) return [{ quantity, daysLeft: newest }];
 
-  // Le lot le plus ancien est en anti-gaspi pour 15 % des produits frais, 3 % des autres
-  const inWindow = draw("window") < (fresh ? 0.15 : 0.03);
+  // Le lot le plus ancien est en anti-gaspi pour 15 % des produits frais, 3 % des autres, jamais pour
+  // le non alimentaire
+  const inWindow = shelfLife < NON_FOOD_SHELF_LIFE && draw("window") < (fresh ? 0.15 : 0.03);
   const oldest = inWindow
     ? 1 + Math.floor(draw("oldest") * window)
     : Math.min(newest - 1, Math.max(window + 1, Math.round(shelfLife * (0.15 + 0.15 * draw("oldest")))));
