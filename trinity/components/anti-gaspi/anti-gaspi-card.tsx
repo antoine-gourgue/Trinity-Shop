@@ -12,7 +12,7 @@ export default function AntiGaspiCard({ offer }: { offer: AntiGaspiOffer }) {
   const href = `/product/${product.id}`;
   return (
     <article className="flex h-full flex-col rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-lg sm:p-4">
-      <OfferRibbon tone="bio" label={`Anti-gaspi −${offer.percent} %`} detail={`date limite ${daysLeftLabel(offer.days)}`} />
+      <OfferRibbon tone="bio" label={`Anti-gaspi −${offer.percent} %`} detail={`DLC ${daysLeftLabel(offer.days)}`} />
       <Link href={href} className="relative block aspect-square overflow-hidden rounded-lg bg-white">
         <ProductImage src={product.picture} alt={product.name} sizes="(min-width: 1024px) 20vw, 46vw" className="p-2" />
       </Link>

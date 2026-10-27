@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, CreditCard, MapPin, ShoppingBasket, Store } from "lucide-react";
+import { ArrowRight, Clock, Coins, CreditCard, MapPin, ShoppingBasket, Store, Truck } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -14,7 +14,10 @@ import ProductCarousel from "@/components/catalog/product-carousel";
 import AntiGaspiCard from "@/components/anti-gaspi/anti-gaspi-card";
 import { storeOffers } from "@/lib/anti-gaspi-offers";
 import OfferShowcase, { type ShowcaseProduct } from "@/components/catalog/offer-showcase";
-import { discountPercent } from "@/lib/format";
+import { discountPercent, formatPrice } from "@/lib/format";
+import { daysLeftLabel } from "@/lib/anti-gaspi";
+import { FREE_DELIVERY_FROM } from "@/lib/delivery";
+import { POINTS_PER_VOUCHER, VOUCHER_VALUE } from "@/lib/loyalty";
 
 // Titre et description viennent du layout racine ; l'URL canonique écarte les paramètres ajoutés (?utm_…)
 export const metadata: Metadata = { alternates: { canonical: "/" } };
@@ -103,6 +106,7 @@ export default async function HomePage({
       percent: offer.percent,
       price: offer.unitPrice,
       regularPrice: offer.product.price,
+      note: `DLC ${daysLeftLabel(offer.days)}`,
     }));
   // Magasin choisi, sinon le réseau
   const storeLabel = store ? store.name : `${storeCount} magasins Trinity en France`;
@@ -110,7 +114,7 @@ export default async function HomePage({
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6">
       <section className="grid gap-4 lg:grid-cols-3">
-        <div className="relative overflow-hidden rounded-3xl bg-brand-dark px-6 py-8 text-white sm:px-10 sm:py-12 lg:col-span-2">
+        <div className="relative flex flex-col overflow-hidden rounded-3xl bg-brand-dark px-6 py-8 text-white sm:px-10 sm:py-10 lg:col-span-2">
           <Image
             src="/assets/fruits.png"
             alt=""
@@ -143,13 +147,39 @@ export default async function HomePage({
                 Découvrir les rayons <ArrowRight size={16} aria-hidden />
               </Link>
               <Link
-                href="/produits?promo=1"
+                href="/anti-gaspi"
                 className="rounded-full border border-white/40 px-5 py-3 text-sm font-bold transition-colors hover:bg-white/10"
               >
-                Voir les promos
+                Rayon anti-gaspi
               </Link>
             </div>
           </div>
+
+          {/* Le drive en trois informations utiles, en bas du bandeau (au moins 2 rem sous les boutons) */}
+          <div className="min-h-8 flex-1" aria-hidden />
+          <dl className="relative grid gap-4 rounded-2xl bg-brand-dark/85 p-4 text-sm ring-1 ring-white/10 backdrop-blur sm:grid-cols-3 sm:p-5">
+            {[
+              {
+                icon: Clock,
+                term: store ? "Drive ouvert" : "Drives Trinity",
+                detail: store ? store.hours : `${storeCount} magasins en France`,
+              },
+              { icon: Truck, term: "Retrait gratuit", detail: `Livraison offerte dès ${formatPrice(FREE_DELIVERY_FROM).replace(",00", "")}` },
+              {
+                icon: Coins,
+                term: "Carte Trinity",
+                detail: `${formatPrice(VOUCHER_VALUE).replace(",00", "")} offerts tous les ${POINTS_PER_VOUCHER} points`,
+              },
+            ].map(({ icon: Icon, term, detail }) => (
+              <div key={term} className="flex items-start gap-3">
+                <Icon size={18} className="mt-0.5 shrink-0 text-highlight" aria-hidden />
+                <div>
+                  <dt className="font-extrabold">{term}</dt>
+                  <dd className="text-white/75">{detail}</dd>
+                </div>
+              </div>
+            ))}
+          </dl>
         </div>
 
         {/* Les deux offres du moment, avec leurs produits : promotions du catalogue et dates courtes du magasin */}

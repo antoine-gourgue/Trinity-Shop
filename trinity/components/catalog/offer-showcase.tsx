@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import ProductImage from "@/components/product/product-image";
+import PromoBurst from "@/components/product/promo-burst";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +12,8 @@ export interface ShowcaseProduct {
   percent: number;
   price: number;
   regularPrice: number;
+  // Précision sous le prix (« DLC demain »)
+  note?: string;
 }
 
 interface OfferShowcaseProps {
@@ -20,29 +24,34 @@ interface OfferShowcaseProps {
   products: ShowcaseProduct[];
 }
 
-// Carte d'offre façon prospectus : de vrais produits, chacun avec sa pastille de remise et son prix
+// Carte d'offre façon prospectus : trois vrais produits, chacun avec son étoile de remise et son
+// étiquette de prix
 export default function OfferShowcase({ href, tone, title, subtitle, products }: OfferShowcaseProps) {
+  const accent = tone === "promo" ? "text-promo" : "text-bio";
   return (
     <Link href={href} className={cn("group flex flex-col rounded-3xl p-5 text-white", tone === "promo" ? "bg-promo" : "bg-bio")}>
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="text-2xl font-black leading-tight">{title}</span>
-        <span className="shrink-0 text-sm font-bold underline-offset-4 group-hover:underline">Voir tout</span>
+      <span className="flex items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block text-2xl font-black leading-tight">{title}</span>
+          <span className="mt-0.5 block text-sm text-white/85">{subtitle}</span>
+        </span>
+        <span className={cn("flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-extrabold", accent)}>
+          Voir tout <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+        </span>
       </span>
-      <span className="mt-0.5 text-sm text-white/85">{subtitle}</span>
-      <span className="mt-4 grid flex-1 grid-cols-3 gap-2.5">
+      <span className="mt-5 grid flex-1 grid-cols-3 gap-3">
         {products.map((product) => (
-          <span key={product.id} className="flex flex-col">
-            <span className="relative aspect-square rounded-2xl bg-white">
-              <ProductImage src={product.picture} alt={product.name} sizes="120px" className="p-2" />
-              {/* Pastille de remise, posée de travers comme sur un prospectus */}
-              <span className="absolute -right-1.5 -top-1.5 flex h-11 w-11 rotate-[-10deg] items-center justify-center rounded-full bg-highlight text-[13px] font-black leading-none text-promo shadow-sm">
-                −{product.percent}%
-              </span>
+          <span key={product.id} className="relative flex flex-col rounded-2xl bg-white text-foreground shadow-[0_6px_18px_-8px_rgba(0,0,0,0.35)]">
+            <span className="relative aspect-[5/4] overflow-hidden rounded-t-2xl">
+              <ProductImage src={product.picture} alt={product.name} sizes="140px" className="p-2.5" />
             </span>
-            <span className="mt-1.5 text-center leading-tight">
-              <span className="block text-[11px] text-white/75 line-through">{formatPrice(product.regularPrice)}</span>
-              <span className="block text-base font-black">{formatPrice(product.price)}</span>
+            {/* Étiquette de prix : ancien prix barré, nouveau prix */}
+            <span className="mt-auto border-t border-dashed px-2.5 py-2 leading-tight">
+              <span className="block text-[11px] text-muted-foreground line-through">{formatPrice(product.regularPrice)}</span>
+              <span className={cn("block text-lg font-black tracking-tight", accent)}>{formatPrice(product.price)}</span>
+              {product.note && <span className="block text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{product.note}</span>}
             </span>
+            <PromoBurst percent={product.percent} className="-right-3 -top-3" />
           </span>
         ))}
       </span>
