@@ -96,8 +96,6 @@ model Product {
   brand            Brand                @relation(fields: [brandId], references: [id])
   brandId          String
   categories       CategoriesProducts[]
-  // Ancien stock unique, remplacé par le stock de chaque magasin (table à supprimer après la migration)
-  legacyStock      Stock?
   stocks           StoreStock[]
   cartsWithProduct ProductInCart[]
   promoEndsAt      DateTime? // fin de la promotion : le prix revient alors au prix barré
@@ -130,17 +128,6 @@ model CategoriesProducts {
   assignedAt   DateTime @default(now())
 
   @@id([productId, categoryName])
-}
-
-// Ancien stock unique du drive, remplacé par StoreStock : plus utilisé par le site, gardé le temps
-// de la migration (prisma/split-stock-by-store.ts) pour ne pas interrompre la version en ligne
-model Stock {
-  id        String   @id @default(cuid())
-  quantity  Int
-  productId String   @unique
-  product   Product  @relation(fields: [productId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Cart {

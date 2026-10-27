@@ -54,7 +54,6 @@ async function main() {
     await prisma.productInCart.deleteMany();
     await prisma.order.deleteMany();
     await prisma.storeStock.deleteMany();
-    await prisma.stock.deleteMany();
     await prisma.session.deleteMany();
     await prisma.verificationToken.deleteMany();
     await prisma.account.deleteMany();

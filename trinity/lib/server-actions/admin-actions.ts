@@ -129,7 +129,6 @@ export async function deleteProduct(productId: string): Promise<AdminResult> {
     prisma.productInCart.deleteMany({ where: { productId } }),
     prisma.categoriesProducts.deleteMany({ where: { productId } }),
     prisma.storeStock.deleteMany({ where: { productId } }),
-    prisma.stock.deleteMany({ where: { productId } }),
     prisma.product.delete({ where: { id: productId } }),
   ]);
   revalidatePath("/admin", "layout");

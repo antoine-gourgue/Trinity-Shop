@@ -10,7 +10,7 @@ jest.mock("@/lib/prisma", () => ({
     order: { findUnique: jest.fn(), updateMany: jest.fn(), update: jest.fn() },
     loyaltyTransaction: { deleteMany: jest.fn() },
     user: { update: jest.fn() },
-    stock: { updateMany: jest.fn() },
+    storeStock: { updateMany: jest.fn((args: object) => args) },
     $transaction: jest.fn(),
 }));
 jest.mock("next/server", () => ({ after: jest.fn() }));
@@ -24,6 +24,7 @@ const PAID_ORDER = {
     cartId: "cart1",
     status: "received",
     stripeSessionId: "cs_test_1",
+    storeId: "store-nantes",
     stockDeducted: true,
     loyaltyPointsEarned: 13,
     loyaltyPointsUsed: 0,
@@ -47,6 +48,11 @@ describe("cancelOrder", () => {
         expect(refundOrderPayment).toHaveBeenCalledWith("cs_test_1");
         expect(prisma.$transaction).toHaveBeenCalledTimes(1);
         expect(prisma.order.update).toHaveBeenCalledWith({ where: { id: "order1" }, data: { status: "cancelled", stockDeducted: false } });
+        // Articles remis en stock dans le magasin qui avait préparé la commande
+        expect(prisma.storeStock.updateMany).toHaveBeenCalledWith({
+            where: { storeId: "store-nantes", productId: "p1" },
+            data: { quantity: { increment: 2 } },
+        });
         expect(after).toHaveBeenCalledTimes(1);
     });
 

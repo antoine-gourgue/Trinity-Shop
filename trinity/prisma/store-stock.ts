@@ -1,4 +1,4 @@
-// Répartition du stock entre les magasins, partagée par le seed et par prisma/split-stock-by-store.ts.
+// Répartition du stock entre les magasins, partagée par le seed et par l'import des marques nationales.
 // Déterministe : un même produit a toujours le même stock dans un même magasin, d'une exécution à l'autre.
 
 // Empreinte FNV-1a 32 bits d'un texte, ramenée entre 0 et 1

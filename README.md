@@ -201,7 +201,6 @@ Les scripts, dans `prisma/` et `scripts/`, sont relançables et proposent presqu
 | `prisma/apply-pricing.ts` | Calcule des prix et promotions réalistes et déterministes |
 | `prisma/hide-products.ts` | Masque les produits listés dans `hidden-products.json` |
 | `prisma/replace-photos.ts` | Remplace des photos par la version officielle |
-| `prisma/split-stock-by-store.ts` | Crée le stock de chaque magasin à partir de l'ancien stock unique (répartition déterministe de `prisma/store-stock.ts`) |
 | `prisma/sync-stores.ts` | Enregistre les magasins de `prisma/stores-data.ts` (création ou mise à jour) et rattache au magasin historique de Rennes les commandes passées avant le choix du magasin |
 
 Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : un fichier au mauvais format arrête le script avant toute écriture.
