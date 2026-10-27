@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { createUserSchema } from "@/schemas/createUserSchema";
 import { WelcomeEmail } from "@/components/emails/welcome-email";
 import { siteUrl } from "@/lib/site-url";
+import { emailSender } from "@/lib/email-sender";
 import { Resend } from "resend";
 import { EmailAlreadyUsed } from "@/services/auth/errors";
 
@@ -15,7 +16,7 @@ async function sendWelcomeEmail(user: { email: string; firstName: string }) {
   try {
     const resend = new Resend(apiKey);
     const { error } = await resend.emails.send({
-      from: "Trinity <no-reply@pioupiou.tech>",
+      from: emailSender(),
       to: [user.email],
       subject: `Bienvenue chez Trinity, ${user.firstName} !`,
       react: WelcomeEmail({ firstName: user.firstName, siteUrl: siteUrl() }),

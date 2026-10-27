@@ -70,6 +70,7 @@ model User {
   loyaltyJoinedAt     DateTime?
   loyaltyTransactions LoyaltyTransaction[]
   favorites           Favorite[]
+  cartReminders       Boolean              @default(true) // accepte les rappels de panier abandonné
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -139,6 +140,7 @@ model Cart {
   productsInCart ProductInCart[]
   orders         Order[]
   archived       Boolean         @default(false)
+  reminderSentAt DateTime? // dernier rappel « panier abandonné » envoyé
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }

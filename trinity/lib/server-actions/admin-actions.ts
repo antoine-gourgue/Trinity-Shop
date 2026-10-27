@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { Prisma, nutriScore, Role } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -12,6 +13,8 @@ import { fetchCategoryTaxonomy, fetchOpenFoodFactsProduct, isOpenFoodFactsImage,
 import { getProductFormOptions } from "@/lib/admin/queries";
 import { buildProductProposal, type ProductProposal } from "@/lib/admin/product-proposal";
 import { currentAccess, requireAdmin } from "@/services/auth/guards";
+import { refundOrderPayment, type RefundOutcome } from "@/lib/payments/refund";
+import { sendOrderStatusEmail } from "@/lib/order-emails";
 
 // Actions du back-office : toutes réservées aux administrateurs. Elles renvoient un
 // résultat plutôt que de lever une erreur, pour afficher un message utile à l'écran.
@@ -311,6 +314,7 @@ const ORDER_REVERSAL = {
   userId: true,
   cartId: true,
   status: true,
+  stripeSessionId: true,
   stockDeducted: true,
   loyaltyPointsEarned: true,
   loyaltyPointsUsed: true,
@@ -342,9 +346,23 @@ export async function advanceOrderStatus(orderId: string): Promise<AdminResult> 
   // Mise à jour conditionnelle : deux clics simultanés ne sautent pas d'étape
   const { count } = await prisma.order.updateMany({ where: { id: orderId, status: order.status }, data: { status: next } });
   if (count === 0) return fail("La commande a changé entre-temps : rechargez la page.");
+  // Le client est prévenu quand ses courses sont prêtes au drive ou parties en livraison
+  if (next === "ready") after(() => sendOrderStatusEmail(orderId, { status: "ready" }));
   revalidatePath("/admin", "layout");
   return { ok: true };
 }
+
+// Remboursement Stripe avant toute annulation : en cas d'échec, la commande reste intacte
+async function refundBeforeCancelling(stripeSessionId: string | null): Promise<RefundOutcome | null> {
+  try {
+    return await refundOrderPayment(stripeSessionId);
+  } catch (error) {
+    console.error("Remboursement Stripe impossible :", error);
+    return null;
+  }
+}
+
+const REFUND_FAILED = "Le remboursement Stripe a échoué : la commande n'a pas été annulée. Réessayez dans un instant.";
 
 // Annule la commande sans l'effacer : elle reste visible, marquée « Annulée »
 export async function cancelOrder(orderId: string): Promise<AdminResult> {
@@ -353,10 +371,14 @@ export async function cancelOrder(orderId: string): Promise<AdminResult> {
   if (!order) return fail("Commande introuvable.");
   if (!canCancelOrder(order.status)) return fail("Une commande terminée ou déjà annulée ne peut pas être annulée.");
 
+  const refund = await refundBeforeCancelling(order.stripeSessionId);
+  if (!refund) return fail(REFUND_FAILED);
+
   await prisma.$transaction([
     ...reverseOrder(orderId, order),
     prisma.order.update({ where: { id: orderId }, data: { status: "cancelled", stockDeducted: false } }),
   ]);
+  after(() => sendOrderStatusEmail(orderId, { status: "cancelled", refund }));
   revalidatePath("/admin", "layout");
   return { ok: true };
 }
@@ -366,6 +388,8 @@ export async function deleteOrder(orderId: string): Promise<AdminResult> {
   await requireAdmin();
   const order = await prisma.order.findUnique({ where: { id: orderId }, select: ORDER_REVERSAL });
   if (!order) return fail("Commande introuvable.");
+  // Une commande encore active est remboursée avant d'être effacée
+  if (order.status !== "cancelled" && !(await refundBeforeCancelling(order.stripeSessionId))) return fail(REFUND_FAILED);
 
   await prisma.$transaction([
     ...(order.status === "cancelled" ? [] : reverseOrder(orderId, order)),

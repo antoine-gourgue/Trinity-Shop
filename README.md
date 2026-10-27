@@ -52,7 +52,8 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 - **Favoris** : un cœur sur chaque produit, et la liste « Mes favoris » dans l'espace client.
 - **Panier** conservé sur le compte, qui signale les ruptures de stock ; pour chaque article, le client accepte ou non un produit de remplacement.
 - **Tunnel de commande** : retrait gratuit au drive ou livraison à domicile (adresse choisie ou ajoutée à la volée), choix du créneau (8 commandes au plus par heure, créneaux complets grisés), puis paiement par carte via Stripe. Le stock est décompté à la commande.
-- **Suivi de commande** : statut (reçue, en préparation, prête, retirée ou livrée, annulée) et frise d'avancement, e-mail de confirmation avec la facture PDF, et « Racheter cette commande ».
+- **Suivi de commande** : statut (reçue, en préparation, prête, retirée ou livrée, annulée) et frise d'avancement, et « Racheter cette commande ».
+- **E-mails au design du site** : bienvenue, confirmation avec la facture PDF, « prête au drive » ou « en route », annulation avec le montant remboursé, mot de passe oublié, et rappel de panier abandonné (un seul rappel par panier, désinscription en un clic).
 - **Carte Trinity** (fidélité) : 1 point par euro dépensé, 100 points = un bon de 5 € à utiliser au paiement.
 - **Espace client** : commandes et factures PDF, favoris, adresses, téléphone, informations personnelles, mot de passe et carte de fidélité.
 - **Compte** : inscription, connexion, mot de passe oublié par lien envoyé par e-mail (valable une heure), tentatives limitées contre les attaques par force brute.
@@ -63,7 +64,7 @@ Supermarché en ligne de type « drive » : le client remplit son panier dans un
 ### Back-office (`/admin`, rôle administrateur)
 
 - **Tableau de bord** : chiffre d'affaires, commandes et inscriptions sur la période, avec graphiques.
-- **Commandes** : recherche, filtres par statut et livraison, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (articles remis en stock, points de fidélité rétablis) ou supprime une commande annulée.
+- **Commandes** : recherche, filtres par statut et livraison, détail avec le choix de remplacement de chaque article ; l'équipe fait avancer la commande d'une étape à l'autre, l'annule (paiement par carte remboursé, articles remis en stock, points de fidélité rétablis, client prévenu par e-mail) ou supprime une commande annulée.
 - **Produits** : création à partir du code-barres (fiche pré-remplie depuis Open Food Facts : catégories du site, photo, prix suggéré), édition, promotions avec date de fin, masquage du catalogue, suppression (refusée si le produit a déjà été commandé).
 - **Stocks** : modification directe, filtre des ruptures.
 - **Clients** : rôles et suppression.
@@ -152,7 +153,8 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 | `APP_URL` | Facultatif : URL publique du site (liens des e-mails, URL canoniques, Open Graph, sitemap, robots.txt) ; à défaut, le domaine de production Vercel, sinon `http://localhost:3000` |
 | `STRIPE_SECRET_KEY` | Facultatif : clé secrète Stripe (`sk_test_…`) pour le paiement par carte ; sans clé, le paiement est simulé |
 | `STRIPE_WEBHOOK_SECRET` | Facultatif : secret du webhook Stripe (`whsec_…`) envoyé à `/api/payments/stripe/webhook`, pour créer la commande même si le client ne revient pas sur le site |
-| `CRON_SECRET` | Secret de la tâche nocturne `/api/cron/maintenance` (fin des promotions datées, purge des compteurs de tentatives) ; Vercel l'envoie à chaque appel planifié |
+| `EMAIL_FROM` | Facultatif : autre expéditeur des e-mails, sur un domaine validé dans le compte Resend de la clé ; par défaut `Trinity <no-reply@trinity.antoinegourgue.dev>` |
+| `CRON_SECRET` | Secret des tâches planifiées : `/api/cron/maintenance` la nuit (fin des promotions datées, purge des compteurs de tentatives) et `/api/cron/cart-reminders` l'après-midi (rappels de panier) ; Vercel l'envoie à chaque appel |
 | `SEED_ADMIN_PASSWORD` | Mot de passe du compte administrateur créé par le seed (12 caractères au moins) ; inutile en production |
 
 ## Commandes

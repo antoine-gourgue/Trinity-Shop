@@ -70,7 +70,7 @@ export function CancelOrderButton({
         )
       }
       title={`Annuler la commande #${number} ?`}
-      description="La commande reste visible, marquée « Annulée ». Ses articles sont remis en stock, les points Carte Trinity gagnés sont retirés au client et les bons utilisés lui sont rendus."
+      description="La commande reste visible, marquée « Annulée ». Un paiement par carte est remboursé au client, ses articles sont remis en stock, les points Carte Trinity gagnés lui sont retirés, les bons utilisés lui sont rendus, et il est prévenu par e-mail."
       confirmLabel="Annuler la commande"
       successMessage={`Commande #${number} annulée.`}
       action={() => cancelOrder(orderId)}

@@ -81,6 +81,7 @@ export async function getUserDetails(userId: string) {
                 lastName: true,
                 email: true,
                 birthDate: true,
+                cartReminders: true,
             },
         });
 

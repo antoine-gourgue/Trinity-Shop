@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import { KeyRound, ShieldAlert, UserRound } from "lucide-react";
+import { Bell, KeyRound, ShieldAlert, UserRound } from "lucide-react";
 import { getUserDetails } from "@/lib/server-actions/users-actions";
 import { requireUser } from "@/lib/account";
 import { AccountCard, AccountHeader, InfoRow } from "@/components/account/account-ui";
 import EditEmailModal from "../modal/EditEmailModal";
 import EditPasswordModal from "../modal/EditPasswordModal";
 import DeleteUserModal from "@/app/user/modal/DeleteUserModal";
+import CartRemindersToggle from "@/components/account/cart-reminders-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,10 @@ export default async function UserDetailsPage() {
                     </div>
                 </AccountCard>
             </div>
+
+            <AccountCard title="E-mails" icon={<Bell size={18} aria-hidden />} className="mt-6">
+                <CartRemindersToggle initial={user.cartReminders} />
+            </AccountCard>
 
             <AccountCard
                 title="Supprimer mon compte"

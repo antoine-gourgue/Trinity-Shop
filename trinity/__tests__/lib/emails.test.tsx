@@ -6,6 +6,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { WelcomeEmail } from "@/components/emails/welcome-email";
 import { PasswordResetEmail } from "@/components/emails/password-reset-email";
 import { OrderConfirmationEmail } from "@/components/emails/order-confirmation-email";
+import { OrderStatusEmail } from "@/components/emails/order-status-email";
+import { CartReminderEmail } from "@/components/emails/cart-reminder-email";
 import type { InvoiceData } from "@/lib/invoice-pdf";
 
 const SITE = "https://trinity.antoinegourgue.dev";
@@ -61,5 +63,37 @@ describe("e-mails", () => {
         expect(html).toContain("Pâtes coquillettes au blé complet");
         expect(html).toContain("13,47");
         expect(html).toContain("+ 12 points");
+    });
+
+    it("tells the customer the order is ready at the drive", () => {
+        const html = renderToStaticMarkup(
+            <OrderStatusEmail status="ready" firstName="Antoine" orderNumber="M482MY2J" pickupLabel="Mardi 27 octobre, 11h – 12h"
+                deliveryAddress={null} articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} />
+        );
+
+        expect(html).toContain("prêtes au drive !");
+        expect(html).toContain("M482MY2J");
+    });
+
+    it("explains the refund of a cancelled order", () => {
+        const html = renderToStaticMarkup(
+            <OrderStatusEmail status="cancelled" firstName="Antoine" orderNumber="M482MY2J" pickupLabel={null} deliveryAddress={null}
+                articleCount={3} orderUrl={`${SITE}/user/u1/order/o1`} siteUrl={SITE} refundedAmount={13470} vouchersReturned />
+        );
+
+        expect(html).toContain("Remboursement de 13,47");
+        expect(html).toContain("bons Carte Trinity");
+    });
+
+    it("reminds the cart with an unsubscribe link", () => {
+        const html = renderToStaticMarkup(
+            <CartReminderEmail firstName="Antoine" siteUrl={SITE} unsubscribeUrl={`${SITE}/api/emails/unsubscribe?u=u1&s=abc`}
+                items={[{ name: "Lait 1/2 écrémé", quantity: 2, price: 6990, picture: `${SITE}/products/3256224234494.jpg` }]} />
+        );
+
+        expect(html).toContain("quelque chose ?");
+        expect(html).toContain(`${SITE}/cart`);
+        expect(html).toContain("Ne plus recevoir ces rappels");
+        expect(html).toContain("13,98");
     });
 });

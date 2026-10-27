@@ -51,16 +51,20 @@ interface EmailLayoutProps {
   hero: EmailHero;
   // Raison de l'envoi, rappelée en pied de page
   reason: string;
+  // Lien pour ne plus recevoir ce type d'e-mail (e-mails commerciaux)
+  unsubscribeUrl?: string;
   children: React.ReactNode;
 }
 
 // Gabarit commun, au design du site : bandeau, en-tête avec le logo, bloc titre, carte de contenu, pied de page
-export function EmailLayout({ preview, siteUrl, hero, reason, children }: EmailLayoutProps) {
+export function EmailLayout({ preview, siteUrl, hero, reason, unsubscribeUrl, children }: EmailLayoutProps) {
   const host = new URL(siteUrl).host;
 
   return (
     <Html lang="fr">
       <Head>
+        {/* Règle pensée pour les pages Next.js : un e-mail est un document autonome, qui charge sa police lui-même */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;700;800;900&display=swap" rel="stylesheet" />
       </Head>
       <Preview>{preview}</Preview>
@@ -167,7 +171,17 @@ export function EmailLayout({ preview, siteUrl, hero, reason, children }: EmailL
               </Link>
             </Text>
             <Hr style={{ borderColor: EMAIL_COLORS.border, margin: "10px 0" }} />
-            <Text style={{ ...emailStyles.muted, fontSize: 11 }}>{reason}</Text>
+            <Text style={{ ...emailStyles.muted, fontSize: 11 }}>
+              {reason}
+              {unsubscribeUrl && (
+                <>
+                  {" "}
+                  <Link href={unsubscribeUrl} style={{ color: EMAIL_COLORS.muted, textDecoration: "underline" }}>
+                    Ne plus recevoir ces rappels
+                  </Link>
+                </>
+              )}
+            </Text>
           </Section>
         </Container>
       </Body>
