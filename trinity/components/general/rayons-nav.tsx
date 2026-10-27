@@ -12,32 +12,34 @@ interface RayonsNavProps {
 export default function RayonsNav({ rayons }: RayonsNavProps) {
   return (
     <nav aria-label="Rayons" className="relative hidden border-b bg-white md:block">
-      <ul className="mx-auto flex h-12 max-w-[1400px] items-stretch justify-between overflow-x-auto px-6 lg:overflow-visible xl:justify-start">
-        <li className="flex">
+      {/* Défilement horizontal si l'écran est trop étroit pour tous les rayons ; les panneaux de
+          sous-catégories ne sont pas coupés : ils se placent par rapport à la barre (nav), pas à la liste */}
+      <ul className="mx-auto flex h-12 max-w-[1400px] items-stretch overflow-x-auto px-6 [scrollbar-width:none] max-xl:[mask-image:linear-gradient(to_right,black_calc(100%-40px),transparent)] xl:justify-between [&::-webkit-scrollbar]:hidden">
+        <li className="flex shrink-0">
           <Link
             href="/produits?promo=1"
-            className="flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-extrabold text-promo transition-colors hover:border-promo lg:px-2 lg:text-[13px] xl:px-3 xl:text-sm"
+            className="flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-2 text-[13px] font-extrabold text-promo transition-colors hover:border-promo"
           >
             <BadgePercent size={18} aria-hidden />
-            <span className="lg:sr-only xl:not-sr-only">Promos</span>
+            Promos
           </Link>
         </li>
-        <li className="flex">
+        <li className="flex shrink-0">
           <Link
             href="/anti-gaspi"
-            className="flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-extrabold text-bio transition-colors hover:border-bio lg:px-2 lg:text-[13px] xl:px-3 xl:text-sm"
+            className="flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-2 text-[13px] font-extrabold text-bio transition-colors hover:border-bio"
           >
             <Recycle size={18} aria-hidden />
-            <span className="lg:sr-only xl:not-sr-only">Anti-gaspi</span>
+            Anti-gaspi
           </Link>
         </li>
         {rayons.map((rayon) => (
-          <li key={rayon.slug} className="group flex">
+          <li key={rayon.slug} className="group flex shrink-0">
             <Link
               href={rayon.href}
-              className="flex items-center whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-bold lg:px-2 lg:text-[13px] xl:px-3 xl:text-sm text-foreground/80 transition-colors hover:border-primary hover:text-primary group-has-[:focus-visible]:border-primary group-has-[:focus-visible]:text-primary"
+              className="flex items-center whitespace-nowrap border-b-2 border-transparent px-2 text-[13px] font-bold text-foreground/80 transition-colors hover:border-primary hover:text-primary group-has-[:focus-visible]:border-primary group-has-[:focus-visible]:text-primary"
             >
-              {rayon.shortName}
+              {rayon.navName ?? rayon.shortName}
             </Link>
 
             <div className="invisible absolute inset-x-0 top-full z-50 hidden border-b border-t bg-white opacity-0 shadow-xl transition-opacity duration-150 group-has-[:focus-visible]:visible group-has-[:focus-visible]:opacity-100 group-hover:visible group-hover:opacity-100 lg:block">

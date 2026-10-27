@@ -13,6 +13,8 @@ export interface Rayon {
   slug: string;
   name: string;
   shortName: string;
+  // Libellé plus court dans la barre des rayons, quand shortName y prend trop de place
+  navName?: string;
   description: string;
   image: string;
   subcategories: SubCategory[];
@@ -71,6 +73,7 @@ export const RAYONS: Rayon[] = [
     slug: "charcuterie-traiteur",
     name: "Charcuterie et Traiteur",
     shortName: "Charcuterie & Traiteur",
+    navName: "Charcuterie",
     description: "Jambons, terrines, plats cuisinés et salades prêtes à déguster.",
     image: "/categories/charcuterie.webp",
     subcategories: [
@@ -203,6 +206,7 @@ export const RAYONS: Rayon[] = [
     slug: "hygiene-beaute",
     name: "Hygiène et Beauté",
     shortName: "Hygiène & Beauté",
+    navName: "Hygiène",
     description: "Douche, soins des dents et des cheveux, déodorants, rasage, mouchoirs et cotons.",
     image: "/categories/hygiene_beaute.svg",
     subcategories: [
@@ -219,6 +223,7 @@ export const RAYONS: Rayon[] = [
     slug: "entretien-maison",
     name: "Entretien et Maison",
     shortName: "Entretien & Maison",
+    navName: "Entretien",
     description: "Lessives, adoucissants, vaisselle, nettoyants ménagers, papier toilette et essuie-tout.",
     image: "/categories/entretien_maison.svg",
     subcategories: [

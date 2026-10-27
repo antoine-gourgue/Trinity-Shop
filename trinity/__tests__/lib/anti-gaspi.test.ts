@@ -2,6 +2,7 @@ import {
     allocateAntiGaspi,
     bestBeforeFromDay,
     daysLeft,
+    formatBestBefore,
     lotPricing,
     lotStage,
     markdownPercent,
@@ -96,4 +97,14 @@ describe("allocateAntiGaspi", () => {
         expect(allocateAntiGaspi([line], "rennes", null, NOW).discount).toBe(0);
         expect(allocateAntiGaspi([line], "nantes", new Date("2026-10-31T09:00:00Z"), NOW).discount).toBe(0);
     });
+});
+
+describe("formatBestBefore", () => {
+  const now = new Date("2026-10-27T10:00:00Z");
+
+  it("leaves out the current year, and shows another one", () => {
+    expect(formatBestBefore(new Date("2026-10-29T00:00:00Z"), now)).toBe("jeudi 29 octobre");
+    // Hygiène, entretien : un lot qui se garde trois ans
+    expect(formatBestBefore(new Date("2029-10-23T00:00:00Z"), now)).toBe("mardi 23 octobre 2029");
+  });
 });

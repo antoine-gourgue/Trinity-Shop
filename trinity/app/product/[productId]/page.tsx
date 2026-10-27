@@ -120,7 +120,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     // Lot à date courte du produit dans le magasin du client
     store ? productOffer(store.id, product.id) : null,
     // Les commandes reçoivent le lot le plus récent : sa date est celle que le client aura
-    store && stock > 0
+    store && stock > 0 && !nonFood
       ? prisma.stockLot.findFirst({
           where: { storeId: store.id, productId: product.id, closedAt: null, quantity: { gt: 0 } },
           orderBy: { bestBefore: "desc" },
@@ -250,7 +250,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
             />
             {availability}
           </p>
-          {freshest && (
+          {/* Pas de date limite à annoncer pour l'hygiène et l'entretien */}
+          {freshest && !nonFood && (
             <p className="mt-1 text-sm text-muted-foreground">
               Date limite des produits préparés : jusqu&apos;au {formatBestBefore(freshest.bestBefore)}
             </p>

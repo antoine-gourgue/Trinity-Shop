@@ -119,8 +119,17 @@ export function lotStage(lot: { bestBefore: Date; markdownDays: number; withdraw
 }
 
 // « à consommer jusqu'au mercredi 29 octobre »
-export function formatBestBefore(bestBefore: Date) {
-  return bestBefore.toLocaleDateString("fr-FR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
+// « mardi 23 octobre », avec l'année quand elle n'est pas l'année en cours (produits qui se gardent
+// longtemps : « mardi 23 octobre 2029 »)
+export function formatBestBefore(bestBefore: Date, now = new Date()) {
+  const otherYear = bestBefore.getUTCFullYear() !== Number(parisDay(now).slice(0, 4));
+  return bestBefore.toLocaleDateString("fr-FR", {
+    timeZone: "UTC",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    ...(otherYear && { year: "numeric" }),
+  });
 }
 
 // Échéance lisible : « aujourd'hui », « demain », « dans 3 jours », « dépassée »

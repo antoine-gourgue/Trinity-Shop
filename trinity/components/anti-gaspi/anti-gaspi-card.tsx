@@ -29,7 +29,8 @@ export default function AntiGaspiCard({ offer }: { offer: AntiGaspiOffer }) {
           {[product.netContent, `plus que ${offer.quantity}`].filter(Boolean).join(" · ")}
         </p>
       </div>
-      <div className="mt-3 flex items-end justify-between gap-2">
+      {/* Prix et bouton côte à côte seulement sur grand écran : sur mobile, la carte est trop étroite */}
+      <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
         <p>
           <span className="block text-xs text-muted-foreground line-through">{formatPrice(product.price)}</span>
           <span className="block text-lg font-black text-bio">{formatPrice(offer.unitPrice)}</span>

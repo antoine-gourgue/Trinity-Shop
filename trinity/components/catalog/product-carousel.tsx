@@ -35,10 +35,12 @@ export default function ProductCarousel({
       <button type="button" onClick={() => scroll(-1)} aria-label={previousLabel} className={`${arrowClass} -left-4`}>
         <ChevronLeft size={20} />
       </button>
+      {/* scroll-px-4 : l'aimantation garde la marge de 16 px du bord de l'écran (sans elle, chaque
+          élément se cale contre le bord, dès l'affichage et après chaque défilement) */}
       <ul
         ref={trackRef}
         aria-label={label}
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:none] sm:gap-4 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
+        className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:none] sm:gap-4 md:mx-0 md:scroll-px-0 md:px-0 [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </ul>
