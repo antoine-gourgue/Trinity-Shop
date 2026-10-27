@@ -148,7 +148,7 @@ Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
 |---|---|
 | `POSTGRES_PRISMA_URL` | URL de connexion avec pool, utilisée par l'application |
 | `POSTGRES_URL_NON_POOLING` | URL directe, utilisée par `prisma db push` et les migrations |
-| `NEXTAUTH_SECRET` | Clé de signature des sessions (`openssl rand -base64 32`) |
+| `NEXTAUTH_SECRET` | Clé de signature des sessions et des liens de désinscription (`openssl rand -base64 32`) ; `AUTH_SECRET` est accepté à la place |
 | `RESEND_API_KEY` | Facultatif : e-mails de bienvenue, de confirmation de commande et de réinitialisation du mot de passe (sans clé, le lien de réinitialisation s'affiche dans la console en développement) |
 | `APP_URL` | Facultatif : URL publique du site (liens des e-mails, URL canoniques, Open Graph, sitemap, robots.txt) ; à défaut, le domaine de production Vercel, sinon `http://localhost:3000` |
 | `STRIPE_SECRET_KEY` | Facultatif : clé secrète Stripe (`sk_test_…`) pour le paiement par carte ; sans clé, le paiement est simulé |
@@ -224,7 +224,7 @@ La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request e
 
 L'application est déployée sur **Vercel**, qui construit chaque commit de `main`. Les jobs **« Lint, types, tests »** et **« Build »** de la CI sont déclarés comme [Deployment Checks](https://vercel.com/docs/deployment-checks) du projet Vercel : une nouvelle version de production n'est mise en ligne qu'une fois la CI réussie (attente de 15 minutes au plus).
 
-Variables à définir dans Vercel : `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `NEXTAUTH_SECRET` et, si besoin, `RESEND_API_KEY`.
+Variables à définir dans Vercel : `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `NEXTAUTH_SECRET` (ou `AUTH_SECRET`) et, si besoin, `RESEND_API_KEY`.
 
 ## Conventions
 

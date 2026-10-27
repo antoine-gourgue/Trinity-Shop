@@ -14,6 +14,7 @@ describe("/api/emails/unsubscribe", () => {
     });
 
     afterEach(() => {
+        delete process.env.AUTH_SECRET;
         jest.clearAllMocks();
     });
 
@@ -29,6 +30,16 @@ describe("/api/emails/unsubscribe", () => {
 
         expect(prisma.user.updateMany).not.toHaveBeenCalled();
         expect(response.headers.get("location")).toBe("http://localhost/legal/desabonnement?erreur=1");
+    });
+
+    it("signs with AUTH_SECRET when NEXTAUTH_SECRET is not set, as NextAuth does", async () => {
+        delete process.env.NEXTAUTH_SECRET;
+        process.env.AUTH_SECRET = "auth-secret";
+
+        const response = await GET(buildRequest(`/api/emails/unsubscribe?u=user1&s=${unsubscribeSignature("user1")}`));
+
+        expect(prisma.user.updateMany).toHaveBeenCalledTimes(1);
+        expect(response.headers.get("location")).toBe("http://localhost/legal/desabonnement");
     });
 
     it("answers the one-click unsubscribe of mail clients", async () => {

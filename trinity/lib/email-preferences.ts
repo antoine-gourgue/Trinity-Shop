@@ -2,10 +2,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { siteUrl } from "@/lib/site-url";
 
 // Lien de désinscription des rappels de panier : il marche sans connexion, mais sa signature
-// (HMAC du secret du site) empêche de désinscrire le compte de quelqu'un d'autre
+// (HMAC du secret du site) empêche de désinscrire le compte de quelqu'un d'autre.
+// Même secret que les sessions : NEXTAUTH_SECRET (auth.ts), sinon AUTH_SECRET, que NextAuth lit à défaut
 function secret() {
-  const value = process.env.NEXTAUTH_SECRET?.trim();
-  if (!value) throw new Error("NEXTAUTH_SECRET est nécessaire pour signer les liens de désinscription.");
+  const value = process.env.NEXTAUTH_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
+  if (!value) throw new Error("NEXTAUTH_SECRET ou AUTH_SECRET est nécessaire pour signer les liens de désinscription.");
   return value;
 }
 
