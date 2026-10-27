@@ -89,7 +89,7 @@ export function prospectusBanner(
     kicker: prospectus.title,
     title: `Jusqu'à −${best} %`,
     text: `${offers.length} produit${offers.length > 1 ? "s" : ""} à prix promo jusqu'au ${formatProspectusLastDay(prospectus.endsAt)}`,
-    cta: "Voir le prospectus",
+    cta: "J'en profite",
     visual: { kind: "products", products: [...offers].sort((a, b) => b.percent - a.percent).slice(0, 3) },
   };
 }
