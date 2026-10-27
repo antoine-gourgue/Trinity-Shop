@@ -18,6 +18,9 @@ import { discountPercent, formatPrice } from "@/lib/format";
 import { pickupDays, pickupHours } from "@/lib/checkout";
 import { FREE_DELIVERY_FROM } from "@/lib/delivery";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE } from "@/lib/loyalty";
+import { withStorePrices } from "@/lib/store-prices";
+import { runningProspectus } from "@/lib/prospectus";
+import { formatProspectusDates, formatProspectusLastDay, prospectusBanner } from "@/lib/prospectus-rules";
 
 // Titre et description viennent du layout racine ; l'URL canonique écarte les paramètres ajoutés (?utm_…)
 export const metadata: Metadata = { alternates: { canonical: "/" } };
@@ -86,7 +89,17 @@ export default async function HomePage({
       select: { id: true, name: true, picture: true, price: true, regularPrice: true, netContent: true, promoEndsAt: true },
     }),
   ]);
-  // Les plus fortes remises d'abord : les trois premières sur la bannière, les suivantes au prospectus
+  // Prix du magasin du client dans les sections de produits (prospectus en cours)
+  const [favoriteList, saveursList, nutriAList, bioList, matLouList, storeProspectus] = await Promise.all([
+    withStorePrices(favorites, store?.id),
+    withStorePrices(saveurs, store?.id),
+    withStorePrices(nutriA, store?.id),
+    withStorePrices(bio, store?.id),
+    withStorePrices(matLou, store?.id),
+    store ? runningProspectus(store.id) : null,
+  ]);
+  // Promotions nationales, les plus fortes remises d'abord : les trois premières sur la bannière, les
+  // suivantes au prospectus (quand le magasin n'a pas le sien)
   const topPromos: ProspectusItem[] = promoPrices
     .map((product) => ({ ...product, regularPrice: product.regularPrice ?? product.price, percent: discountPercent(product.price, product.regularPrice) ?? 0 }))
     .sort((a, b) => b.percent - a.percent);
@@ -101,15 +114,18 @@ export default async function HomePage({
   const freeDelivery = formatPrice(FREE_DELIVERY_FROM).replace(",00", "");
 
   const banners: OperationBanner[] = [
-    {
-      href: "/produits?promo=1",
-      tone: "promo",
-      kicker: "Promos de la semaine",
-      title: `Jusqu'à −${topPromos[0]?.percent ?? 0}\u00a0%`,
-      text: `Sur ${promoPrices.length} produits en promotion`,
-      cta: "J'en profite",
-      visual: { kind: "products", products: topPromos.slice(0, 3) },
-    },
+    // Le prospectus du magasin en tête ; sinon les promotions nationales
+    storeProspectus
+      ? prospectusBanner(storeProspectus, storeProspectus.offers)
+      : {
+          href: "/produits?promo=1",
+          tone: "promo",
+          kicker: "Promos de la semaine",
+          title: `Jusqu'à −${topPromos[0]?.percent ?? 0}\u00a0%`,
+          text: `Sur ${promoPrices.length} produits en promotion`,
+          cta: "J'en profite",
+          visual: { kind: "products", products: topPromos.slice(0, 3) },
+        },
     {
       href: "/anti-gaspi",
       tone: "bio",
@@ -157,16 +173,27 @@ export default async function HomePage({
         title="Vos favoris"
         subtitle="Vos produits habituels, à remettre au panier en un clic."
         href="/user/favoris"
-        products={favorites}
+        products={favoriteList}
       />
 
-      <Prospectus
-        label="Prospectus de la semaine"
-        scope={store ? `Drive ${store.name}` : "Tous les magasins Trinity"}
-        description={`${promoPrices.length} produits en promotion, à retirer dès ${pickupWeekday} au drive ou à vous faire livrer.`}
-        href="/produits?promo=1"
-        items={topPromos.slice(3, 8)}
-      />
+      {storeProspectus ? (
+        <Prospectus
+          label={storeProspectus.title}
+          tag={formatProspectusDates(storeProspectus)}
+          description={`${storeProspectus.offers.length} produit${storeProspectus.offers.length > 1 ? "s" : ""} à prix promo dans votre magasin, jusqu'au ${formatProspectusLastDay(storeProspectus.endsAt)}.`}
+          href={`/prospectus/${storeProspectus.id}`}
+          // Sans reprendre les produits de la bannière quand le prospectus en a assez
+          items={storeProspectus.offers.length >= 8 ? storeProspectus.offers.slice(3, 8) : storeProspectus.offers.slice(0, 5)}
+        />
+      ) : (
+        <Prospectus
+          label="Promos de la semaine"
+          tag={`${promoPrices.length} produits en promo`}
+          description={`${promoPrices.length} produits en promotion, à retirer dès ${pickupWeekday} au drive ou à vous faire livrer.`}
+          href="/produits?promo=1"
+          items={topPromos.slice(3, 8)}
+        />
+      )}
 
       {antiGaspi.length > 0 && (
         <section className="mt-12">
@@ -198,25 +225,25 @@ export default async function HomePage({
         title="U Saveurs, le goût des régions"
         subtitle="Des recettes de terroir sélectionnées par nos équipes."
         href="/produits?marque=u-saveurs"
-        products={saveurs}
+        products={saveursList}
       />
       <ProductSection
         title="Les champions du Nutri-Score"
         subtitle="Des produits notés A pour composer des repas équilibrés."
         href="/produits?nutriscore=A"
-        products={nutriA}
+        products={nutriAList}
       />
       <ProductSection
         title="Le bio U"
         subtitle="Issus de l’agriculture biologique."
         href="/produits?marque=u-bio"
-        products={bio}
+        products={bioList}
       />
       <ProductSection
         title="Pour les petits : U Mat&Lou"
         subtitle="Goûters, compotes et repas pensés pour les enfants."
         href="/produits?marque=u-mat-lou"
-        products={matLou}
+        products={matLouList}
       />
 
       <section className="mt-14 rounded-3xl bg-white p-6 ring-1 ring-border md:p-10">

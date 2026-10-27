@@ -12,6 +12,11 @@ jest.mock("@/lib/prisma", () => ({
     cart: { findFirst: jest.fn() },
     address: { findUnique: jest.fn() },
     user: { findUnique: jest.fn() },
+    // Prospectus du magasin : aucun en cours par défaut
+    prospectusItem: { findMany: jest.fn().mockResolvedValue([]) },
+    // Prix payés, figés sur les lignes du panier
+    productInCart: { update: jest.fn((args: unknown) => args) },
+    $transaction: jest.fn(async (operations: unknown[]) => operations),
 }));
 
 jest.mock("@/lib/payments/stripe", () => ({
@@ -48,8 +53,8 @@ const INPUT: StartCheckoutInput = {
 const CART = {
     id: "cart1",
     productsInCart: [
-        { quantity: 2, product: { name: "Lait", price: 1190, picture: "/products/1.jpg" } },
-        { quantity: 1, product: { name: "Café", price: 4590, picture: "/products/2.jpg" } },
+        { id: "line1", productId: "p1", quantity: 2, product: { name: "Lait", price: 1190, picture: "/products/1.jpg" } },
+        { id: "line2", productId: "p2", quantity: 1, product: { name: "Café", price: 4590, picture: "/products/2.jpg" } },
     ],
 };
 
@@ -106,6 +111,27 @@ describe("startCheckout", () => {
             success_url: "http://localhost:3000/api/payments/stripe/confirm?session_id={CHECKOUT_SESSION_ID}",
             cancel_url: `http://localhost:3000${INPUT.returnPath}`,
         });
+    });
+
+    it("charges the store prospectus price and freezes the prices paid on the cart lines", async () => {
+        // Lait à 1,19 € au catalogue, 0,99 € dans le prospectus en cours du drive
+        (prisma.prospectusItem.findMany as unknown as jest.Mock).mockResolvedValueOnce([
+            { productId: "p1", price: 990, prospectus: { id: "prospectus1", endsAt: new Date("2099-01-01T00:00:00Z") } },
+        ]);
+
+        await startCheckout(INPUT);
+
+        const [params] = sessionsCreate.mock.calls[0];
+        expect(params).toMatchObject({
+            line_items: [
+                { quantity: 2, price_data: { unit_amount: 99, product_data: { name: "Lait" } } },
+                { quantity: 1, price_data: { unit_amount: 459, product_data: { name: "Café" } } },
+                { quantity: 1, price_data: { unit_amount: 590, product_data: { name: "Livraison à domicile" } } },
+            ],
+        });
+        // La commande reprendra exactement ces montants à la confirmation du paiement
+        expect(prisma.productInCart.update).toHaveBeenCalledWith({ where: { id: "line1" }, data: { unitPrice: 990 } });
+        expect(prisma.productInCart.update).toHaveBeenCalledWith({ where: { id: "line2" }, data: { unitPrice: 4590 } });
     });
 
     it("adds the anti-waste discount to the loyalty vouchers in a single Stripe coupon", async () => {

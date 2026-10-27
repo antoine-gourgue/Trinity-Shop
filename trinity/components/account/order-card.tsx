@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/format";
 import { orderNumber } from "@/lib/account";
 import { formatPickupDate } from "@/lib/checkout";
 import { orderDeliveryFee } from "@/lib/delivery";
+import { linePrice } from "@/lib/orders/line-price";
 
 interface OrderCardProps {
   href: string;
@@ -19,7 +20,7 @@ interface OrderCardProps {
     antiGaspiDiscount?: number;
     preparationRefund?: number;
     shippingAddressId?: string | null;
-    cart: { productsInCart: { quantity: number; product: { id: string; name: string; price: number; picture: string } }[] };
+    cart: { productsInCart: { quantity: number; unitPrice?: number | null; product: { id: string; name: string; price: number; picture: string } }[] };
   };
 }
 
@@ -27,7 +28,7 @@ const MAX_THUMBNAILS = 5;
 
 export default function OrderCard({ href, order }: OrderCardProps) {
   const items = order.cart.productsInCart;
-  const itemsTotal = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const itemsTotal = items.reduce((acc, item) => acc + linePrice(item) * item.quantity, 0);
   const delivery = !!order.shippingAddressId;
   const total =
     Math.max(0, itemsTotal - (order.loyaltyDiscount ?? 0) - (order.antiGaspiDiscount ?? 0) - (order.preparationRefund ?? 0)) +

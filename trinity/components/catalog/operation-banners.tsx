@@ -102,39 +102,49 @@ function Visual({ visual }: { visual: BannerVisual }) {
   }
 }
 
+// Une bannière d'opération ; en aperçu (back-office), elle ne mène nulle part
+export function BannerCard({ banner, preview = false }: { banner: OperationBanner; preview?: boolean }) {
+  const tone = TONES[banner.tone];
+  const hasVisual = banner.visual && (banner.visual.kind !== "products" || banner.visual.products.length > 0);
+  const className = cn("group relative flex h-full min-h-[190px] overflow-hidden rounded-xl sm:min-h-[230px] xl:min-h-[260px]", tone.banner);
+  const content = (
+    <>
+      <span className={cn("relative z-10 flex flex-col justify-center p-5 sm:p-7", hasVisual ? "w-[60%] sm:w-[55%]" : "w-full")}>
+        <span className={cn(displayFont.className, "text-sm font-bold uppercase tracking-wider opacity-90 sm:text-base")}>{banner.kicker}</span>
+        <span className={cn(displayFont.className, "mt-1 text-[2.4rem] font-extrabold uppercase leading-[0.88] sm:text-5xl xl:text-6xl")}>
+          {banner.title}
+        </span>
+        <span className="mt-2 text-xs font-semibold leading-snug opacity-90 sm:text-sm">{banner.text}</span>
+        <span className={cn("mt-4 inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-xs font-extrabold sm:text-sm", tone.cta)}>
+          {banner.cta}
+          <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+        </span>
+      </span>
+      {banner.visual && hasVisual && (
+        <span aria-hidden className="absolute inset-y-0 right-0 flex w-[42%] items-center justify-center pr-3 sm:w-[45%] sm:pr-5">
+          <Visual visual={banner.visual} />
+        </span>
+      )}
+    </>
+  );
+  return preview ? (
+    <div className={className}>{content}</div>
+  ) : (
+    <Link href={banner.href} className={className}>
+      {content}
+    </Link>
+  );
+}
+
 // Les opérations du moment, en grandes bannières qui défilent (deux à la fois sur grand écran)
 export default function OperationBanners({ banners }: { banners: OperationBanner[] }) {
   return (
     <ProductCarousel label="Opérations du moment" previousLabel="Opérations précédentes" nextLabel="Opérations suivantes" arrowTop="top-1/2">
-      {banners.map((banner) => {
-        const tone = TONES[banner.tone];
-        const hasVisual = banner.visual && (banner.visual.kind !== "products" || banner.visual.products.length > 0);
-        return (
-          <li key={banner.href} className="w-[88%] shrink-0 snap-start sm:w-[72%] lg:w-[calc(50%-0.5rem)]">
-            <Link
-              href={banner.href}
-              className={cn("group relative flex h-full min-h-[190px] overflow-hidden rounded-xl sm:min-h-[230px] xl:min-h-[260px]", tone.banner)}
-            >
-              <span className={cn("relative z-10 flex flex-col justify-center p-5 sm:p-7", hasVisual ? "w-[60%] sm:w-[55%]" : "w-full")}>
-                <span className={cn(displayFont.className, "text-sm font-bold uppercase tracking-wider opacity-90 sm:text-base")}>{banner.kicker}</span>
-                <span className={cn(displayFont.className, "mt-1 text-[2.4rem] font-extrabold uppercase leading-[0.88] sm:text-5xl xl:text-6xl")}>
-                  {banner.title}
-                </span>
-                <span className="mt-2 text-xs font-semibold leading-snug opacity-90 sm:text-sm">{banner.text}</span>
-                <span className={cn("mt-4 inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-xs font-extrabold sm:text-sm", tone.cta)}>
-                  {banner.cta}
-                  <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
-                </span>
-              </span>
-              {banner.visual && hasVisual && (
-                <span aria-hidden className="absolute inset-y-0 right-0 flex w-[42%] items-center justify-center pr-3 sm:w-[45%] sm:pr-5">
-                  <Visual visual={banner.visual} />
-                </span>
-              )}
-            </Link>
-          </li>
-        );
-      })}
+      {banners.map((banner) => (
+        <li key={banner.href} className="w-[88%] shrink-0 snap-start sm:w-[72%] lg:w-[calc(50%-0.5rem)]">
+          <BannerCard banner={banner} />
+        </li>
+      ))}
     </ProductCarousel>
   );
 }

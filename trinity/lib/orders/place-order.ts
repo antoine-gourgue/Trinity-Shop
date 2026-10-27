@@ -6,6 +6,7 @@ import { orderNumber } from "@/lib/account";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, maxVouchers, pointsForAmount } from "@/lib/loyalty";
 import { allocateAntiGaspi, bestBeforeFromDay, parisDay } from "@/lib/anti-gaspi";
 import { takeFromLots, unitsValidAt } from "@/lib/stock-lots";
+import { withStoreLinePrices } from "@/lib/store-prices";
 
 // Passage d'une commande, partagé par l'API (paiement simulé) et la confirmation d'un paiement Stripe
 
@@ -106,7 +107,13 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   if (cart.userId !== userId) return { ok: false, error: { code: "cart_forbidden" } };
   if (cart.productsInCart.length === 0) return { ok: false, error: { code: "cart_empty" } };
 
-  const total = cartTotal(cart.productsInCart);
+  // Prix payés : ceux du magasin au moment de la commande ; pour un paiement Stripe, ceux fixés à
+  // l'ouverture du paiement (le client a payé ces montants, même si un prospectus s'est terminé depuis)
+  const paidLines = !!stripeSessionId && cart.productsInCart.every((line) => line.unitPrice !== null);
+  const lines = paidLines
+    ? cart.productsInCart.map((line) => ({ ...line, product: { ...line.product, price: line.unitPrice ?? line.product.price } }))
+    : await withStoreLinePrices(cart.productsInCart, storeId);
+  const total = cartTotal(lines);
   const requestedVouchers = Math.max(0, input.loyaltyVouchers);
   // Jour du retrait (ou de la livraison) : un lot qui expire avant ne se vend pas
   const pickupDay = bestBeforeFromDay(parisDay(pickupSlot ?? new Date()));
@@ -122,13 +129,13 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       // Articles anti-gaspi : unités réservées dans leur lot à date courte ; si un autre client a pris
       // les dernières, la ligne repasse au prix normal
       const antiGaspi = allocateAntiGaspi(
-        cart.productsInCart.map((item) => ({ productId: item.productId, quantity: item.quantity, price: item.product.price, lot: item.antiGaspiLot })),
+        lines.map((item) => ({ productId: item.productId, quantity: item.quantity, price: item.product.price, lot: item.antiGaspiLot })),
         storeId,
         pickupSlot
       );
       const served: typeof antiGaspi.allocations = [];
       for (const allocation of antiGaspi.allocations) {
-        const line = cart.productsInCart.find((item) => item.productId === allocation.productId);
+        const line = lines.find((item) => item.productId === allocation.productId);
         if (!line) continue;
         const { count } = await prisma.stockLot.updateMany({
           where: { id: allocation.lotId, closedAt: null, quantity: { gte: allocation.units } },
@@ -158,7 +165,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       // Stock du drive décompté article par article : la mise à jour n'aboutit que si la quantité suffit
       // (en unités encore bonnes le jour du retrait), et une seule rupture annule toute la transaction
       const missing: string[] = [];
-      for (const item of cart.productsInCart) {
+      for (const item of lines) {
         const valid = await unitsValidAt(prisma, storeId, item.productId, pickupDay);
         if (valid !== null && valid < item.quantity) {
           missing.push(item.product.name);
@@ -173,7 +180,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       if (missing.length > 0) throw new PlaceOrderFailure({ code: "out_of_stock", products: missing });
 
       // Les autres unités viennent des lots aux dates les plus longues, rattachés à chaque ligne
-      for (const item of cart.productsInCart) {
+      for (const item of lines) {
         const fromOffer = served.find((allocation) => allocation.productId === item.productId)?.units ?? 0;
         await takeFromLots(prisma, {
           storeId,
@@ -205,6 +212,10 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       });
 
       await prisma.cart.update({ where: { id: cartId }, data: { archived: true } });
+      // Prix unitaire de chaque ligne, figé : factures et remboursements ne bougent plus avec les prix
+      for (const line of lines) {
+        await prisma.productInCart.update({ where: { id: line.id }, data: { unitPrice: line.product.price } });
+      }
 
       // Solde et historique de la Carte Trinity
       if (hasCard && (loyaltyPointsUsed > 0 || loyaltyPointsEarned > 0)) {

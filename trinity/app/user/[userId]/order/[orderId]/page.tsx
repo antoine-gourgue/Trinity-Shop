@@ -15,6 +15,7 @@ import { formatPickupDate } from "@/lib/checkout";
 import { orderDeliveryFee } from "@/lib/delivery";
 import CheckoutSteps from "@/components/cart/checkout-steps";
 import { lineOutcome } from "@/lib/orders/preparation";
+import { linePrice } from "@/lib/orders/line-price";
 import { canCheckIn } from "@/lib/drive";
 import { nearestBestBefore } from "@/lib/lot-labels";
 import DriveCheckIn from "@/components/account/drive-check-in";
@@ -36,7 +37,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
     if (!order || order.userId !== sessionUser.id) return notFound();
 
     const items = order.cart.productsInCart;
-    const totalAmount = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+    const totalAmount = items.reduce((acc, item) => acc + linePrice(item) * item.quantity, 0);
     const articleCount = items.reduce((acc, item) => acc + item.quantity, 0);
     const billing = order.billingAddress;
     const pickupLabel = order.pickupSlot ? formatPickupDate(order.pickupSlot) : null;
@@ -124,7 +125,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                         {item.product.name}
                                     </Link>
                                     <p className="mt-0.5 text-sm text-muted-foreground">
-                                        {item.quantity} × {formatPrice(item.product.price)}
+                                        {item.quantity} × {formatPrice(linePrice(item))}
                                         {/* Date limite des produits préparés pour le client (les plus longues du rayon) */}
                                         {nearestBestBefore(item.lotAllocations) && ` · date limite ${nearestBestBefore(item.lotAllocations)}`}
                                     </p>
@@ -136,7 +137,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
                                     <PreparationNote line={item} />
                                 </div>
                                 <span className="shrink-0 font-black tabular-nums">
-                                    {formatPrice(item.product.price * item.quantity)}
+                                    {formatPrice(linePrice(item) * item.quantity)}
                                 </span>
                             </li>
                         ))}

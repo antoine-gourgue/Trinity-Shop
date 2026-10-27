@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Prisma } from "@prisma/client";
 import { SearchX } from "lucide-react";
 import { getProductListing } from "@/lib/catalog";
+import { currentStore } from "@/lib/current-store";
 import { searchProductIds } from "@/lib/search";
 import {
   DEFAULT_SORT,
@@ -65,7 +66,8 @@ export default async function ProduitsPage({ searchParams }: ProduitsPageProps) 
     ],
   };
 
-  const listing = await getProductListing(base, params, ranking);
+  const store = await currentStore();
+  const listing = await getProductListing(base, params, ranking, store?.id);
   const title = pageTitle(params);
 
   return (

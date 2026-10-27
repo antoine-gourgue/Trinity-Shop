@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { VISIBLE_PRODUCT } from "@/lib/catalog";
 import { allocateAntiGaspi, ANTI_GASPI_WINDOW, bestBeforeFromDay, lotPricing, parisDay } from "@/lib/anti-gaspi";
+import { applyStorePromotion, storePromotions, withStoreLinePrices } from "@/lib/store-prices";
 
 // Offres anti-gaspi lues en base : rayon du magasin, fiche produit et panier du client
 
@@ -57,9 +58,12 @@ export async function storeOffers(storeId: string, now = new Date(), take?: numb
     select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true, product: { select: OFFER_PRODUCT } },
   });
 
+  // Remise appliquée au prix du magasin (un produit peut y être en prospectus)
+  const promotions = await storePromotions(storeId, lots.map((lot) => lot.product.id), now);
   const seen = new Set<string>();
   const offers: AntiGaspiOffer[] = [];
-  for (const { product, ...lot } of lots) {
+  for (const { product: listed, ...lot } of lots) {
+    const product = applyStorePromotion(listed, promotions.get(listed.id));
     const pricing = lotPricing(lot, product.price, now);
     if (!pricing || seen.has(product.id)) continue;
     seen.add(product.id);
@@ -93,8 +97,10 @@ export async function cartAntiGaspi(userId: string, storeId: string | null, pick
       antiGaspiLot: { select: { id: true, storeId: true, quantity: true, bestBefore: true, closedAt: true, markdownDays: true } },
     },
   });
+  // Remise calculée sur le prix du magasin (un produit peut y être en prospectus)
+  const priced = await withStoreLinePrices(lines, storeId, now);
   return allocateAntiGaspi(
-    lines.map((line) => ({ productId: line.productId, quantity: line.quantity, price: line.product.price, lot: line.antiGaspiLot })),
+    priced.map((line) => ({ productId: line.productId, quantity: line.quantity, price: line.product.price, lot: line.antiGaspiLot })),
     storeId,
     pickupSlot,
     now

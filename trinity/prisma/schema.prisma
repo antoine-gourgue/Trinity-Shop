@@ -106,6 +106,7 @@ model Product {
   substitutedIn    ProductInCart[]      @relation("Substitutes")
   promoEndsAt      DateTime? // fin de la promotion : le prix revient alors au prix barré
   favorites        Favorite[]
+  prospectusItems  ProspectusItem[]
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 }
@@ -170,6 +171,9 @@ model ProductInCart {
   // Unités servies à prix anti-gaspi et remise de la ligne (millièmes d'euro), fixées à la commande
   antiGaspiQuantity Int             @default(0)
   antiGaspiDiscount Int             @default(0)
+  // Prix unitaire payé (millièmes d'euro), fixé à la commande : promotions et prospectus peuvent
+  // ensuite changer le prix du produit. Null pour un panier en cours et les commandes plus anciennes.
+  unitPrice         Int?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 }
@@ -317,6 +321,7 @@ model Store {
   stocks        StoreStock[]
   stockLots     StockLot[]
   restockOrders RestockOrder[]
+  prospectuses  Prospectus[]
   createdAt     DateTime       @default(now())
 
   @@index([city])
@@ -418,5 +423,36 @@ model StoreStock {
   @@unique([storeId, productId])
   // Ruptures et stocks faibles d'un magasin (back-office)
   @@index([storeId, quantity])
+  @@index([productId])
+}
+
+// Prospectus d'un magasin : des produits à prix promo pour les clients de ce magasin, entre deux dates
+model Prospectus {
+  id          String           @id @default(cuid())
+  storeId     String
+  store       Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title       String
+  // Minuit (heure de Paris) le premier jour, et minuit après le dernier jour (fin exclusive)
+  startsAt    DateTime
+  endsAt      DateTime
+  // Brouillon tant qu'il n'est pas publié ; publié, ses prix s'appliquent de startsAt à endsAt
+  publishedAt DateTime?
+  items       ProspectusItem[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([storeId, endsAt])
+}
+
+model ProspectusItem {
+  id           String     @id @default(cuid())
+  prospectusId String
+  prospectus   Prospectus @relation(fields: [prospectusId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // Prix promo dans le magasin, en millièmes d'euro
+  price        Int
+
+  @@unique([prospectusId, productId])
   @@index([productId])
 }

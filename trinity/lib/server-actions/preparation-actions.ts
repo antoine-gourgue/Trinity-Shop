@@ -7,6 +7,7 @@ import type { OrderStatus } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireOrderManagement } from "@/services/auth/guards";
 import { lineOutcome, preparationSummary } from "@/lib/orders/preparation";
+import { linePrice } from "@/lib/orders/line-price";
 import { refundPreparation } from "@/lib/payments/refund";
 import { sendOrderStatusEmail } from "@/lib/order-emails";
 import { emptyShelf, takeFromLots, trimAllocations } from "@/lib/stock-lots";
@@ -160,6 +161,7 @@ export async function finishPreparation(orderId: string): Promise<PreparationRes
               allowSubstitute: true,
               substituteId: true,
               antiGaspiDiscount: true,
+              unitPrice: true,
               product: { select: { name: true, price: true } },
               substitute: { select: { name: true, price: true } },
             },
@@ -175,7 +177,7 @@ export async function finishPreparation(orderId: string): Promise<PreparationRes
   const summary = preparationSummary(lines);
   if (!summary.done) return fail(`Il reste ${summary.pending} article${summary.pending > 1 ? "s" : ""} à traiter.`);
   // Jamais plus que ce que le client a payé pour ses articles (bons fidélité et remise anti-gaspi en moins)
-  const paid = lines.reduce((total, line) => total + line.product.price * line.quantity, 0) - order.loyaltyDiscount - order.antiGaspiDiscount;
+  const paid = lines.reduce((total, line) => total + linePrice(line) * line.quantity, 0) - order.loyaltyDiscount - order.antiGaspiDiscount;
   const refund = Math.min(summary.refund, Math.max(0, paid));
 
   try {

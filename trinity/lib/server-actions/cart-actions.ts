@@ -3,6 +3,8 @@
 import prisma from "@/lib/prisma";
 import { getUser } from "@/services/auth/getUserByEmail";
 import {auth} from "@/auth";
+import { currentStore } from "@/lib/current-store";
+import { withStoreLinePrices } from "@/lib/store-prices";
 
 export async function addToCart(productId: string, quantity: number) {
     try {
@@ -109,7 +111,11 @@ export async function getCartProducts() {
             };
         }
 
-        const cartProducts = cart.productsInCart.map((item) => ({
+        // Prix du magasin du client (prospectus en cours)
+        const store = await currentStore();
+        const lines = await withStoreLinePrices(cart.productsInCart, store?.id);
+
+        const cartProducts = lines.map((item) => ({
             id: item.product.id,
             name: item.product.name,
             price: item.product.price,

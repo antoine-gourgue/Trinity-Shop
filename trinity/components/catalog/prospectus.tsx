@@ -20,22 +20,24 @@ export interface ProspectusItem {
 }
 
 interface ProspectusProps {
-  // Bandeau du haut : nom du prospectus et magasin concerné
+  // Bandeau du haut : nom du prospectus, et à droite ses dates (ou le nombre de promotions)
   label: string;
-  scope: string;
+  tag: string;
   description: string;
   href: string;
   items: ProspectusItem[];
 }
 
 // Prospectus de la semaine : les produits en promotion, 5 sur grand écran, 4 sinon
-export default function Prospectus({ label, scope, description, href, items }: ProspectusProps) {
+export default function Prospectus({ label, tag, description, href, items }: ProspectusProps) {
   if (items.length === 0) return null;
   return (
     <section aria-labelledby="prospectus-title" className="mt-10 overflow-hidden rounded-xl border bg-white">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 bg-brand-dark px-5 py-2 text-white">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 bg-brand-dark px-5 py-2 text-white">
         <span className={cn(displayFont.className, "text-lg font-bold uppercase tracking-wider")}>{label}</span>
-        <span className="text-xs font-semibold text-white/75">{scope}</span>
+        <span className={cn(displayFont.className, "rounded-md bg-highlight px-2.5 py-0.5 text-base font-bold uppercase tracking-wide text-brand-dark")}>
+          {tag}
+        </span>
       </div>
 
       <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,14rem)_1fr] lg:gap-8 lg:p-6">

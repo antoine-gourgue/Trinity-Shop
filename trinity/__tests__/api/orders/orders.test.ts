@@ -10,6 +10,7 @@ import { buildRequest } from "@/test-utils/requests";
 import { after } from "next/server";
 import { SLOT_CAPACITY } from "@/lib/checkout";
 import { storeForOrder } from "@/lib/stores";
+import { placeOrder } from "@/lib/orders/place-order";
 
 // Fonction passée à prisma.$transaction, rejouée ici sur la doublure Prisma
 type TransactionCallback = (tx: typeof prisma) => Promise<unknown>;
@@ -30,6 +31,14 @@ jest.mock("@/lib/prisma", () => ({
     },
     lotAllocation: {
         create: jest.fn(),
+    },
+    // Prospectus du magasin : aucun en cours par défaut
+    prospectusItem: {
+        findMany: jest.fn().mockResolvedValue([]),
+    },
+    // Prix unitaire figé sur chaque ligne à la commande
+    productInCart: {
+        update: jest.fn(),
     },
     cart: {
         findUnique: jest.fn(),
@@ -240,6 +249,52 @@ describe("POST /api/orders", () => {
 
         expect(jsonMock).toHaveBeenCalledWith({ data: mockOrder }, { status: 201 });
         expect(after).toHaveBeenCalledTimes(1);
+    });
+
+    it("charges the price of the store prospectus and freezes it on the line", async () => {
+        (isUserLoggedIn as jest.Mock).mockResolvedValue(true);
+        (prisma.cart.findUnique as jest.Mock).mockResolvedValue({ id: "cart456", userId: "user123", productsInCart: [CART_ITEM] });
+        (prisma.storeStock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+        (prisma.order.create as jest.Mock).mockResolvedValue({ id: "order123" });
+        (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
+        // Lait à 1,00 € au catalogue, 0,80 € dans le prospectus en cours du drive
+        (prisma.prospectusItem.findMany as unknown as jest.Mock).mockResolvedValueOnce([
+            { productId: "prod1", price: 800, prospectus: { id: "p1", endsAt: new Date("2099-01-01T00:00:00Z") } },
+        ]);
+
+        await POST(buildRequest("/api/orders", { method: "POST", body: { userId: "user123", cartId: "cart456", billingAddressId: "111111" } }));
+
+        // Prospectus du drive qui prépare la commande
+        const findItems = prisma.prospectusItem.findMany as unknown as jest.Mock<unknown, [{ where: { prospectus: { storeId: string } } }]>;
+        expect(findItems.mock.calls[0][0].where.prospectus.storeId).toBe("store1");
+        // Factures et remboursements reprendront ce prix, même après la fin du prospectus
+        expect(prisma.productInCart.update).toHaveBeenCalledWith({ where: { id: "line1" }, data: { unitPrice: 800 } });
+    });
+
+    it("keeps the prices paid through Stripe, even if the prospectus has ended since", async () => {
+        (prisma.cart.findUnique as jest.Mock).mockResolvedValue({
+            id: "cart456",
+            userId: "user123",
+            productsInCart: [{ ...CART_ITEM, unitPrice: 750 }],
+        });
+        (prisma.storeStock.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+        (prisma.order.create as jest.Mock).mockResolvedValue({ id: "order123" });
+        (prisma.$transaction as jest.Mock).mockImplementation(async (callback: TransactionCallback) => callback(prisma));
+
+        const result = await placeOrder({
+            userId: "user123",
+            cartId: "cart456",
+            billingAddressId: "111111",
+            pickupSlot: null,
+            storeId: "store1",
+            delivery: null,
+            loyaltyVouchers: 0,
+            stripeSessionId: "cs_test_1",
+        });
+
+        expect(result.ok).toBe(true);
+        expect(prisma.prospectusItem.findMany).not.toHaveBeenCalled();
+        expect(prisma.productInCart.update).toHaveBeenCalledWith({ where: { id: "line1" }, data: { unitPrice: 750 } });
     });
 
     it("refuses units whose lots expire before the pickup", async () => {

@@ -7,6 +7,7 @@ import { findRayonForCategories, rayonCategoryNames, RAYONS } from "@/lib/rayons
 import { currentStore } from "@/lib/current-store";
 import { storeStockMap } from "@/lib/stock";
 import { formatBestBefore, lotPricing } from "@/lib/anti-gaspi";
+import { applyStorePromotion, storePromotions, withStorePrices } from "@/lib/store-prices";
 
 export interface CartItemDetails {
   brand: string | null;
@@ -44,6 +45,7 @@ export async function getCartDetails(productIds: string[]) {
     where: { id: { in: productIds } },
     select: {
       id: true,
+      price: true,
       regularPrice: true,
       netContent: true,
       brand: { select: { name: true } },
@@ -52,6 +54,8 @@ export async function getCartDetails(productIds: string[]) {
   });
   const store = await currentStore();
   const stock = store ? await storeStockMap(store.id, productIds) : null;
+  // Prix du magasin : un produit en prospectus a l'ancien prix pour prix barré
+  const promotions = await storePromotions(store?.id, productIds);
 
   // Préférences de remplacement des articles du panier actif du client
   const session = await auth();
@@ -71,7 +75,8 @@ export async function getCartDetails(productIds: string[]) {
     items.flatMap((item) => {
       if (!item.antiGaspiLot) return [];
       const lot = item.antiGaspiLot;
-      const pricing = lot.storeId === store?.id ? lotPricing(lot, item.product.price) : null;
+      const price = applyStorePromotion(item.product, promotions.get(item.productId)).price;
+      const pricing = lot.storeId === store?.id ? lotPricing(lot, price) : null;
       return [
         [
           item.productId,
@@ -89,7 +94,8 @@ export async function getCartDetails(productIds: string[]) {
 
   const details: Record<string, CartItemDetails> = {};
   const rayonSlugs = new Set<string>();
-  for (const product of products) {
+  for (const listed of products) {
+    const product = applyStorePromotion(listed, promotions.get(listed.id));
     const match = findRayonForCategories(product.categories.map((c) => c.categoryName));
     if (match) rayonSlugs.add(match.rayon.slug);
     details[product.id] = {
@@ -129,7 +135,10 @@ export async function getCartDetails(productIds: string[]) {
 
   return {
     details,
-    suggestions: suggestions.map(({ brand, ...product }) => ({ ...product, brand: brand.name })),
+    suggestions: await withStorePrices(
+      suggestions.map(({ brand, ...product }) => ({ ...product, brand: brand.name })),
+      store?.id
+    ),
   };
 }
 
@@ -150,5 +159,9 @@ export async function getPromoSuggestions(limit = 4): Promise<CartSuggestion[]> 
       brand: { select: { name: true } },
     },
   });
-  return products.map(({ brand, ...product }) => ({ ...product, brand: brand.name }));
+  const store = await currentStore();
+  return withStorePrices(
+    products.map(({ brand, ...product }) => ({ ...product, brand: brand.name })),
+    store?.id
+  );
 }

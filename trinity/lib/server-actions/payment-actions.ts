@@ -12,6 +12,7 @@ import { orderFailureMessage } from "@/lib/orders/order-messages";
 import { stripeClient, toCents, type CheckoutMetadata } from "@/lib/payments/stripe";
 import { storeForOrder } from "@/lib/stores";
 import { cartAntiGaspi } from "@/lib/anti-gaspi-offers";
+import { withStoreLinePrices } from "@/lib/store-prices";
 
 const startCheckoutSchema = z.object({
   pickupSlot: z.string(),
@@ -67,7 +68,11 @@ export async function startCheckout(input: StartCheckoutInput): Promise<StartChe
   const unavailable = await checkAvailability(cart.id, pickupSlot, storeId);
   if (unavailable) return fail(orderFailureMessage(unavailable.code, unavailable.code === "out_of_stock" ? unavailable.products : []));
 
-  const total = cartTotal(cart.productsInCart);
+  // Prix du magasin (prospectus en cours), fixés sur les lignes : la commande reprendra exactement les
+  // montants payés, même si le prospectus se termine avant la confirmation du paiement
+  const lines = await withStoreLinePrices(cart.productsInCart, storeId);
+  await prisma.$transaction(lines.map((line) => prisma.productInCart.update({ where: { id: line.id }, data: { unitPrice: line.product.price } })));
+  const total = cartTotal(lines);
   // Articles anti-gaspi du magasin encore bons au retrait
   const antiGaspi = await cartAntiGaspi(userId, storeId, pickupSlot);
   if (loyaltyVouchers > 0) {
@@ -107,7 +112,7 @@ export async function startCheckout(input: StartCheckoutInput): Promise<StartChe
       locale: "fr",
       customer_email: session.user.email,
       line_items: [
-        ...cart.productsInCart.map((item) => ({
+        ...lines.map((item) => ({
           quantity: item.quantity,
           price_data: {
             currency: "eur",

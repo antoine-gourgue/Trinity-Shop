@@ -3,6 +3,8 @@
 import prisma from "@/lib/prisma";
 import { RAYONS, rayonHref } from "@/lib/rayons";
 import { searchProductIds, searchTerms } from "@/lib/search";
+import { currentStore } from "@/lib/current-store";
+import { withStorePrices } from "@/lib/store-prices";
 
 export interface SearchSuggestions {
   total: number;
@@ -56,11 +58,14 @@ export async function getSearchSuggestions(query: string): Promise<SearchSuggest
     : [];
   const position = new Map(top.map((id, index) => [id, index]));
 
+  // Prix du magasin du client (prospectus en cours)
+  const store = await currentStore();
   return {
     total: ids.length,
     rayons,
-    products: found
-      .sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0))
-      .map(({ brand, ...product }) => ({ ...product, brand: brand.name })),
+    products: await withStorePrices(
+      found.sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0)).map(({ brand, ...product }) => ({ ...product, brand: brand.name })),
+      store?.id
+    ),
   };
 }

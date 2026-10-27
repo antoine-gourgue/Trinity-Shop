@@ -13,6 +13,7 @@ import { backOfficePage } from "@/lib/admin/access";
 import { canCancelOrder, nextOrderStatus, orderStatusLabel } from "@/lib/order-status";
 import { lineOutcome } from "@/lib/orders/preparation";
 import { lotLines } from "@/lib/lot-labels";
+import { linePrice } from "@/lib/orders/line-price";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function AdminOrderPage({ params }: Props) {
 
   const number = orderNumber(order.id);
   const items = order.cart.productsInCart;
-  const subtotal = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const subtotal = items.reduce((acc, item) => acc + linePrice(item) * item.quantity, 0);
   const articles = items.reduce((acc, item) => acc + item.quantity, 0);
   const shipping = order.shippingAddress;
   const fee = orderDeliveryFee(order, subtotal);
@@ -107,9 +108,9 @@ export default async function AdminOrderPage({ params }: Props) {
                 </div>
                 <p className="shrink-0 text-right text-sm">
                   <span className="block text-muted-foreground tabular-nums">
-                    {item.quantity} × {formatPrice(item.product.price)}
+                    {item.quantity} × {formatPrice(linePrice(item))}
                   </span>
-                  <span className="block font-black tabular-nums">{formatPrice(item.product.price * item.quantity)}</span>
+                  <span className="block font-black tabular-nums">{formatPrice(linePrice(item) * item.quantity)}</span>
                 </p>
               </li>
             ))}

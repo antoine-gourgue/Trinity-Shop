@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { getProductListing } from "@/lib/catalog";
+import { currentStore } from "@/lib/current-store";
 import { DEFAULT_SORT, listingHref, parseListingParams } from "@/lib/catalog-options";
 import { getRayon, rayonCategoryNames, rayonHref } from "@/lib/rayons";
 import ListingHeader from "@/components/catalog/listing-header";
@@ -48,11 +49,14 @@ export default async function RayonPage({ params, searchParams }: RayonPageProps
   const activeSub = rayon.subcategories.find((s) => s.slug === listingParams.cat);
   const categoryNames = activeSub ? [activeSub.category] : rayonCategoryNames(rayon);
 
+  const store = await currentStore();
   const [listing, subCounts] = await Promise.all([
-    getProductListing({ categories: { some: { categoryName: { in: categoryNames } } } }, {
-      ...listingParams,
-      cat: activeSub?.slug,
-    }),
+    getProductListing(
+      { categories: { some: { categoryName: { in: categoryNames } } } },
+      { ...listingParams, cat: activeSub?.slug },
+      undefined,
+      store?.id
+    ),
     prisma.categoriesProducts.groupBy({
       by: ["categoryName"],
       where: { categoryName: { in: rayon.subcategories.map((s) => s.category) } },

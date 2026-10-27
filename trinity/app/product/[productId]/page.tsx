@@ -26,6 +26,7 @@ import NutritionTable from "@/components/product/nutrition-table";
 import ProductStickyBar from "@/components/product/product-sticky-bar";
 import AddAntiGaspiButton from "@/components/anti-gaspi/add-anti-gaspi-button";
 import { productOffer } from "@/lib/anti-gaspi-offers";
+import { applyStorePromotion, storePromotions } from "@/lib/store-prices";
 import { daysLeftLabel, formatBestBefore } from "@/lib/anti-gaspi";
 
 interface ProductPageProps {
@@ -66,22 +67,22 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const product = await getProduct((await params).productId);
-  if (!product) notFound();
+  const found = await getProduct((await params).productId);
+  if (!found) notFound();
 
-  const match = findRayonForCategories(product.categories.map((c) => c.categoryName));
+  const match = findRayonForCategories(found.categories.map((c) => c.categoryName));
   const similarCategories = match
     ? match.subCategory
       ? [match.subCategory.category]
       : rayonCategoryNames(match.rayon)
-    : product.categories.map((c) => c.categoryName);
+    : found.categories.map((c) => c.categoryName);
 
-  const [{ openFoodData: off }, similar, store] = await Promise.all([
-    getOpenFoodFacts(product.barCode.toString()),
+  const [{ openFoodData: off }, similarProducts, store] = await Promise.all([
+    getOpenFoodFacts(found.barCode.toString()),
     prisma.product.findMany({
       where: {
         ...VISIBLE_PRODUCT,
-        id: { not: product.id },
+        id: { not: found.id },
         categories: { some: { categoryName: { in: similarCategories } } },
       },
       include: { brand: true },
@@ -90,6 +91,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
     }),
     currentStore(),
   ]);
+  // Prix du magasin du client : celui de son prospectus en cours, s'il est plus bas
+  const promotions = await storePromotions(store?.id, [found.id, ...similarProducts.map((item) => item.id)]);
+  const product = applyStorePromotion(found, promotions.get(found.id));
+  const similar = similarProducts.map((item) => applyStorePromotion(item, promotions.get(item.id)));
 
   const quantity: string | undefined = product.netContent || off?.quantity || undefined;
   const discount = discountPercent(product.price, product.regularPrice);

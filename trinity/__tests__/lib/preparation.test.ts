@@ -37,6 +37,11 @@ describe("lineOutcome", () => {
         expect(lineOutcome(line({ preparedQuantity: 2, antiGaspiDiscount: 1600 }))).toMatchObject({ missing: 1, refund: 1470 });
     });
 
+    it("refunds at the price frozen at order time, not the current one", () => {
+        // Payé 1,50 € (prospectus du magasin) ; le yaourt est revenu à 2,00 € depuis
+        expect(lineOutcome(line({ preparedQuantity: 1, unitPrice: 1500 }))).toMatchObject({ missing: 2, refund: 3000 });
+    });
+
     it("treats an untouched line as fully picked", () => {
         expect(lineOutcome(line({ preparedQuantity: null }))).toMatchObject({ prepared: 3, missing: 0 });
     });

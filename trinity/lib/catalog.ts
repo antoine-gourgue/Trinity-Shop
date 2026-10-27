@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { formatBrand } from "@/lib/format";
 import { parseQuantity } from "@/lib/product-info";
+import { runningProspectusWhere, withStorePrices } from "@/lib/store-prices";
 import {
   ListingParams,
   NUTRI_GRADES,
@@ -74,7 +75,9 @@ export async function getProductListing(
   base: Prisma.ProductWhereInput,
   params: ListingParams,
   // Identifiants classés par pertinence (recherche texte), utilisés par le tri « pertinence »
-  ranking?: string[]
+  ranking?: string[],
+  // Magasin du client : prix de ses prospectus en cours, et leurs produits parmi les promotions
+  storeId?: string | null
 ): Promise<ProductListing> {
   base = { AND: [base, VISIBLE_PRODUCT] };
   const priceRange = PRICE_RANGES.find((range) => range.value === params.prix);
@@ -88,7 +91,9 @@ export async function getProductListing(
   const priceFilter: Prisma.ProductWhereInput = priceRange
     ? { price: { gte: priceRange.min, ...(priceRange.max ? { lt: priceRange.max } : {}) } }
     : {};
-  const onPromo: Prisma.ProductWhereInput = { regularPrice: { not: null } };
+  const onPromo: Prisma.ProductWhereInput = storeId
+    ? { OR: [{ regularPrice: { not: null } }, { prospectusItems: { some: { prospectus: runningProspectusWhere(storeId) } } }] }
+    : { regularPrice: { not: null } };
   const promoFilter: Prisma.ProductWhereInput = params.promo ? onPromo : {};
   const bioFilter: Prisma.ProductWhereInput = params.bio ? ORGANIC : {};
   const gammeFilter: Prisma.ProductWhereInput = params.gamme ? GAMME_FILTERS[params.gamme] : {};
@@ -139,7 +144,7 @@ export async function getProductListing(
   }
 
   return {
-    products,
+    products: await withStorePrices(products, storeId),
     total,
     page,
     pageCount,

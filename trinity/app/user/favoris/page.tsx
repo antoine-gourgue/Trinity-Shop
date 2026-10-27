@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Heart } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { requireUser } from "@/lib/account";
+import { currentStore } from "@/lib/current-store";
+import { withStorePrices } from "@/lib/store-prices";
 import { AccountHeader } from "@/components/account/account-ui";
 import ProductGrid from "@/components/catalog/product-grid";
 import AddFavoritesToCart from "@/components/account/add-favorites-to-cart";
@@ -16,7 +18,11 @@ export default async function FavorisPage() {
         orderBy: { createdAt: "desc" },
         include: { product: { include: { brand: true } } },
     });
-    const products = favorites.map((favorite) => favorite.product);
+    const store = await currentStore();
+    const products = await withStorePrices(
+        favorites.map((favorite) => favorite.product),
+        store?.id
+    );
 
     return (
         <div>

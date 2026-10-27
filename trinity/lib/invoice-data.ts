@@ -5,6 +5,7 @@ import { formatPickupDate } from "@/lib/checkout";
 import { orderDeliveryFee } from "@/lib/delivery";
 import { storeAddressLines } from "@/lib/stores";
 import { preparationSummary } from "@/lib/orders/preparation";
+import { linePrice } from "@/lib/orders/line-price";
 
 // Données d'une commande pour sa facture et son e-mail de confirmation.
 // Sans contrôle d'accès : à appeler après avoir vérifié que l'utilisateur peut voir la commande.
@@ -31,7 +32,7 @@ export async function loadInvoice(orderId: string) {
   const address = order.billingAddress;
   const shipping = order.shippingAddress;
   const number = orderNumber(order.id);
-  const itemsTotal = order.cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const itemsTotal = order.cart.productsInCart.reduce((acc, item) => acc + linePrice(item) * item.quantity, 0);
   const deliveryFee = orderDeliveryFee(order, itemsTotal);
   // Une fois la préparation validée : articles manquants ou remplacés, et montant réellement remboursé
   const preparation = order.preparedAt
@@ -58,14 +59,19 @@ export async function loadInvoice(orderId: string) {
       email: order.user.email,
       address: address ? [address.street, `${address.zipCode} ${address.city}`, address.country] : [],
     },
-    items: order.cart.productsInCart.map(({ product, quantity }) => ({
-      name: product.name,
-      brand: product.brand?.name ?? null,
-      netContent: product.netContent,
-      quantity,
-      price: product.price,
-      regularPrice: product.regularPrice,
-    })),
+    items: order.cart.productsInCart.map((line) => {
+      const { product, quantity } = line;
+      const price = linePrice(line);
+      return {
+        name: product.name,
+        brand: product.brand?.name ?? null,
+        netContent: product.netContent,
+        quantity,
+        price,
+        // Payé moins que le prix actuel (prospectus, promotion terminée depuis) : le prix actuel est barré
+        regularPrice: price < product.price ? (product.regularPrice ?? product.price) : product.regularPrice,
+      };
+    }),
   };
 
   return {

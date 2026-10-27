@@ -10,6 +10,7 @@ import { lotLines } from "@/lib/lot-labels";
 import { AdminPageHeader } from "@/components/admin/admin-ui";
 import { customerName, pickupLabel } from "@/components/admin/admin-bits";
 import PickingList, { type PickingLine } from "@/components/admin/preparation/picking-list";
+import { linePrice } from "@/lib/orders/line-price";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,8 @@ export default async function PreparationPage({ params }: Props) {
         substitute: line.substitute,
         product: {
           name: line.product.name,
-          price: line.product.price,
+          // Prix payé par le client : base des remboursements de la préparation
+          price: linePrice(line),
           picture: line.product.picture,
           netContent: line.product.netContent,
           barCode: line.product.barCode.toString(),

@@ -2,12 +2,16 @@
 // qu'il faut rembourser au client. Fonctions pures, partagées par l'écran de préparation, la
 // validation, les e-mails et la facture.
 
+import { linePrice } from "@/lib/orders/line-price";
+
 export interface PreparationLine {
   quantity: number;
   // Quantité prélevée en rayon ; null tant que l'article n'est pas traité
   preparedQuantity: number | null;
   allowSubstitute: boolean;
   product: { name: string; price: number };
+  // Prix unitaire payé, fixé à la commande (absent pour les commandes plus anciennes)
+  unitPrice?: number | null;
   // Produit équivalent donné pour la quantité manquante
   substitute: { name: string; price: number } | null;
   // Remise anti-gaspi de la ligne : le client a payé moins que le prix catalogue
@@ -29,7 +33,7 @@ export function lineOutcome(line: PreparationLine) {
   const prepared = Math.min(line.quantity, Math.max(0, line.preparedQuantity ?? line.quantity));
   const missing = line.quantity - prepared;
   const substitute = missing > 0 && line.allowSubstitute ? line.substitute : null;
-  const paidUnit = line.product.price - (line.antiGaspiDiscount ?? 0) / line.quantity;
+  const paidUnit = linePrice(line) - (line.antiGaspiDiscount ?? 0) / line.quantity;
   const owed = substitute ? missing * Math.max(0, paidUnit - substitute.price) : missing * paidUnit;
   // Arrondi au centime (prix en millièmes d'euro)
   const refund = Math.round(owed / 10) * 10;

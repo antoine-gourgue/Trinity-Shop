@@ -2,6 +2,7 @@ import { Prisma, Role } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { RAYONS, findRayonForCategories, getRayon, rayonCategoryNames } from "@/lib/rayons";
 import { orderDeliveryFee } from "@/lib/delivery";
+import { linePrice } from "@/lib/orders/line-price";
 import { SLOT_CAPACITY, pickupHours } from "@/lib/checkout";
 import { antiGaspiOutcome, driveWait, preparationStats, slotLoad, upcomingDays } from "@/lib/admin/operations";
 import { ANTI_GASPI_WINDOW, bestBeforeFromDay, parisDay } from "@/lib/anti-gaspi";
@@ -53,9 +54,9 @@ export function orderTotal(order: {
   antiGaspiDiscount: number;
   preparationRefund: number;
   shippingAddressId: string | null;
-  cart: { productsInCart: { quantity: number; product: { price: number } }[] };
+  cart: { productsInCart: { quantity: number; unitPrice: number | null; product: { price: number } }[] };
 }) {
-  const items = order.cart.productsInCart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const items = order.cart.productsInCart.reduce((acc, item) => acc + linePrice(item) * item.quantity, 0);
   return Math.max(0, items - order.loyaltyDiscount - order.antiGaspiDiscount - order.preparationRefund) + orderDeliveryFee(order, items);
 }
 
@@ -75,7 +76,7 @@ const ORDER_SUMMARY = {
   shippingAddressId: true,
   store: { select: { name: true } },
   user: { select: { id: true, firstName: true, lastName: true, email: true } },
-  cart: { select: { productsInCart: { select: { quantity: true, product: { select: { price: true } } } } } },
+  cart: { select: { productsInCart: { select: { quantity: true, unitPrice: true, product: { select: { price: true } } } } } },
 } satisfies Prisma.OrderSelect;
 
 export type OrderSummary = Prisma.OrderGetPayload<{ select: typeof ORDER_SUMMARY }>;
@@ -515,6 +516,7 @@ export function getPreparation(orderId: string) {
               substitute: { select: { id: true, name: true, price: true, netContent: true } },
               antiGaspiQuantity: true,
               antiGaspiDiscount: true,
+              unitPrice: true,
               antiGaspiLot: { select: { bestBefore: true } },
               lotAllocations: { select: { quantity: true, lot: { select: { bestBefore: true } } } },
               product: {
