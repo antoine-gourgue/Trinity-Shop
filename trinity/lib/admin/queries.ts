@@ -5,7 +5,7 @@ import { orderDeliveryFee } from "@/lib/delivery";
 import { linePrice } from "@/lib/orders/line-price";
 import { SLOT_CAPACITY, pickupHours } from "@/lib/checkout";
 import { antiGaspiOutcome, driveWait, preparationStats, slotLoad, upcomingDays } from "@/lib/admin/operations";
-import { ANTI_GASPI_WINDOW, bestBeforeFromDay, parisDay } from "@/lib/anti-gaspi";
+import { lotStageWhere, type LotStage } from "@/lib/anti-gaspi";
 import { REORDER_POINT, suggestedQuantity } from "@/lib/restock";
 
 // Données du back-office : chaque liste est filtrée et paginée côté serveur
@@ -664,28 +664,58 @@ const LOT_SELECT = {
 
 export type AdminLot = Prisma.StockLotGetPayload<{ select: typeof LOT_SELECT }>;
 
-// Lots ouverts à date courte (ou dépassée), les plus proches d'abord ; lots clos sur 30 jours avec des
-// unités données ou jetées ; bilan de la période
-export async function getAntiGaspiBoard(storeId?: string) {
-  const since = addDays(new Date(), -29);
-  const inStore = storeId ? { storeId } : {};
-  const horizon = new Date(bestBeforeFromDay(parisDay(new Date())).getTime() + ANTI_GASPI_WINDOW * 86_400_000);
-  const [open, closed, totals] = await Promise.all([
-    prisma.stockLot.findMany({
-      where: { ...inStore, closedAt: null, quantity: { gt: 0 }, bestBefore: { lte: horizon } },
-      orderBy: [{ bestBefore: "asc" }, { createdAt: "asc" }],
-      take: 200,
-      select: LOT_SELECT,
-    }),
-    prisma.stockLot.findMany({
-      where: { ...inStore, closedAt: { gte: since }, OR: [{ donatedQuantity: { gt: 0 } }, { wastedQuantity: { gt: 0 } }] },
-      orderBy: { closedAt: "desc" },
-      take: 30,
-      select: LOT_SELECT,
-    }),
+export type AntiGaspiView = "en-vente" | "bientot" | "clos";
+export const ANTI_GASPI_PAGE_SIZE = 20;
+// Lots urgents affichés au plus (le siège voit tout le réseau)
+const URGENT_LOTS = 100;
+
+// Anti-gaspi du back-office : lots urgents (périmés à jeter, dernier jour à donner), puis une page de
+// la vue choisie (en vente, bientôt en vente, lots clos sur 30 jours avec des unités données ou jetées).
+// Nombres et unités comptés en base : exacts, même pour tout le réseau.
+export async function getAntiGaspiBoard(storeId: string | undefined, view: AntiGaspiView, page: number, now = new Date()) {
+  const since = addDays(now, -29);
+  const open: Prisma.StockLotWhereInput = { ...(storeId && { storeId }), closedAt: null, quantity: { gt: 0 } };
+  const inStage = (stage: LotStage) => ({ AND: [open, lotStageWhere(stage, now)] });
+  const closed: Prisma.StockLotWhereInput = {
+    ...(storeId && { storeId }),
+    closedAt: { gte: since },
+    OR: [{ donatedQuantity: { gt: 0 } }, { wastedQuantity: { gt: 0 } }],
+  };
+  const nearestFirst = [{ bestBefore: "asc" as const }, { createdAt: "asc" as const }];
+
+  const [expired, lastDay, expiredCount, lastDayCount, onSale, upcomingCount, closedCount, totals] = await Promise.all([
+    prisma.stockLot.findMany({ where: inStage("expired"), orderBy: nearestFirst, take: URGENT_LOTS, select: LOT_SELECT }),
+    prisma.stockLot.findMany({ where: inStage("last-day"), orderBy: nearestFirst, take: URGENT_LOTS, select: LOT_SELECT }),
+    prisma.stockLot.count({ where: inStage("expired") }),
+    prisma.stockLot.count({ where: inStage("last-day") }),
+    prisma.stockLot.aggregate({ where: inStage("on-sale"), _count: { _all: true }, _sum: { quantity: true } }),
+    prisma.stockLot.count({ where: inStage("in-stock") }),
+    prisma.stockLot.count({ where: closed }),
     antiGaspiTotals(storeId, since),
   ]);
-  return { open, closed, totals };
+
+  const counts: Record<AntiGaspiView, number> = { "en-vente": onSale._count._all, bientot: upcomingCount, clos: closedCount };
+  const pageCount = Math.max(1, Math.ceil(counts[view] / ANTI_GASPI_PAGE_SIZE));
+  const current = Math.min(Math.max(1, page), pageCount);
+  const lots = await prisma.stockLot.findMany({
+    where: view === "clos" ? closed : inStage(view === "en-vente" ? "on-sale" : "in-stock"),
+    orderBy: view === "clos" ? { closedAt: "desc" } : nearestFirst,
+    skip: (current - 1) * ANTI_GASPI_PAGE_SIZE,
+    take: ANTI_GASPI_PAGE_SIZE,
+    select: LOT_SELECT,
+  });
+
+  return {
+    expired,
+    lastDay,
+    urgentCounts: { expired: expiredCount, lastDay: lastDayCount },
+    unitsOnSale: onSale._sum.quantity ?? 0,
+    counts,
+    lots,
+    page: current,
+    pageCount,
+    totals,
+  };
 }
 
 // ——— Réassort ———

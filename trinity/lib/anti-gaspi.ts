@@ -2,6 +2,8 @@
 // réduit, et la remise grandit jusqu'à la veille. Fonctions pures, partagées par le rayon
 // anti-gaspi, le panier, le paiement, la commande et le back-office.
 
+import type { Prisma } from "@prisma/client";
+
 // Remise selon le nombre de jours avant la date limite (au jour près, heure de Paris)
 const MARKDOWNS: { days: number; percent: number }[] = [
   { days: 1, percent: 50 },
@@ -116,6 +118,37 @@ export function lotStage(lot: { bestBefore: Date; markdownDays: number; withdraw
   if (lot.withdrawnAt || days < 0) return "expired";
   if (days === 0) return "last-day";
   return markdownPercent(days, lot.markdownDays) === null ? "in-stock" : "on-sale";
+}
+
+// Étape d'un lot (voir lotStage) en condition de requête, pour compter et paginer en base sans charger
+// les lots. La fenêtre anti-gaspi de chaque lot va de 1 à 5 jours : une condition par fenêtre possible.
+// « in-stock » se limite ici aux lots bientôt en vente (date dans la plus longue fenêtre).
+export function lotStageWhere(stage: LotStage, now = new Date()): Prisma.StockLotWhereInput {
+  const today = bestBeforeFromDay(parisDay(now));
+  const day = (offset: number) => new Date(today.getTime() + offset * DAY);
+  const windows = Array.from({ length: ANTI_GASPI_WINDOW }, (_, index) => index + 1);
+  switch (stage) {
+    case "expired":
+      return { OR: [{ withdrawnAt: { not: null } }, { bestBefore: { lt: today } }] };
+    case "last-day":
+      return { withdrawnAt: null, bestBefore: today };
+    case "on-sale":
+      return {
+        withdrawnAt: null,
+        OR: [
+          ...windows.map((window) => ({ markdownDays: window, bestBefore: { gte: day(1), lte: day(window) } })),
+          { markdownDays: { gt: ANTI_GASPI_WINDOW }, bestBefore: { gte: day(1), lte: day(ANTI_GASPI_WINDOW) } },
+        ],
+      };
+    case "in-stock":
+      return {
+        withdrawnAt: null,
+        OR: [
+          ...windows.map((window) => ({ markdownDays: window, bestBefore: { gt: day(window), lte: day(ANTI_GASPI_WINDOW) } })),
+          { markdownDays: { lt: 1 }, bestBefore: { gte: day(1), lte: day(ANTI_GASPI_WINDOW) } },
+        ],
+      };
+  }
 }
 
 // « à consommer jusqu'au mercredi 29 octobre »

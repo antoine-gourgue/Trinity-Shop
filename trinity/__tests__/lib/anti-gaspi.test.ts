@@ -4,6 +4,7 @@ import {
     daysLeft,
     formatBestBefore,
     lotPricing,
+    lotStageWhere,
     lotStage,
     markdownPercent,
     unitDiscount,
@@ -106,5 +107,39 @@ describe("formatBestBefore", () => {
     expect(formatBestBefore(new Date("2026-10-29T00:00:00Z"), now)).toBe("jeudi 29 octobre");
     // Hygiène, entretien : un lot qui se garde trois ans
     expect(formatBestBefore(new Date("2029-10-23T00:00:00Z"), now)).toBe("mardi 23 octobre 2029");
+  });
+});
+
+describe("lotStageWhere", () => {
+  // Évalue une condition Prisma sur un lot (seuls les opérateurs utilisés par lotStageWhere)
+  type Lot = { bestBefore: Date; markdownDays: number; withdrawnAt: Date | null };
+  type Where = Record<string, unknown>;
+  const matches = (lot: Lot, where: Where): boolean =>
+    Object.entries(where).every(([key, condition]) => {
+      if (key === "OR") return (condition as Where[]).some((part) => matches(lot, part));
+      const value = lot[key as keyof Lot];
+      if (condition === null) return value === null;
+      if (condition instanceof Date || typeof condition === "number") return +value! === +condition;
+      const ops = condition as { not?: null; lt?: Date | number; lte?: Date | number; gt?: Date | number; gte?: Date | number };
+      if ("not" in ops) return value !== null;
+      const n = +value!;
+      return (ops.lt === undefined || n < +ops.lt) && (ops.lte === undefined || n <= +ops.lte) && (ops.gt === undefined || n > +ops.gt) && (ops.gte === undefined || n >= +ops.gte);
+    });
+
+  it("files every lot in the same stage as lotStage", () => {
+    const now = new Date("2026-10-27T10:00:00Z");
+    const today = Date.parse("2026-10-27T00:00:00Z");
+    const stages = ["expired", "last-day", "on-sale", "in-stock"] as const;
+    for (let days = -3; days <= 8; days++) {
+      for (let window = 1; window <= 5; window++) {
+        for (const withdrawnAt of [null, now]) {
+          const lot = { bestBefore: new Date(today + days * 86_400_000), markdownDays: window, withdrawnAt };
+          const expected = lotStage(lot, now);
+          const matched = stages.filter((stage) => matches(lot, lotStageWhere(stage, now) as Where));
+          // « in-stock » en base : seulement les lots bientôt en vente (dans les 5 jours)
+          expect(matched).toEqual(expected === "in-stock" && days > 5 ? [] : [expected]);
+        }
+      }
+    }
   });
 });

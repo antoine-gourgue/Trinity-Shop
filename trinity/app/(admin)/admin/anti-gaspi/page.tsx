@@ -1,19 +1,31 @@
 import type { Metadata } from "next";
 import { AlertTriangle, HandHeart, Recycle, ShoppingBag, Trash2 } from "lucide-react";
 import prisma from "@/lib/prisma";
-import { getAntiGaspiBoard, parseAdminParams, type AdminLot } from "@/lib/admin/queries";
+import { getAntiGaspiBoard, parseAdminParams, type AdminLot, type AntiGaspiView } from "@/lib/admin/queries";
 import { formatRate } from "@/lib/admin/operations";
-import { formatBestBefore, lotDay, lotPricing, lotStage } from "@/lib/anti-gaspi";
+import { formatBestBefore, lotDay, lotPricing } from "@/lib/anti-gaspi";
 import { findRayonForCategories } from "@/lib/rayons";
 import { formatPrice } from "@/lib/format";
 import { backOfficePage } from "@/lib/admin/access";
-import { AdminPageHeader, Badge, EmptyState, Panel, StatCard, formatDate } from "@/components/admin/admin-ui";
-import { AdminSelectFilter } from "@/components/admin/admin-toolbar";
+import { AdminPageHeader, AdminPagination, Badge, EmptyState, Panel, StatCard, adminHref, formatDate } from "@/components/admin/admin-ui";
+import { AdminFilterTabs, AdminSelectFilter } from "@/components/admin/admin-toolbar";
 import { ProductThumb } from "@/components/admin/admin-bits";
 import LotActions from "@/components/admin/anti-gaspi/lot-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Anti-gaspi" };
+
+// Vues paginées sous les lots urgents
+const VIEWS = [
+  { value: "en-vente", label: "En vente en ligne" },
+  { value: "bientot", label: "Bientôt en vente" },
+  { value: "clos", label: "Lots clos · 30 j" },
+] as const satisfies readonly { value: AntiGaspiView; label: string }[];
+
+function parseView(raw: string | string[] | undefined): AntiGaspiView {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return VIEWS.find((view) => view.value === value)?.value ?? "en-vente";
+}
 
 // Premier jour de mise en vente d'un lot (« lundi 3 novembre »), selon sa fenêtre anti-gaspi
 function saleStart(lot: AdminLot) {
@@ -53,22 +65,18 @@ function LotRow({ lot, showStore, children }: { lot: AdminLot; showStore: boolea
 // Anti-gaspi : lots à date courte du magasin, vendus en ligne à prix réduit puis donnés ou jetés
 export default async function AntiGaspiPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { store } = await backOfficePage();
-  const requested = parseAdminParams(await searchParams);
+  const raw = await searchParams;
+  const requested = parseAdminParams(raw);
+  const view = parseView(raw.vue);
   const stores = store ? [] : await prisma.store.findMany({ select: { id: true, slug: true, name: true }, orderBy: { name: "asc" } });
   const filtered = !store && requested.magasin ? stores.find((entry) => entry.slug === requested.magasin) : undefined;
-  const board = await getAntiGaspiBoard(store?.id ?? filtered?.id);
+  const board = await getAntiGaspiBoard(store?.id ?? filtered?.id, view, requested.page);
   const now = new Date();
   const showStore = !store && !filtered;
-
-  const stage = (wanted: ReturnType<typeof lotStage>) => board.open.filter((lot) => lotStage(lot, now) === wanted);
   // Périmés (retirés de la vente la nuit) : à jeter ; date du jour : à donner aujourd'hui
-  const expired = stage("expired");
-  const lastDay = stage("last-day");
-  const onSale = stage("on-sale");
-  // Dates courtes pas encore dans leur fenêtre (le pain n'est soldé que la veille)
-  const upcoming = stage("in-stock");
-  const unitsOnSale = onSale.reduce((total, lot) => total + lot.quantity, 0);
-  const toHandle = expired.length + lastDay.length;
+  const { expired, lastDay } = board;
+  const toHandle = board.urgentCounts.expired + board.urgentCounts.lastDay;
+  const pageHref = (page: number) => adminHref("/admin/anti-gaspi", { magasin: requested.magasin, vue: view === "en-vente" ? undefined : view, page });
 
   return (
     <div>
@@ -91,11 +99,16 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
         <StatCard
           label="À traiter aujourd'hui"
           value={toHandle}
-          hint={`${expired.length} périmé${expired.length > 1 ? "s" : ""} à jeter · ${lastDay.length} à donner`}
+          hint={`${board.urgentCounts.expired} périmé${board.urgentCounts.expired > 1 ? "s" : ""} à jeter · ${board.urgentCounts.lastDay} à donner`}
           icon={AlertTriangle}
           tone={toHandle ? "promo" : "muted"}
         />
-        <StatCard label="En vente en ligne" value={unitsOnSale} hint={`${onSale.length} lot${onSale.length > 1 ? "s" : ""} à prix réduit`} icon={ShoppingBag} />
+        <StatCard
+          label="En vente en ligne"
+          value={board.unitsOnSale}
+          hint={`${board.counts["en-vente"]} lot${board.counts["en-vente"] > 1 ? "s" : ""} à prix réduit`}
+          icon={ShoppingBag}
+        />
         <StatCard
           label="Sauvés · 30 j"
           value={board.totals.saved}
@@ -131,7 +144,11 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
 
         <div className="space-y-6 xl:col-span-2">
           {expired.length > 0 && (
-            <Panel title="Périmés : à jeter" description="Retirés de la vente : à enlever du rayon, puis à confirmer jetés" padded={false}>
+            <Panel
+              title={`Périmés : à jeter (${board.urgentCounts.expired})`}
+              description={`Retirés de la vente : à enlever du rayon, puis à confirmer jetés${board.urgentCounts.expired > expired.length ? ` · ${expired.length} premiers affichés` : ""}`}
+              padded={false}
+            >
               <ul className="divide-y">
                 {expired.map((lot) => (
                   <LotRow key={lot.id} lot={lot} showStore={showStore}>
@@ -144,7 +161,11 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
           )}
 
           {lastDay.length > 0 && (
-            <Panel title="Dernier jour : à donner" description="Date limite aujourd'hui : plus vendu en ligne, à donner avant ce soir" padded={false}>
+            <Panel
+              title={`Dernier jour : à donner (${board.urgentCounts.lastDay})`}
+              description={`Date limite aujourd'hui : plus vendu en ligne, à donner avant ce soir${board.urgentCounts.lastDay > lastDay.length ? ` · ${lastDay.length} premiers affichés` : ""}`}
+              padded={false}
+            >
               <ul className="divide-y">
                 {lastDay.map((lot) => (
                   <LotRow key={lot.id} lot={lot} showStore={showStore}>
@@ -156,56 +177,70 @@ export default async function AntiGaspiPage({ searchParams }: { searchParams: Pr
             </Panel>
           )}
 
-          <Panel title="En vente en ligne" description="Prix réduit automatiquement à l'approche de la date" padded={false}>
-            {onSale.length ? (
-              <ul className="divide-y">
-                {onSale.map((lot) => {
-                  const pricing = lotPricing(lot, lot.product.price, now)!;
-                  return (
-                    <LotRow key={lot.id} lot={lot} showStore={showStore}>
-                      <span className="text-right text-sm">
-                        <span className="block text-xs text-muted-foreground line-through">{formatPrice(lot.product.price)}</span>
-                        <span className="block font-black text-bio">{formatPrice(pricing.unitPrice)}</span>
-                      </span>
-                      <Badge tone="success">−{pricing.percent} %</Badge>
-                      <LotActions lotId={lot.id} productName={lot.product.name} quantity={lot.quantity} />
-                    </LotRow>
-                  );
-                })}
-              </ul>
-            ) : (
-              <EmptyState icon={Recycle} title="Aucun lot en vente" text="Les lots apparaissent ici à l'approche de leur date limite." />
-            )}
-          </Panel>
-
-          {upcoming.length > 0 && (
-            <Panel title="Bientôt en vente" padded={false}>
-              <ul className="divide-y">
-                {upcoming.map((lot) => (
-                  <LotRow key={lot.id} lot={lot} showStore={showStore}>
-                    <Badge tone="muted">En vente le {saleStart(lot)}</Badge>
-                  </LotRow>
-                ))}
-              </ul>
+          <div className="space-y-3">
+            <AdminFilterTabs filters={VIEWS} active={view} counts={board.counts} param="vue" />
+            <Panel
+              title={VIEWS.find((entry) => entry.value === view)?.label}
+              description={
+                view === "en-vente"
+                  ? "Prix réduit automatiquement à l'approche de la date, dates les plus proches d'abord"
+                  : view === "bientot"
+                    ? "Dates courtes pas encore dans leur fenêtre anti-gaspi"
+                    : "Lots fermés avec des unités données ou jetées"
+              }
+              padded={false}
+            >
+              {board.lots.length ? (
+                <ul className="divide-y">
+                  {board.lots.map((lot) => {
+                    if (view === "en-vente") {
+                      const pricing = lotPricing(lot, lot.product.price, now);
+                      return (
+                        <LotRow key={lot.id} lot={lot} showStore={showStore}>
+                          {pricing && (
+                            <>
+                              <span className="text-right text-sm">
+                                <span className="block text-xs text-muted-foreground line-through">{formatPrice(lot.product.price)}</span>
+                                <span className="block font-black text-bio">{formatPrice(pricing.unitPrice)}</span>
+                              </span>
+                              <Badge tone="success">−{pricing.percent} %</Badge>
+                            </>
+                          )}
+                          <LotActions lotId={lot.id} productName={lot.product.name} quantity={lot.quantity} />
+                        </LotRow>
+                      );
+                    }
+                    if (view === "bientot") {
+                      return (
+                        <LotRow key={lot.id} lot={lot} showStore={showStore}>
+                          <Badge tone="muted">En vente le {saleStart(lot)}</Badge>
+                        </LotRow>
+                      );
+                    }
+                    return (
+                      <LotRow key={lot.id} lot={lot} showStore={showStore}>
+                        <span className="flex flex-wrap gap-1.5">
+                          {lot.soldQuantity > 0 && <Badge tone="brand">{lot.soldQuantity} vendus</Badge>}
+                          {lot.donatedQuantity > 0 && <Badge tone="success">{lot.donatedQuantity} donnés</Badge>}
+                          {lot.wastedQuantity > 0 && <Badge tone="danger">{lot.wastedQuantity} jetés</Badge>}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{lot.closedAt ? formatDate(lot.closedAt) : ""}</span>
+                      </LotRow>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <EmptyState
+                  icon={Recycle}
+                  title={view === "en-vente" ? "Aucun lot en vente" : view === "bientot" ? "Aucun lot bientôt en vente" : "Aucun lot clos sur 30 jours"}
+                  text={view === "en-vente" ? "Les lots apparaissent ici à l'approche de leur date limite." : undefined}
+                />
+              )}
+              <div className="border-t">
+                <AdminPagination page={board.page} pageCount={board.pageCount} total={board.counts[view]} href={pageHref} unit={["lot", "lots"]} />
+              </div>
             </Panel>
-          )}
-
-          {board.closed.length > 0 && (
-            <Panel title="Lots clos" description="30 derniers jours" padded={false}>
-              <ul className="divide-y">
-                {board.closed.map((lot) => (
-                  <LotRow key={lot.id} lot={lot} showStore={showStore}>
-                    <span className="flex flex-wrap gap-1.5">
-                      {lot.soldQuantity > 0 && <Badge tone="brand">{lot.soldQuantity} vendus</Badge>}
-                      {lot.donatedQuantity > 0 && <Badge tone="success">{lot.donatedQuantity} donnés</Badge>}
-                      {lot.wastedQuantity > 0 && <Badge tone="danger">{lot.wastedQuantity} jetés</Badge>}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{lot.closedAt ? formatDate(lot.closedAt) : ""}</span>
-                  </LotRow>
-                ))}
-              </ul>
-            </Panel>
-          )}
+          </div>
         </div>
       </div>
     </div>
