@@ -78,7 +78,7 @@ export default function AddAntiGaspiButton({ lotId, productName, size = "md", cl
         {pending ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Recycle size={18} aria-hidden />}
         {large ? "Ajouter à prix anti-gaspi" : "Ajouter"}
       </button>
-      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
+      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} productName={productName} />
     </>
   );
 }

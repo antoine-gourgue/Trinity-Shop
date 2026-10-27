@@ -13,6 +13,7 @@ import ActivateCardButton from "@/components/account/activate-card-button";
 import { useStoreChoice } from "@/components/store/store-provider";
 import { POINTS_PER_VOUCHER, VOUCHER_VALUE, formatCardNumber, maxVouchers, pointsForAmount } from "@/lib/loyalty";
 import ProductImage from "@/components/product/product-image";
+import PaymentMarks from "@/components/general/payment-marks";
 import { getActiveCartId } from "@/lib/server-actions/cart-actions";
 import { formatSlot, parseFulfillmentParams, parseSlotParam, saveFulfillment, saveSlot, slotParam } from "@/lib/checkout";
 import { getMyAddresses } from "@/lib/server-actions/checkout-actions";
@@ -61,7 +62,6 @@ function orderErrorMessage(body: unknown) {
     return "La commande n'a pas pu être créée. Réessayez.";
 }
 
-const PAYMENT_METHODS = ["CB", "Visa", "Mastercard"];
 
 function PaiementContent() {
     const router = useRouter();
@@ -327,13 +327,7 @@ function PaiementContent() {
                             </span>
                             <div className="flex-1">
                                 <p className="font-extrabold">Carte bancaire</p>
-                                <ul className="mt-1 flex flex-wrap gap-1.5" aria-label="Cartes acceptées">
-                                    {PAYMENT_METHODS.map((method) => (
-                                        <li key={method} className="rounded-md border bg-white px-2 py-0.5 text-[11px] font-extrabold text-brand-dark">
-                                            {method}
-                                        </li>
-                                    ))}
-                                </ul>
+                                <PaymentMarks className="mt-1.5 flex-wrap" label="Cartes acceptées" />
                             </div>
                             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                                 <Check size={14} aria-hidden />

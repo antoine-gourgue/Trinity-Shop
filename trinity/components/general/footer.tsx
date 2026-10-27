@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CreditCard, Leaf, ShoppingBasket, Store } from "lucide-react";
 import Logo from "@/components/general/logo";
+import PaymentMarks from "@/components/general/payment-marks";
 import type { RayonLink } from "@/lib/rayons";
 
 const REASSURANCES = [
@@ -37,8 +38,6 @@ const LEGAL_LINKS = [
   { href: "/legal/privacy-policy", label: "Politique de confidentialité" },
   { href: "/legal/cookie", label: "Gestion des cookies" },
 ];
-
-const PAYMENT_METHODS = ["CB", "Visa", "Mastercard"];
 
 interface FooterProps {
   rayons: RayonLink[];
@@ -100,16 +99,7 @@ export default function Footer({ rayons }: FooterProps) {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 px-6 py-5 text-xs text-white/60 sm:flex-row">
           <p>© {new Date().getFullYear()} Trinity Shop · Projet de démonstration, paiement simulé.</p>
-          <ul className="flex items-center gap-2" aria-label="Moyens de paiement acceptés">
-            {PAYMENT_METHODS.map((method) => (
-              <li
-                key={method}
-                className="rounded-md bg-white px-2.5 py-1 text-[11px] font-extrabold text-brand-dark"
-              >
-                {method}
-              </li>
-            ))}
-          </ul>
+          <PaymentMarks />
         </div>
       </div>
     </footer>

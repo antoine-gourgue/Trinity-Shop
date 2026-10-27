@@ -139,7 +139,7 @@ export default function AddToCartButton({
         </div>
       )}
 
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} productName={productName} />
     </>
   );
 }
