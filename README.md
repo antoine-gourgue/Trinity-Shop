@@ -164,6 +164,14 @@ Le seed crée les 81 magasins et leurs comptes (mot de passe : `SEED_ADMIN_PASSW
 
 > Prisma lit `.env`, pas `.env.local`. Pour lancer une commande Prisma avec les variables de `.env.local` : `set -a; source .env.local; set +a; npx prisma db push`.
 
+### Base de développement
+
+En local, `.env.local` ne pointe jamais sur la production. Il pointe sur une **branche Neon `dev`**, copie de la base de production créée en quelques secondes : catalogue, stocks, lots et prospectus réels, sans risque de les modifier. Les accès à la production ne sont définis que dans Vercel.
+
+- **Remettre la branche à jour** : « Reset from parent » dans la console Neon, qui reprend les données de la production.
+- **Mise en veille** : la branche s'endort après quelques minutes sans requête ; `connect_timeout=15` dans `POSTGRES_PRISMA_URL` laisse le temps de la réveiller.
+- **Ne pas lancer `vercel env pull`** : il réécrirait `.env.local` avec les accès de production.
+
 ## Variables d'environnement
 
 Le modèle est dans [`trinity/.env.example`](trinity/.env.example).
@@ -251,7 +259,7 @@ Les fichiers JSON sont validés par des schémas zod (`prisma/data-files.ts`) : 
 La [CI GitHub Actions](.github/workflows/ci.yml) tourne à chaque pull request et à chaque push sur `main` :
 
 1. **Lint, types, tests** : `npm run lint`, `tsc --noEmit`, puis Jest ;
-2. **Build** : `next build` sur une base PostgreSQL jetable remplie par le seed, puis **7 parcours Playwright** dans Chrome : choix du magasin, compte magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, préparation (article prélevé, article manquant) et annulation ; réassort reçu à date courte, acheté en anti-gaspi, préparé, puis arrivée du client au drive et remise de ses courses. La base de production n'est jamais utilisée.
+2. **Build** : `next build` sur une base PostgreSQL jetable remplie par le seed, puis **7 parcours Playwright** dans Chrome : choix du magasin, compte magasin, recherche, inscription, favoris, panier, créneau, paiement, suivi, rachat, préparation (article prélevé, article manquant) et annulation ; réassort reçu à date courte, acheté en anti-gaspi, préparé, puis arrivée du client au drive et remise de ses courses. La base de production n'est jamais utilisée, ni en CI ni en développement (voir [Base de développement](#base-de-développement)).
 
 ## Déploiement
 
