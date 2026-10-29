@@ -63,13 +63,6 @@ const nextConfig = withPWA({
         pathname: "/**",
       },
     ],
-    domains: [
-      "static.openfoodfacts.org",
-      "image.openfoodfacts.org",
-      "images.openfoodfacts.org",
-      "images.openbeautyfacts.org",
-      "images.openproductsfacts.org",
-    ],
   },
 });
 
