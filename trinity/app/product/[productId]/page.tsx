@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const description = productDescription(product);
   const url = productPath(product.id);
   // Sans photo, on garde l'image de partage du site (openGraph remplace entièrement celui du layout)
-  const images = product.picture ? [{ url: product.picture, alt: product.name }] : [{ url: "/og.png", alt: "Trinity Shop" }];
+  const images = product.picture ? [{ url: product.picture, alt: product.name }] : [{ url: "/og.png?v=2", alt: "Trinity Shop" }];
 
   return {
     title,

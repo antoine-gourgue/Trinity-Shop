@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     locale: "fr_FR",
     images: [
       {
-        url: "/og.png",
+        url: "/og.png?v=2",
         width: 1200,
         height: 630,
         type: "image/png",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     title: "Trinity Shop — Supermarché en ligne",
     description:
       "Supermarché en ligne complet : catalogue Nutri-Score, panier, factures PDF, back-office et PWA.",
-    images: ["/og.png"],
+    images: ["/og.png?v=2"],
   },
 };
 
